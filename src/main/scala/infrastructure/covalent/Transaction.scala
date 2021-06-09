@@ -14,7 +14,7 @@ final case class Transaction(
 ) {
   lazy val transactionType: TransactionType = logEvents.headOption.fold[TransactionType](Unknown)(event => event.decoded.name match {
     case "Swap" => Buy
-    case "Withdraw" => Sell
+    case "Withdrawal" => Sell
     case _ => Unknown
   })
 }
