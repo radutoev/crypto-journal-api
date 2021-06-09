@@ -7,11 +7,11 @@ import zio.json._
 import zio.test.Assertion._
 import zio.test._
 
-import java.time.{Instant, ZonedDateTime}
+import java.time.Instant
 import scala.io.Source
 
 object PositionGeneratorSpec extends DefaultRunnableSpec {
-  override def spec = suite("PositionGeneratorSpec") {
+  override def spec = suite("PositionGeneratorSpec")(
     test("Closed position from transactions") {
       val accept = readFile("/covalent/accept.json").fromJson[Transaction].right.get
       val sell = readFile("/covalent/sell.json").fromJson[Transaction].right.get
@@ -20,8 +20,12 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
       val position = findPosition(List(accept, sell, buy))
 
       assert(position)(equalTo(Some(Position(Closed))))
+    },
+
+    test("No position if insufficient tranactions") {
+      assert(findPosition(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get)))(equalTo(None))
     }
-  }
+  )
 
   final case class Position(state: State)
 
