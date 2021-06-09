@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
-package infrastructure.covalent
+package infrastructure.covalent.model
 
-import zio.json.{DeriveJsonCodec, DeriveJsonEncoder, JsonCodec, jsonField}
+import zio.json.{DeriveJsonCodec, JsonCodec, jsonField}
 
 /**
  * @param logEvents list of events that are part of the transaction. Latest event is first item.

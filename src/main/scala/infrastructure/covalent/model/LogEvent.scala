@@ -1,5 +1,5 @@
 package io.softwarechain.cryptojournal
-package infrastructure.covalent
+package infrastructure.covalent.model
 
 import zio.json._
 
