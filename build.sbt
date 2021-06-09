@@ -2,6 +2,7 @@ val refinedVersion = "0.9.18"
 val zioVersion = "1.0.9"
 val zioConfigVersion = "1.0.6"
 val zioHttpVersion = "1.0.0.0-RC17"
+val zioJsonVersion = "0.1.5"
 
 val root = (project in file("."))
   .settings(
@@ -21,9 +22,11 @@ val root = (project in file("."))
       "dev.zio" %% "zio-config-magnolia" % zioConfigVersion,
       "dev.zio" %% "zio-config-refined" % zioConfigVersion,
       "dev.zio" %% "zio-config-typesafe" % zioConfigVersion,
+      "dev.zio" %% "zio-json" % zioJsonVersion,
       "eu.timepit" %% "refined" % refinedVersion,
       "io.d11" %% "zhttp" % zioHttpVersion,
-      "dev.zio" %% "zio-test" % zioVersion % Test
+      "dev.zio" %% "zio-test" % zioVersion % Test,
+      "dev.zio" %% "zio-test-sbt" % zioVersion % Test,
     ),
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
   )
