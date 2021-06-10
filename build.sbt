@@ -1,8 +1,9 @@
-val refinedVersion = "0.9.18"
-val zioVersion = "1.0.9"
-val zioConfigVersion = "1.0.6"
-val zioHttpVersion = "1.0.0.0-RC17"
-val zioJsonVersion = "0.1.5"
+val refinedVersion    = "0.9.18"
+val zioVersion        = "1.0.9"
+val zioConfigVersion  = "1.0.6"
+val zioHttpVersion    = "1.0.0.0-RC17"
+val zioJsonVersion    = "0.1.5"
+val zioLoggingVersion = "0.5.8"
 
 val root = (project in file("."))
   .settings(
@@ -17,17 +18,19 @@ val root = (project in file("."))
     name := "crypto-journal-api",
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-config" % zioConfigVersion,
-      "dev.zio" %% "zio-config-magnolia" % zioConfigVersion,
-      "dev.zio" %% "zio-config-refined" % zioConfigVersion,
-      "dev.zio" %% "zio-config-typesafe" % zioConfigVersion,
-      "dev.zio" %% "zio-json" % zioJsonVersion,
-      "eu.timepit" %% "refined" % refinedVersion,
-      "io.d11" %% "zhttp" % zioHttpVersion,
-      "dev.zio" %% "zio-test" % zioVersion % Test,
-      "dev.zio" %% "zio-test-sbt" % zioVersion % Test,
+      "dev.zio"        %% "zio"                 % zioVersion,
+      "dev.zio"        %% "zio-config"          % zioConfigVersion,
+      "dev.zio"        %% "zio-config-magnolia" % zioConfigVersion,
+      "dev.zio"        %% "zio-config-refined"  % zioConfigVersion,
+      "dev.zio"        %% "zio-config-typesafe" % zioConfigVersion,
+      "dev.zio"        %% "zio-json"            % zioJsonVersion,
+      "dev.zio"        %% "zio-logging"         % zioLoggingVersion,
+      "dev.zio"        %% "zio-logging-slf4j"   % zioLoggingVersion,
+      "eu.timepit"     %% "refined"             % refinedVersion,
+      "io.d11"         %% "zhttp"               % zioHttpVersion,
+      "ch.qos.logback" % "logback-classic"      % "1.2.3",
+      "dev.zio"        %% "zio-test"            % zioVersion % Test,
+      "dev.zio"        %% "zio-test-sbt"        % zioVersion % Test
     ),
-    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
   )
-
