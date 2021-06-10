@@ -4,6 +4,7 @@ import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
 
 import com.typesafe.config.{Config, ConfigFactory}
+import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup, Server}
 import zio.config.typesafe.TypesafeConfig
@@ -29,7 +30,7 @@ object CryptoJournal extends App {
     val covalentConfigLayer = configLayer.map(c => Has(c.get.covalent))
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
-    lazy val zioHttpClientLayer = EventLoopGroup.auto() ++ ChannelFactory.auto
+//    lazy val zioHttpClientLayer = EventLoopGroup.auto() ++ ChannelFactory.auto
 
     lazy val loggingLayer = {
       val logFormat = "%s"
@@ -38,7 +39,8 @@ object CryptoJournal extends App {
       }
     }
 
-    lazy val httpClientLayer = Client.make.provideLayer(zioHttpClientLayer).toLayer
+//    lazy val httpClientLayer = Client.make.provideLayer(zioHttpClientLayer).toLayer
+    lazy val httpClientLayer = HttpClientZioBackend.layer()
 
     zioHttpServerLayer ++ (httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >+> CovalentFacade.layer
   }

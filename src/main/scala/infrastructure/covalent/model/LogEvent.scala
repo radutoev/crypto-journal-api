@@ -4,7 +4,7 @@ package infrastructure.covalent.model
 import zio.json._
 
 final case class LogEvent(
-  @jsonField("sender_contract_decimals") senderContractDecimals: Int,
+  @jsonField("sender_contract_decimals") senderContractDecimals: Option[Int],
   @jsonField("sender_address") senderAddress: String,
   decoded: Decoded
 )
