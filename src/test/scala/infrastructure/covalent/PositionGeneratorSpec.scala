@@ -1,32 +1,24 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import infrastructure.covalent.model.{Buy, Sell, Transaction, TransactionType, Unknown}
+import domain.model.{Closed, Open}
+import domain.position.LivePositionRepo.findPositions
+import domain.position.Position
+import infrastructure.covalent.model._
 
 import zio.json._
 import zio.test.Assertion._
 import zio.test._
 
 import java.time.Instant
-import scala.collection.mutable.ArrayBuffer
 import scala.io.Source
 import scala.util.Try
 
 object PositionGeneratorSpec extends DefaultRunnableSpec {
   override def spec = suite("PositionGeneratorSpec")(
-//    test("Closed position from transactions") {
-//      val accept = readFile("/covalent/accept.json").fromJson[Transaction].right.get
-//      val sell = readFile("/covalent/sell.json").fromJson[Transaction].right.get
-//      val buy = readFile("/covalent/buy.json").fromJson[Transaction].right.get
-//
-//      val position = findPosition(List(accept, sell, buy))
-//
-//      assert(position)(equalTo(Some(Position(Closed))))
-//    },
-
-//    test("No position if insufficient tranactions") {
-//      assert(findPosition(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get)))(equalTo(None))
-//    },
+    test("No position if insufficient tranactions") {
+      assert(findPositions(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get)))(equalTo(List.empty))
+    },
 
     test("Generate positions from multiple coins and transaction types") {
       val file = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]
@@ -63,64 +55,6 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
     "WonShiba;Closed;0x5c04b411451b5b95aee1225a1f0ba3c735bf5e75e0a24a23bf3cd43097ada110,0xca603b956568274072b989182ee9416536d9af127b397c2baf0805b5fd087b3d;2021-06-09T09:24:36Z;2021-06-09T09:34:24Z",
     "HSK;Closed;0x86944832aa9d99d1929b2363c22634563f03f7fdea052b1099b408936cfc70c7,0x5d82b164fd29664f6891e2d159f5f190b85633a173eb710dfc20a48f84233010;2021-06-09T09:40:36Z;2021-06-09T09:47:12Z"
   )
-
-
-  final case class Position(coin: String, state: State, openedAt: Instant, closedAt: Option[Instant], txHashes: List[String])
-
-  sealed trait State
-  final case object Open extends State
-  final case object Closed extends State
-
-  val TransactionTypes = Vector(Buy, Sell)
-
-  def findPositions(transactions: List[Transaction]): List[Position] = {
-    val transactionsByCoin = transactions.sortBy(_.instant)(Ordering[Instant])
-      .filter(_.successful)
-      .filter(_.hasTransactionEvents)
-      .filter(tx => TransactionTypes.contains(tx.transactionType))
-      .groupBy(_.coin.get)
-
-    val positions = transactionsByCoin.flatMap {
-      case (coin, txList) => {
-        val grouped: ArrayBuffer[List[Transaction]] = ArrayBuffer.empty
-
-        val acc: ArrayBuffer[Transaction] = ArrayBuffer.empty
-        var lastTxType: TransactionType = Unknown //just a marker to get things going.
-
-        for(tx <- txList) {
-          tx.transactionType match {
-            case Buy =>
-              if(lastTxType == Buy) {
-                acc.addOne(tx)
-              } else if(lastTxType == Sell) {
-                grouped.addOne(acc.toList)
-                acc.clear()
-                acc.addOne(tx)
-              } else {
-                acc.addOne(tx)
-              }
-            case Sell =>
-              acc.addOne(tx)
-            case Unknown => //do nothing
-          }
-          lastTxType = tx.transactionType
-        }
-
-        if(acc.nonEmpty) {
-          grouped.addOne(acc.toList)
-        }
-
-        grouped.toList.map { txList =>
-          txList.last.transactionType match {
-            case Buy => Position(coin, Open, txList.head.instant, None, txList.map(_.hash))
-            case Sell => Position(coin, Closed, txList.head.instant, Some(txList.last.instant), txList.map(_.hash))
-          }
-        }
-      }
-    }.toList
-
-    positions.sortBy(_.openedAt)(Ordering[Instant].reverse)
-  }
 
   private def readFile(src: String) = {
     val source = Source.fromURL(getClass.getResource(src))

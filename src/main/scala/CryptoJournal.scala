@@ -1,12 +1,13 @@
 package io.softwarechain.cryptojournal
 
+import domain.position.LivePositionRepo
 import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
 
 import com.typesafe.config.{Config, ConfigFactory}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup, Server}
+import zhttp.service.{EventLoopGroup, Server}
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
 import zio.{App, ExitCode, Has, URIO, ZIO, console}
@@ -42,6 +43,6 @@ object CryptoJournal extends App {
 //    lazy val httpClientLayer = Client.make.provideLayer(zioHttpClientLayer).toLayer
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
-    zioHttpServerLayer ++ (httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >+> CovalentFacade.layer
+    zioHttpServerLayer ++ (((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer)
   }
 }

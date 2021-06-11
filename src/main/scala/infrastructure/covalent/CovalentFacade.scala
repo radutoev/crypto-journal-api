@@ -1,47 +1,32 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import infrastructure.covalent.model.{Transaction, TransactionQueryResponse}
+import domain.repo.EthBlockchainRepo
+import infrastructure.covalent.model._
 
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
 import zio.json._
 import zio.logging.{Logger, Logging}
-import zio.{Has, Task, UIO, URLayer, ZIO}
+import zio.{Has, Task, URLayer, ZIO}
 
-//TODO This should be in the domain, and be named something else.
-trait BlockchainQuery {
-  def fetchTransactions(walletAddress: String): Task[List[Transaction]]
-
-  def fetchTransaction(txHash: String): Task[Transaction]
-}
-
-object BlockchainQuery {
-  def fetchTransactions(walletAddress: String): ZIO[Has[BlockchainQuery], Throwable, List[Transaction]] =
-    ZIO.serviceWith[BlockchainQuery](_.fetchTransactions(walletAddress))
-
-  def fetchTransaction(txHash: String): ZIO[Has[BlockchainQuery], Throwable, Transaction] =
-    ZIO.serviceWith[BlockchainQuery](_.fetchTransaction(txHash))
-}
-
-//
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
-    extends BlockchainQuery {
+    extends EthBlockchainRepo {
   override def fetchTransactions(walletAddress: String): Task[List[Transaction]] =
     for {
       _ <- logger.info(s"Fetching transactions for $walletAddress")
-//      url <- ZIO.fromEither(URL.fromString(s"${config.baseUrl}/56/address/$walletAddress/transactions_v2/?key=${config.key}"))
-//        .mapError(_ => new RuntimeException("booboo"))
-//      request = Request(endpoint = (Method.GET, url))
-//      result <- httpClient.request(request)
-//      transactions <- result.status match {
-//        case OK => result.content match {
-//          case HttpData.Empty => UIO(List.empty)
-//          case HttpData.CompleteData(data) => ZIO.fromEither(data.map(_.toChar).mkString.fromJson[List[Transaction]]).mapError(_ => new RuntimeException("booboo"))
-//          case HttpData.StreamData(data) => UIO(List.empty)
-//        }
-//        case _  => logger.warn(s"Unable to retrieve transactions for $walletAddress") *> UIO(List.empty)
-//      }
+      //      url <- ZIO.fromEither(URL.fromString(s"${config.baseUrl}/56/address/$walletAddress/transactions_v2/?key=${config.key}"))
+      //        .mapError(_ => new RuntimeException("booboo"))
+      //      request = Request(endpoint = (Method.GET, url))
+      //      result <- httpClient.request(request)
+      //      transactions <- result.status match {
+      //        case OK => result.content match {
+      //          case HttpData.Empty => UIO(List.empty)
+      //          case HttpData.CompleteData(data) => ZIO.fromEither(data.map(_.toChar).mkString.fromJson[List[Transaction]]).mapError(_ => new RuntimeException("booboo"))
+      //          case HttpData.StreamData(data) => UIO(List.empty)
+      //        }
+      //        case _  => logger.warn(s"Unable to retrieve transactions for $walletAddress") *> UIO(List.empty)
+      //      }
       response <- httpClient
                    .send(
                      basicRequest
@@ -49,18 +34,12 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                        .response(asString)
                    )
       //TODO Better handling of response.
-      transactions <- ZIO
+      slimTransactions <- ZIO
                        .fromEither(response.body)
                        .map(_.fromJson[TransactionQueryResponse])
                        .map(_.fold[List[Transaction]](err => List.empty, response => response.data.items))
                        .mapError(_ => new RuntimeException("booboo"))
-      hashes = transactions.map(_.hash)
-      fetched <- ZIO.foreach(hashes)(fetchTransaction) //TODO Continue here after I figure out the contract
-      _ <- UIO {
-        print(s"[")
-        fetched.foreach(f => print(f.toJson + ","))
-        print(s"]")
-      }
+      transactions <- ZIO.foreach(slimTransactions.map(_.hash))(fetchTransaction)
     } yield transactions
 
   override def fetchTransaction(txHash: String): Task[Transaction] =
@@ -77,6 +56,6 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
 }
 
 object CovalentFacade {
-  val layer: URLayer[SttpClient with Has[CovalentConfig] with Logging, Has[BlockchainQuery]] =
+  val layer: URLayer[SttpClient with Has[CovalentConfig] with Logging, Has[EthBlockchainRepo]] =
     (CovalentFacade(_, _, _)).toLayer
 }
