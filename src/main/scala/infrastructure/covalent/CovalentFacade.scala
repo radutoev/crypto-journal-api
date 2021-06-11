@@ -52,10 +52,15 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
       transactions <- ZIO
                        .fromEither(response.body)
                        .map(_.fromJson[TransactionQueryResponse])
-                       .map(_.fold[List[Transaction]](_ => List.empty, response => response.data.items))
+                       .map(_.fold[List[Transaction]](err => List.empty, response => response.data.items))
                        .mapError(_ => new RuntimeException("booboo"))
       hashes = transactions.map(_.hash)
-      _     <- ZIO.foreach(hashes)(fetchTransaction) //TODO Continue here after I figure out the contract
+      fetched <- ZIO.foreach(hashes)(fetchTransaction) //TODO Continue here after I figure out the contract
+      _ <- UIO {
+        print(s"[")
+        fetched.foreach(f => print(f.toJson + ","))
+        print(s"]")
+      }
     } yield transactions
 
   override def fetchTransaction(txHash: String): Task[Transaction] =
@@ -66,8 +71,8 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                      .get(uri"${config.baseUrl}/56/transaction_v2/$txHash/?key=${config.key}")
                      .response(asString)
                  )
-      body        <- ZIO.fromEither(response.body).map(_.fromJson[TransactionQueryResponse]).mapError(_ => new RuntimeException("noo"))
-      transaction <- ZIO.fromEither(body).mapError(_ => new RuntimeException("noo")).map(_.data.items.head)
+      body        <- ZIO.fromEither(response.body).map(_.fromJson[TransactionQueryResponse]).mapError(err => new RuntimeException("noo"))
+      transaction <- ZIO.fromEither(body).mapError(err => new RuntimeException("noo")).map(_.data.items.head)
     } yield transaction
 }
 

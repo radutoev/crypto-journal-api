@@ -5,7 +5,10 @@ import zio.json._
 
 final case class LogEvent(
   @jsonField("sender_contract_decimals") senderContractDecimals: Option[Int],
+  @jsonField("sender_name") senderName: Option[String],
+  @jsonField("sender_contract_ticker_symbol") senderContractSymbol: Option[String],
   @jsonField("sender_address") senderAddress: String,
+  @jsonField("sender_address_label") senderAddressLabel: Option[String],
   decoded: Decoded
 )
 
