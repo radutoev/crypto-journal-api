@@ -9,14 +9,17 @@ import zio.UIO
 import zio.json._
 
 object Routes {
-  val api = Http.collectM[Request] {
-    case Method.GET -> Root / "health" => UIO(Response.ok)
+  val api = CORS(
+    Http.collectM[Request] {
+      case Method.GET -> Root / "health" => UIO(Response.ok)
 
-    case Method.GET -> Root / "positions" =>
-      PositionRepo.getPositions("0x627909aDAb1AB107b59A22e7ddd15e5d9029bC41")
-        .fold(
-          _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-          positions => Response.jsonString(positions.map(fromPosition).toJson)
-        )
-  }
+      case Method.GET -> Root / "positions"  =>
+        PositionRepo.getPositions("0x627909aDAb1AB107b59A22e7ddd15e5d9029bC41")
+          .fold(
+            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+            positions => Response.jsonString(positions.map(fromPosition).toJson)
+          )
+    },
+    config = CORSConfig(anyOrigin = true)
+  )
 }
