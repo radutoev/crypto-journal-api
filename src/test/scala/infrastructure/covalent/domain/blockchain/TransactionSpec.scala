@@ -16,22 +16,23 @@ object TransactionSpec extends DefaultRunnableSpec {
       val rawJsonString = source.mkString
       source.close()
 
-      val transaction = rawJsonString.fromJson[Transaction]
+      val transaction = rawJsonString.fromJson[Transaction].right.get
 
-      assert(transaction.isRight)(equalTo(true)) &&
-      assert(transaction.right.get.hash)(equalTo("0x2cfff6271130bee9c3cca60e7de5744486ba7734beef75ff9f8845f369a350cb")) &&
-      assert(transaction.right.get.transactionType)(equalTo(Buy))
+      assert(transaction.hash)(equalTo("0x2cfff6271130bee9c3cca60e7de5744486ba7734beef75ff9f8845f369a350cb")) &&
+      assert(transaction.transactionType)(equalTo(Buy)) &&
+      assert(transaction.fee)(equalTo(BigDecimal(0.0009657750000000001)))
     },
+
     test("SELL Transaction instantiation from json") {
       val source        = Source.fromURL(getClass.getResource("/covalent/sell.json"))
       val rawJsonString = source.mkString
       source.close()
 
-      val transaction = rawJsonString.fromJson[Transaction]
+      val transaction = rawJsonString.fromJson[Transaction].right.get
 
-      assert(transaction.isRight)(equalTo(true)) &&
-      assert(transaction.right.get.hash)(equalTo("0x28c21d9ebd61aa4532e0b1097342e413a33512206d04ae42f31b2f863445660a")) &&
-      assert(transaction.right.get.transactionType)(equalTo(Sell))
+      assert(transaction.hash)(equalTo("0x28c21d9ebd61aa4532e0b1097342e413a33512206d04ae42f31b2f863445660a")) &&
+      assert(transaction.transactionType)(equalTo(Sell)) &&
+      assert(transaction.fee)(equalTo(BigDecimal(0.00103099)))
     }
   )
 }

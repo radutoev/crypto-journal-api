@@ -20,7 +20,7 @@ final case class Transaction(
     @jsonField("value_quote") valueQuote: Option[Double],
     @jsonField("gas_offered") gasOffered: Int,
     @jsonField("gas_spent") gasSpent: Int,
-    @jsonField("gas_price") gasPrice: Option[Double],
+    @jsonField("gas_price") gasPrice: Double,
     @jsonField("gas_quote") gasQuote: Double,
     @jsonField("gas_quote_rate") gasQuoteRate: Double,
     @jsonField("log_events") logEvents: List[LogEvent]
@@ -48,6 +48,9 @@ final case class Transaction(
        logEvents.reverse.headOption.flatMap(_.senderContractSymbol)
     case Unknown => None
   }
+
+  //in BNB
+  lazy val fee: BigDecimal = gasSpent * gasPrice * Math.pow(10, -18)
 }
 
 object Transaction {
