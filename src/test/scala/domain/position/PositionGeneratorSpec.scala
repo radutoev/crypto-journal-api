@@ -20,27 +20,27 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
       assert(findPositions(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get)))(
         equalTo(List.empty)
       )
-    }
+    },
+    test("Generate positions from multiple coins and transaction types") {
+      val file         = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]
+      val transactions = file.right.get
 
-//    test("Generate positions from multiple coins and transaction types") {
-//      val file         = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]
-//      val transactions = file.right.get
-//
-//      val positions = findPositions(transactions)
-//      val expected = ExpectedData.map { row =>
-//        val parts = row.split("[;]")
-//        Position(
-//          parts(0),
-//          if (parts(1) == "Closed") Closed else Open,
-//          Instant.parse(parts(3)),
-//          Try(Instant.parse(parts(4))).toOption,
+      val positions = findPositions(transactions)
+      val expected = ExpectedData.map { row =>
+        val parts = row.split("[;]")
+        Position(
+          parts(0),
+          if (parts(1) == "Closed") Closed else Open,
+          Instant.parse(parts(3)),
+          Try(Instant.parse(parts(4))).toOption
 //          parts(2).split("[,]").toList
-//        )
-//      }
-//
-//      assert(positions.size)(equalTo(18)) &&
-//      assert(positions)(hasSameElementsDistinct(expected))
-//    }
+        )
+      }
+
+      assert(positions.size)(equalTo(18)) &&
+      //I set empty entries so as not to initialize everything in this test. They are tested elsewhere.
+      assert(positions.map(_.copy(entries = List.empty)))(hasSameElementsDistinct(expected))
+    }
   )
 
   val ExpectedData = List(
