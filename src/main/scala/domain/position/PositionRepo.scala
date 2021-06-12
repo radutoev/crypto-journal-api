@@ -96,5 +96,5 @@ object LivePositionRepo {
     positions.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
-  val transactionToPositionEntry: Transaction => PositionEntry = tx => PositionEntry(tx.transactionType, tx.fee)
+  val transactionToPositionEntry: Transaction => PositionEntry = tx => PositionEntry(tx.transactionType, tx.fee, tx.instant)
 }

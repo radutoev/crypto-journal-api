@@ -13,4 +13,4 @@ final case class Position(
   entries: List[PositionEntry] = List.empty
 )
 
-final case class PositionEntry(`type`: TransactionType, fee: Fee)
+final case class PositionEntry(`type`: TransactionType, fee: Fee, timestamp: Instant)
