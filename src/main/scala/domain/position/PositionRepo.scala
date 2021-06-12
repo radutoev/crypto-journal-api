@@ -6,9 +6,11 @@ import domain.model.{ Buy, Closed, Open, Sell, TransactionType, Unknown }
 import domain.position.LivePositionRepo.findPositions
 
 import zio.{ Function1ToLayerSyntax, Has, Task, URLayer, ZIO }
+import zio.json._
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
+import scala.io.Source
 
 trait PositionRepo {
   def getPositions(wallet: String): Task[List[Position]]
@@ -21,7 +23,14 @@ object PositionRepo {
 
 final case class LivePositionRepo(ethBlockchainRepo: EthBlockchainRepo) extends PositionRepo {
   override def getPositions(wallet: String): Task[List[Position]] =
-    ethBlockchainRepo.fetchTransactions(wallet).map(findPositions)
+    Task {
+      val source        = Source.fromURL(getClass.getResource("/allTransactions.json"))
+      val rawJsonString = source.mkString
+      source.close()
+      val either = rawJsonString.fromJson[List[Transaction]]
+      either.right.get
+    }.map(findPositions)
+//    ethBlockchainRepo.fetchTransactions(wallet).map(findPositions)
 }
 
 object LivePositionRepo {

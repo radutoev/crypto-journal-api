@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import domain.position.PositionRepo
-import infrastructure.api.dto.Position.fromPosition
+import infrastructure.api.dto.Position._
 
 import zhttp.http._
 import zio.UIO

@@ -21,9 +21,9 @@ object dto {
   final case class Fee(amount: BigDecimal, currency: String)
 
   object Position {
-    implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
-    implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val feeCodec: JsonCodec[Fee]                     = DeriveJsonCodec.gen[Fee]
+    implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
+    implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
 
     def fromPosition(position: CJPosition): Position =
       Position(
