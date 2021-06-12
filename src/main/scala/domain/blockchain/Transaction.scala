@@ -1,6 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
+import domain.model.{Buy, Fee, Sell, TransactionType, Unknown}
+
 import zio.json.{DeriveJsonCodec, JsonCodec, jsonField}
 
 import java.time.Instant
@@ -49,15 +51,9 @@ final case class Transaction(
     case Unknown => None
   }
 
-  //in BNB
-  lazy val fee: BigDecimal = gasSpent * gasPrice * Math.pow(10, -18)
+  lazy val fee: Fee = Fee(gasSpent * gasPrice * Math.pow(10, -18), "WBNB")
 }
 
 object Transaction {
   implicit val encoder: JsonCodec[Transaction] = DeriveJsonCodec.gen[Transaction]
 }
-
-sealed trait TransactionType
-final case object Unknown extends TransactionType //used as a fallback.
-final case object Buy extends TransactionType
-final case object Sell extends TransactionType

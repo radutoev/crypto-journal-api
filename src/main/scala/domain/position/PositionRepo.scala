@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain._
-import domain.model.{Closed, Open, TransactionTypes}
+import domain.model.{Buy, Closed, Open, Sell, TransactionType, Unknown}
 import domain.position.LivePositionRepo.findPositions
 
 import zio.{Function1ToLayerSyntax, Has, Task, URLayer, ZIO}
@@ -27,6 +27,8 @@ final case class LivePositionRepo(ethBlockchainRepo: EthBlockchainRepo) extends 
 
 object LivePositionRepo {
   val layer: URLayer[Has[EthBlockchainRepo], Has[PositionRepo]] = (LivePositionRepo(_)).toLayer
+
+  val TransactionTypes = Vector(Buy, Sell)
 
   //TODO Move this to domain after defining Erc-20 or ETH model that I can maybe instantiate from covalent facade.
   def findPositions(transactions: List[Transaction]): List[Position] = {
@@ -68,8 +70,8 @@ object LivePositionRepo {
 
         grouped.toList.map { txList =>
           txList.last.transactionType match {
-            case Buy => Position(coin, Open, txList.head.instant, None, txList.map(_.hash))
-            case Sell => Position(coin, Closed, txList.head.instant, Some(txList.last.instant), txList.map(_.hash))
+            case Buy => Position(coin, Open, txList.head.instant, None, txList.map(transactionToPositionEntry))
+            case Sell => Position(coin, Closed, txList.head.instant, Some(txList.last.instant), txList.map(transactionToPositionEntry))
           }
         }
       }
@@ -77,4 +79,6 @@ object LivePositionRepo {
 
     positions.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
+
+  val transactionToPositionEntry: Transaction => PositionEntry = tx => PositionEntry(tx.transactionType, tx.fee)
 }

@@ -1,12 +1,15 @@
 package io.softwarechain.cryptojournal
 package domain
 
-import domain.blockchain.{Buy, Sell}
-
 object model {
   sealed trait State
   final case object Open extends State
   final case object Closed extends State
 
-  val TransactionTypes = Vector(Buy, Sell)
+  sealed trait TransactionType
+  final case object Unknown extends TransactionType //used as a fallback.
+  final case object Buy extends TransactionType
+  final case object Sell extends TransactionType
+
+  final case class Fee(amount: BigDecimal, currency: String)
 }
