@@ -31,7 +31,6 @@ object CryptoJournal extends App {
     val covalentConfigLayer = configLayer.map(c => Has(c.get.covalent))
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
-//    lazy val zioHttpClientLayer = EventLoopGroup.auto() ++ ChannelFactory.auto
 
     lazy val loggingLayer = {
       val logFormat = "%s"
@@ -40,7 +39,6 @@ object CryptoJournal extends App {
       }
     }
 
-//    lazy val httpClientLayer = Client.make.provideLayer(zioHttpClientLayer).toLayer
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
     zioHttpServerLayer ++ (((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer)
