@@ -5,7 +5,7 @@ import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
 
 import com.typesafe.config.{Config, ConfigFactory}
-import io.softwarechain.cryptojournal.service.LivePositionService
+import io.softwarechain.cryptojournal.service.{LiveCurrencyService, LivePositionService}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
@@ -40,7 +40,9 @@ object CryptoJournal extends App {
 
     lazy val positionRepoLayer = ((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer
 
-    lazy val positionServiceLayer = positionRepoLayer >>> LivePositionService.layer
+    lazy val currencyServiceLayer = LiveCurrencyService.layer
+
+    lazy val positionServiceLayer = positionRepoLayer ++ currencyServiceLayer >>> LivePositionService.layer
 
     lazy val applicationServiceLayer = positionServiceLayer
 

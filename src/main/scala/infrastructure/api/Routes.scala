@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import application.CryptoJournalService
+import application.CryptoJournalApi
 import infrastructure.api.dto.Position._
 
 import zhttp.http._
@@ -14,7 +14,7 @@ object Routes {
       case Method.GET -> Root / "health" => UIO(Response.ok)
 
       case Method.GET -> Root / "positions" / rawWalletAddress =>
-        CryptoJournalService
+        CryptoJournalApi
           .getCryptoFiatPositions(rawWalletAddress)
           .fold(
             _ => Response.status(Status.INTERNAL_SERVER_ERROR),

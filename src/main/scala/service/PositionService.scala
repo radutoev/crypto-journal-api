@@ -1,9 +1,10 @@
 package io.softwarechain.cryptojournal
 package service
 
-import domain.position.{CryptoFiatPosition, PositionRepo}
+import domain.model.Fee
+import domain.position.{ CryptoFiatFee, CryptoFiatPosition, CryptoFiatPositionEntry, PositionRepo }
 
-import zio.{Function1ToLayerSyntax, Has, Task, UIO, URLayer, ZIO}
+import zio.{ Function2ToLayerSyntax, Has, Task, URLayer, ZIO }
 
 trait PositionService {
   def getPositions(walletAddress: String): Task[List[CryptoFiatPosition]]
@@ -14,15 +15,34 @@ object PositionService {
     ZIO.serviceWith[PositionService](_.getPositions(walletAddress))
 }
 
-final case class LivePositionService(positionRepo: PositionRepo) extends PositionService {
-  override def getPositions(walletAddress: String): Task[List[CryptoFiatPosition]] = {
+final case class LivePositionService(positionRepo: PositionRepo, currencyService: CurrencyService)
+    extends PositionService {
+  override def getPositions(walletAddress: String): Task[List[CryptoFiatPosition]] =
     for {
       positions <- positionRepo.getPositions(walletAddress)
-      fiatEnriched <- UIO(List.empty) //TODO Implementation here
+      fiatEnriched <- ZIO.foreachPar(positions) { position =>
+                       val entries = position.entries
+                       for {
+                         tuples <- ZIO.foreach(entries)(entry =>
+                                    currencyService
+                                      .convert(entry.fee.amount, entry.timestamp)
+                                      .map(fiatValue => entry -> CryptoFiatFee(entry.fee, Fee(fiatValue, "USD")))
+                                  )
+                         entryToFiatFee = tuples.toMap
+                       } yield CryptoFiatPosition(
+                         position.coin,
+                         position.state,
+                         position.openedAt,
+                         position.closedAt,
+                         entries.map(entry =>
+                           CryptoFiatPositionEntry(entry.`type`, entryToFiatFee(entry), entry.timestamp)
+                         )
+                       )
+                     }
     } yield fiatEnriched
-  }
 }
 
 object LivePositionService {
-  lazy val layer: URLayer[Has[PositionRepo], Has[PositionService]] = (LivePositionService(_)).toLayer
+  lazy val layer: URLayer[Has[PositionRepo] with Has[CurrencyService], Has[PositionService]] =
+    (LivePositionService(_, _)).toLayer
 }
