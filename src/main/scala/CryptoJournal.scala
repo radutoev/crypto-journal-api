@@ -4,13 +4,14 @@ import domain.position.LivePositionRepo
 import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{Config, ConfigFactory}
+import io.softwarechain.cryptojournal.service.LivePositionService
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{ EventLoopGroup, Server }
+import zhttp.service.{EventLoopGroup, Server}
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{ console, App, ExitCode, Has, URIO, ZIO }
+import zio.{App, ExitCode, Has, URIO, ZIO, console}
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -37,6 +38,12 @@ object CryptoJournal extends App {
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
-    zioHttpServerLayer ++ (((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer)
+    lazy val positionRepoLayer = ((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer
+
+    lazy val positionServiceLayer = positionRepoLayer >>> LivePositionService.layer
+
+    lazy val applicationServiceLayer = positionServiceLayer
+
+    zioHttpServerLayer ++ applicationServiceLayer
   }
 }

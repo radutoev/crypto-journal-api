@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.position.{ Position => CJPosition, PositionEntry => CJPositionEntry }
+import domain.position.{ CryptoFiatPosition => CJPosition, CryptoFiatPositionEntry => CJPositionEntry }
 
 import zio.json.{ DeriveJsonCodec, JsonCodec }
 
@@ -16,7 +16,7 @@ object dto {
     entries: List[PositionEntry]
   )
 
-  final case class PositionEntry(fee: Fee)
+  final case class PositionEntry(fee: Fee, fiatFee: Fee)
 
   final case class Fee(amount: BigDecimal, currency: String)
 
@@ -35,6 +35,9 @@ object dto {
       )
 
     def fromPositionEntry(entry: CJPositionEntry): PositionEntry =
-      PositionEntry(Fee(entry.fee.amount, entry.fee.currency))
+      PositionEntry(
+        Fee(entry.fee.crypto.amount, entry.fee.crypto.currency),
+        Fee(entry.fee.fiat.amount, entry.fee.fiat.currency)
+      )
   }
 }

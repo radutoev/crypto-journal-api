@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.position.PositionRepo
+import application.CryptoJournalService
 import infrastructure.api.dto.Position._
 
 import zhttp.http._
@@ -14,11 +14,16 @@ object Routes {
       case Method.GET -> Root / "health" => UIO(Response.ok)
 
       case Method.GET -> Root / "positions" / rawWalletAddress =>
-        PositionRepo
-          .getPositions(rawWalletAddress)
+        CryptoJournalService
+          .getCryptoFiatPositions(rawWalletAddress)
           .fold(
             _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-            positions => Response.jsonString(positions.map(fromPosition).toJson)
+            positions =>
+              if (positions.nonEmpty) {
+                Response.jsonString(positions.map(fromPosition).toJson)
+              } else {
+                Response.status(Status.NO_CONTENT)
+              }
           )
     },
     config = CORSConfig(anyOrigin = true)

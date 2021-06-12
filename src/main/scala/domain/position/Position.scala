@@ -10,7 +10,7 @@ final case class Position(
   state: State,
   openedAt: Instant,
   closedAt: Option[Instant],
-  entries: List[PositionEntry] = List.empty
+  entries: List[PositionEntry]
 )
 
 final case class PositionEntry(`type`: TransactionType, fee: Fee, timestamp: Instant)

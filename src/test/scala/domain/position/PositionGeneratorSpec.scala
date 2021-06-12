@@ -32,7 +32,8 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
           parts(0),
           if (parts(1) == "Closed") Closed else Open,
           Instant.parse(parts(3)),
-          Try(Instant.parse(parts(4))).toOption
+          Try(Instant.parse(parts(4))).toOption,
+          List.empty
 //          parts(2).split("[,]").toList
         )
       }
