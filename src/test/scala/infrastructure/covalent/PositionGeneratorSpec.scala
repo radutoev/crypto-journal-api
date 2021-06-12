@@ -1,12 +1,10 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.model.{Closed, Open}
-import domain.position.LivePositionRepo.findPositions
-import domain.position.Position
-import infrastructure.covalent.model._
-
 import io.softwarechain.cryptojournal.domain.blockchain.Transaction
+import io.softwarechain.cryptojournal.domain.model.{Open, Closed}
+import io.softwarechain.cryptojournal.domain.position.LivePositionRepo.findPositions
+import io.softwarechain.cryptojournal.domain.position.Position
 import zio.json._
 import zio.test.Assertion._
 import zio.test._
