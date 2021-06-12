@@ -1,6 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent.model
 
+import io.softwarechain.cryptojournal.domain.blockchain.{Buy, Sell, Transaction}
 import zio.json.DecoderOps
 import zio.test.Assertion.equalTo
 import zio.test.{DefaultRunnableSpec, assert}

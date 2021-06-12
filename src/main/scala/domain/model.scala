@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain
 
-import infrastructure.covalent.model.{Buy, Sell}
+import domain.blockchain.{Buy, Sell}
 
 object model {
   sealed trait State

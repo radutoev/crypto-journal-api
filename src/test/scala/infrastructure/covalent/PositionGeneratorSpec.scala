@@ -6,6 +6,7 @@ import domain.position.LivePositionRepo.findPositions
 import domain.position.Position
 import infrastructure.covalent.model._
 
+import io.softwarechain.cryptojournal.domain.blockchain.Transaction
 import zio.json._
 import zio.test.Assertion._
 import zio.test._

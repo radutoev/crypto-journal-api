@@ -1,21 +1,9 @@
 package io.softwarechain.cryptojournal
-package infrastructure.covalent.model
+package domain.blockchain
 
 import zio.json.{DeriveJsonCodec, JsonCodec, jsonField}
 
 import java.time.Instant
-
-final case class TransactionQueryResponse(data: TransactionResponse)
-
-object TransactionQueryResponse {
-  implicit val encoder: JsonCodec[TransactionQueryResponse] = DeriveJsonCodec.gen[TransactionQueryResponse]
-}
-
-final case class TransactionResponse(quote_currency: Option[String], items: List[Transaction])
-
-object TransactionResponse {
-  implicit val encoder: JsonCodec[TransactionResponse] = DeriveJsonCodec.gen[TransactionResponse]
-}
 
 /**
  * @param logEvents list of events that are part of the transaction. Latest event is first item.

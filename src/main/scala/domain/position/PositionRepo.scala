@@ -1,10 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
+import domain.blockchain._
 import domain.model.{Closed, Open, TransactionTypes}
 import domain.position.LivePositionRepo.findPositions
-import domain.repo.EthBlockchainRepo
-import infrastructure.covalent.model._
 
 import zio.{Function1ToLayerSyntax, Has, Task, URLayer, ZIO}
 

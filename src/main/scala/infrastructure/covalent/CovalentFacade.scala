@@ -1,9 +1,10 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.repo.EthBlockchainRepo
-import infrastructure.covalent.model._
 
+import domain.blockchain.{EthBlockchainRepo, Transaction}
+
+import io.softwarechain.cryptojournal.infrastructure.covalent.dto.TransactionQueryResponse
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
 import zio.json._
