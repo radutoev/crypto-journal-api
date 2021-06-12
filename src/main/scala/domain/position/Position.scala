@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{Fee, State, TransactionType}
+import domain.model.{ Fee, State, TransactionType }
 
 import java.time.Instant
 

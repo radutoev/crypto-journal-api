@@ -37,3 +37,5 @@ val root = (project in file("."))
     ),
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
   )
+
+addCommandAlias("fmt", ";scalafmtAll;scalafmtSbt")

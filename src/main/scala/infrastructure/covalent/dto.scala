@@ -3,7 +3,7 @@ package infrastructure.covalent
 
 import domain.blockchain.Transaction
 
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 
 object dto {
   final case class TransactionQueryResponse(data: TransactionResponse)

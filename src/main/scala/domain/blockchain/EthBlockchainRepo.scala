@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import zio.{Has, Task, ZIO}
+import zio.{ Has, Task, ZIO }
 
 trait EthBlockchainRepo {
   def fetchTransactions(walletAddress: String): Task[List[Transaction]]

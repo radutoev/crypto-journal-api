@@ -9,21 +9,21 @@ import java.time.Instant
 
 object dto {
   final case class Position(
-                             coin: String,
-                             state: String,
-                             openedAt: Instant,
-                             closedAt: Option[Instant],
-                             entries: List[PositionEntry]
-                           )
+    coin: String,
+    state: String,
+    openedAt: Instant,
+    closedAt: Option[Instant],
+    entries: List[PositionEntry]
+  )
 
   final case class PositionEntry(fee: Fee)
 
   final case class Fee(amount: BigDecimal, currency: String)
 
   object Position {
-    implicit val positionCodec: JsonCodec[Position] = DeriveJsonCodec.gen[Position]
+    implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
-    implicit val feeCodec: JsonCodec[Fee] = DeriveJsonCodec.gen[Fee]
+    implicit val feeCodec: JsonCodec[Fee]                     = DeriveJsonCodec.gen[Fee]
 
     def fromPosition(position: CJPosition): Position =
       Position(

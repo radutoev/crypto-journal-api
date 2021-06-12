@@ -14,7 +14,8 @@ object Routes {
       case Method.GET -> Root / "health" => UIO(Response.ok)
 
       case Method.GET -> Root / "positions" / rawWalletAddress =>
-        PositionRepo.getPositions(rawWalletAddress)
+        PositionRepo
+          .getPositions(rawWalletAddress)
           .fold(
             _ => Response.status(Status.INTERNAL_SERVER_ERROR),
             positions => Response.jsonString(positions.map(fromPosition).toJson)

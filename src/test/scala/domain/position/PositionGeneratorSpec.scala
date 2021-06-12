@@ -7,8 +7,8 @@ import domain.model._
 import LivePositionRepo.findPositions
 
 import zio.json._
-import zio.test.Assertion.{equalTo, hasSameElementsDistinct}
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test.Assertion.{ equalTo, hasSameElementsDistinct }
+import zio.test.{ assert, DefaultRunnableSpec }
 
 import java.time.Instant
 import scala.io.Source
@@ -20,7 +20,7 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
       assert(findPositions(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get)))(
         equalTo(List.empty)
       )
-    },
+    }
 
 //    test("Generate positions from multiple coins and transaction types") {
 //      val file         = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]

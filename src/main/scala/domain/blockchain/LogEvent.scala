@@ -27,5 +27,3 @@ object Decoded {
 object Param {
   implicit val encoder: JsonCodec[Param] = DeriveJsonCodec.gen[Param]
 }
-
-
