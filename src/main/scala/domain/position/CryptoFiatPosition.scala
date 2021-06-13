@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ Fee, State, TransactionType }
+import domain.model.{ Fee, FungibleData, State, TransactionType }
 
 import java.time.Instant
 
@@ -13,6 +13,13 @@ final case class CryptoFiatPosition(
   entries: List[CryptoFiatPositionEntry]
 )
 
-final case class CryptoFiatPositionEntry(`type`: TransactionType, fee: CryptoFiatFee, timestamp: Instant)
+final case class CryptoFiatPositionEntry(
+  `type`: TransactionType,
+  value: CryptoFungibleData,
+  fee: CryptoFiatFee,
+  timestamp: Instant
+)
+
+final case class CryptoFungibleData(crypto: FungibleData, fiat: FungibleData)
 
 final case class CryptoFiatFee(crypto: Fee, fiat: Fee)

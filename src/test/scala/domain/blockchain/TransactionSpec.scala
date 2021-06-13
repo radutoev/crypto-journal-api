@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Buy, Fee, FungibleData, Sell}
+import domain.model.{ Buy, Fee, FungibleData, Sell }
 
 import zio.json._
 import zio.test.Assertion._
@@ -23,7 +23,6 @@ object TransactionSpec extends DefaultRunnableSpec {
       assert(transaction.fee)(equalTo(FungibleData(BigDecimal(0.0009657750000000001), "WBNB"))) &&
       assert(transaction.value)(equalTo(Right(FungibleData(BigDecimal(0.15), "WBNB"))))
     },
-
     test("SELL Transaction instantiation from json") {
       val source        = Source.fromURL(getClass.getResource("/covalent/sell.json"))
       val rawJsonString = source.mkString

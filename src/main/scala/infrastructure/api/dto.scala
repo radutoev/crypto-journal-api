@@ -16,12 +16,12 @@ object dto {
     entries: List[PositionEntry]
   )
 
-  final case class PositionEntry(fee: Fee, fiatFee: Fee)
+  final case class PositionEntry(value: FungibleData, fiatValue: FungibleData, fee: FungibleData, fiatFee: FungibleData)
 
-  final case class Fee(amount: BigDecimal, currency: String)
+  final case class FungibleData(amount: BigDecimal, currency: String)
 
   object Position {
-    implicit val feeCodec: JsonCodec[Fee]                     = DeriveJsonCodec.gen[Fee]
+    implicit val feeCodec: JsonCodec[FungibleData]                     = DeriveJsonCodec.gen[FungibleData]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
 
@@ -36,8 +36,10 @@ object dto {
 
     def fromPositionEntry(entry: CJPositionEntry): PositionEntry =
       PositionEntry(
-        Fee(entry.fee.crypto.amount, entry.fee.crypto.currency),
-        Fee(entry.fee.fiat.amount, entry.fee.fiat.currency)
+        FungibleData(entry.value.crypto.amount, entry.value.crypto.currency),
+        FungibleData(entry.value.fiat.amount, entry.value.fiat.currency),
+        FungibleData(entry.fee.crypto.amount, entry.fee.crypto.currency),
+        FungibleData(entry.fee.fiat.amount, entry.fee.fiat.currency)
       )
   }
 }

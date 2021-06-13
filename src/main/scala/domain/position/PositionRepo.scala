@@ -79,14 +79,14 @@ object LivePositionRepo {
 
         grouped.toList.map { txList =>
           txList.last.transactionType match {
-            case Buy => Position(coin, Open, txList.head.instant, None, txList.map(transactionToPositionEntry))
+            case Buy => Position(coin, Open, txList.head.instant, None, transactionsToPositionEntries(txList))
             case Sell =>
               Position(
                 coin,
                 Closed,
                 txList.head.instant,
                 Some(txList.last.instant),
-                txList.map(transactionToPositionEntry)
+                transactionsToPositionEntries(txList)
               )
           }
         }
@@ -96,6 +96,12 @@ object LivePositionRepo {
     positions.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
-  val transactionToPositionEntry: Transaction => PositionEntry = tx =>
-    PositionEntry(tx.transactionType, tx.fee, tx.instant)
+  val transactionsToPositionEntries: List[Transaction] => List[PositionEntry] =
+    _.map(transactionToPositionEntry).collect {
+      case Right(entry) => entry
+    }
+
+  val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx =>
+    tx.value.map(value => PositionEntry(tx.transactionType, value, tx.fee, tx.instant))
+
 }
