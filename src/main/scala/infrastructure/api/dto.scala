@@ -16,7 +16,7 @@ object dto {
     entries: List[PositionEntry]
   )
 
-  final case class PositionEntry(value: FungibleData, fiatValue: FungibleData, fee: FungibleData, fiatFee: FungibleData)
+  final case class PositionEntry(`type`: String, value: FungibleData, fiatValue: FungibleData, fee: FungibleData, fiatFee: FungibleData)
 
   final case class FungibleData(amount: BigDecimal, currency: String)
 
@@ -36,6 +36,7 @@ object dto {
 
     def fromPositionEntry(entry: CJPositionEntry): PositionEntry =
       PositionEntry(
+        entry.`type`.toString,
         FungibleData(entry.value.crypto.amount, entry.value.crypto.currency),
         FungibleData(entry.value.fiat.amount, entry.value.fiat.currency),
         FungibleData(entry.fee.crypto.amount, entry.fee.crypto.currency),
