@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package service
 
-import domain.model.Fee
+import domain.model.{ Fee, FungibleData }
 import domain.position.{ CryptoFiatFee, CryptoFiatPosition, CryptoFiatPositionEntry, PositionRepo }
 
 import zio.{ Function2ToLayerSyntax, Has, Task, URLayer, ZIO }
@@ -26,7 +26,9 @@ final case class LivePositionService(positionRepo: PositionRepo, currencyService
                          tuples <- ZIO.foreach(entries)(entry =>
                                     currencyService
                                       .convert(entry.fee.amount, entry.timestamp)
-                                      .map(fiatValue => entry -> CryptoFiatFee(entry.fee, Fee(fiatValue, "USD")))
+                                      .map(fiatValue =>
+                                        entry -> CryptoFiatFee(entry.fee, FungibleData(fiatValue, "USD"))
+                                      )
                                   )
                          entryToFiatFee = tuples.toMap
                        } yield CryptoFiatPosition(

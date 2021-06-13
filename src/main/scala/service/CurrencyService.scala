@@ -3,9 +3,9 @@ package service
 
 import service.LiveCurrencyService.HistoricWBNBToUSDMap
 
-import zio.{Function0ToLayerSyntax, Has, Task, ULayer, ZIO}
+import zio.{ Function0ToLayerSyntax, Has, Task, ULayer, ZIO }
 
-import java.time.{Instant, ZoneId, ZoneOffset}
+import java.time.{ Instant, ZoneId, ZoneOffset }
 
 trait CurrencyService {
   //currently supports only WBNB to USD
@@ -22,7 +22,9 @@ final case class LiveCurrencyService() extends CurrencyService {
     val lookup = timestamp
       .atZone(ZoneId.systemDefault())
       .toLocalDateTime
-      .withHour(0).withMinute(0).withSecond(0)
+      .withHour(0)
+      .withMinute(0)
+      .withSecond(0)
       .toInstant(ZoneOffset.UTC)
 
     val unitUsdValue = BigDecimal(HistoricWBNBToUSDMap(lookup))
@@ -54,6 +56,6 @@ object LiveCurrencyService {
     Instant.parse("2021-05-24T00:00:00Z") -> 344.013879,
     Instant.parse("2021-05-23T00:00:00Z") -> 263.810768,
     Instant.parse("2021-05-22T00:00:00Z") -> 305.750562,
-    Instant.parse("2021-05-21T00:00:00Z") -> 329.14904,
+    Instant.parse("2021-05-21T00:00:00Z") -> 329.14904
   )
 }

@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{ Buy, Fee, Sell, TransactionType, Unknown }
+import domain.model.{ Buy, Fee, FungibleData, Sell, TransactionType, Unknown }
 
 import zio.json.{ jsonField, DeriveJsonCodec, JsonCodec }
 
@@ -18,7 +18,7 @@ final case class Transaction(
   @jsonField("from_address_label") fromAddressLabel: Option[String],
   @jsonField("to_address") toAddress: String,
   @jsonField("to_address_label") toAddressLabel: Option[String],
-  value: Double,
+  @jsonField("value") rawValue: Double,
   @jsonField("value_quote") valueQuote: Option[Double],
   @jsonField("gas_offered") gasOffered: Int,
   @jsonField("gas_spent") gasSpent: Int,
@@ -52,7 +52,27 @@ final case class Transaction(
     case Unknown => None
   }
 
-  lazy val fee: Fee = Fee(gasSpent * gasPrice * Math.pow(10, -18), "WBNB")
+  //Atm we work only with WBNB so we assume it as the coin used in buy/sell operations.
+  lazy val fee: Fee = FungibleData(gasSpent * gasPrice * Math.pow(10, -18), "WBNB")
+
+  lazy val value: Either[String, FungibleData] = transactionType match {
+    case Unknown => Left("Unknown transaction type")
+    case Buy =>
+      (for {
+        wadValue <- logEvents.last.decoded.params
+                     .find(_.name == "wad")
+                     .map(_.value)
+                     .map(BigDecimal(_))
+        decimals <- logEvents.last.senderContractDecimals
+        amount   = wadValue * Math.pow(10, -decimals)
+      } yield FungibleData(amount, "WBNB")).toRight("Unable to determine value of transaction")
+    case Sell =>
+      (for {
+        wadValue <- logEvents.head.decoded.params.find(_.name == "wad").map(_.value).map(BigDecimal(_))
+        decimals <- logEvents.head.senderContractDecimals
+        amount   = wadValue * Math.pow(10, -decimals)
+      } yield FungibleData(amount, "WBNB")).toRight("Unable to determine value of transaction")
+  }
 }
 
 object Transaction {

@@ -11,5 +11,7 @@ object model {
   final case object Buy     extends TransactionType
   final case object Sell    extends TransactionType
 
-  final case class Fee(amount: BigDecimal, currency: String)
+  final case class FungibleData(amount: BigDecimal, currency: String)
+
+  type Fee = FungibleData
 }
