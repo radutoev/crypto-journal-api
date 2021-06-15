@@ -3,15 +3,17 @@ package io.softwarechain.cryptojournal
 import domain.position.LivePositionRepo
 import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
+import infrastructure.google.FirebasePriceQuoteRepo
+import service.LivePositionService
 
-import com.typesafe.config.{ Config, ConfigFactory }
-import io.softwarechain.cryptojournal.service.{ LiveCurrencyService, LivePositionService }
+import com.google.cloud.firestore.FirestoreOptions
+import com.typesafe.config.{Config, ConfigFactory}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{ EventLoopGroup, Server }
+import zhttp.service.{EventLoopGroup, Server}
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{ console, App, ExitCode, Has, URIO, ZIO }
+import zio.{App, ExitCode, Has, Task, URIO, ZIO, ZLayer, console}
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -31,6 +33,10 @@ object CryptoJournal extends App {
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
 
+    val firestoreLayer = ZLayer.fromAcquireRelease(ZIO(FirestoreOptions.getDefaultInstance.getService))(client =>
+      Task(client.close()).ignore
+    )
+
     lazy val loggingLayer = {
       val logFormat = "%s"
       Slf4jLogger.make((_, message) => logFormat.format(message))
@@ -38,12 +44,12 @@ object CryptoJournal extends App {
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
+    lazy val priceQuoteRepoLayer = firestoreLayer >>> FirebasePriceQuoteRepo.layer
+
     lazy val positionRepoLayer =
       ((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer
 
-    lazy val currencyServiceLayer = LiveCurrencyService.layer
-
-    lazy val positionServiceLayer = positionRepoLayer ++ currencyServiceLayer >>> LivePositionService.layer
+    lazy val positionServiceLayer = positionRepoLayer ++ priceQuoteRepoLayer >>> LivePositionService.layer
 
     lazy val applicationServiceLayer = positionServiceLayer
 

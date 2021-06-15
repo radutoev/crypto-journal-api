@@ -1,3 +1,4 @@
+val firestoreVersion  = "2.5.0"
 val refinedVersion    = "0.9.18"
 val sttpClientVersion = "3.3.6" //Used until zio-http fixes its client
 val zioVersion        = "1.0.9"
@@ -19,6 +20,7 @@ val root = (project in file("."))
     name := "crypto-journal-api",
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
     libraryDependencies ++= Seq(
+      "com.google.cloud"              % "google-cloud-firestore"  % firestoreVersion,
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
       "com.softwaremill.sttp.client3" %% "httpclient-backend-zio" % sttpClientVersion,
       "dev.zio"                       %% "zio"                    % zioVersion,

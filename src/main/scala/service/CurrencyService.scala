@@ -7,16 +7,25 @@ import zio.{ Function0ToLayerSyntax, Has, Task, ULayer, ZIO }
 
 import java.time.{ Instant, ZoneId, ZoneOffset }
 
+/**
+ * @deprecated
+ */
 trait CurrencyService {
   //currently supports only WBNB to USD
   def convert(amount: BigDecimal, timestamp: Instant): Task[BigDecimal]
 }
 
+/**
+ * @deprecated
+ */
 object CurrencyService {
   def convert(amount: BigDecimal, timestamp: Instant) =
     ZIO.serviceWith[CurrencyService](_.convert(amount, timestamp))
 }
 
+/**
+ * @deprecated
+ */
 final case class LiveCurrencyService() extends CurrencyService {
   override def convert(amount: BigDecimal, timestamp: Instant): Task[BigDecimal] = Task {
     val lookup = timestamp
