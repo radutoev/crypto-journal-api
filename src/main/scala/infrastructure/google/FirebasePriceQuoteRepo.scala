@@ -30,7 +30,7 @@ final case class FirebasePriceQuoteRepo(firestore: Firestore) extends PriceQuote
   private val snapshotToPriceQuote: QueryDocumentSnapshot => PriceQuote = snapshot => {
     val dataMap = snapshot.getData.asScala.toMap
     val timestamp = Instant.ofEpochSecond(dataMap("timestamp").asInstanceOf[Timestamp].getSeconds)
-    val price = dataMap("price").asInstanceOf[Float]
+    val price = dataMap("price").asInstanceOf[String].toFloat
     PriceQuote(price, timestamp)
   }
 }

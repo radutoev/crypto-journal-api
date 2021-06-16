@@ -20,6 +20,6 @@ final case class CryptoFiatPositionEntry(
   timestamp: Instant
 )
 
-final case class CryptoFungibleData(crypto: FungibleData, fiat: FungibleData)
+final case class CryptoFungibleData(crypto: FungibleData, fiat: Option[FungibleData])
 
-final case class CryptoFiatFee(crypto: Fee, fiat: Fee)
+final case class CryptoFiatFee(crypto: Fee, fiat: Option[Fee])

@@ -16,12 +16,18 @@ object dto {
     entries: List[PositionEntry]
   )
 
-  final case class PositionEntry(`type`: String, value: FungibleData, fiatValue: FungibleData, fee: FungibleData, fiatFee: FungibleData)
+  final case class PositionEntry(
+    `type`: String,
+    value: FungibleData,
+    fiatValue: Option[FungibleData],
+    fee: FungibleData,
+    fiatFee: Option[FungibleData]
+  )
 
   final case class FungibleData(amount: BigDecimal, currency: String)
 
   object Position {
-    implicit val feeCodec: JsonCodec[FungibleData]                     = DeriveJsonCodec.gen[FungibleData]
+    implicit val feeCodec: JsonCodec[FungibleData]            = DeriveJsonCodec.gen[FungibleData]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
 
@@ -38,9 +44,9 @@ object dto {
       PositionEntry(
         entry.`type`.toString,
         FungibleData(entry.value.crypto.amount, entry.value.crypto.currency),
-        FungibleData(entry.value.fiat.amount, entry.value.fiat.currency),
+        entry.value.fiat.map(fiat => FungibleData(fiat.amount, fiat.currency)),
         FungibleData(entry.fee.crypto.amount, entry.fee.crypto.currency),
-        FungibleData(entry.fee.fiat.amount, entry.fee.fiat.currency)
+        entry.fee.fiat.map(fiat => FungibleData(fiat.amount, fiat.currency)),
       )
   }
 }

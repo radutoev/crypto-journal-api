@@ -34,7 +34,6 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
           Instant.parse(parts(3)),
           Try(Instant.parse(parts(4))).toOption,
           List.empty
-//          parts(2).split("[,]").toList
         )
       }
 
