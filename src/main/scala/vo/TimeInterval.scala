@@ -4,4 +4,4 @@ package vo
 import java.time.Instant
 
 //TODO Add tests to check for interval validity.
-final case class TimeInterval (start: Instant, end: Instant)
+final case class TimeInterval (start: Instant, end: Option[Instant] = None)

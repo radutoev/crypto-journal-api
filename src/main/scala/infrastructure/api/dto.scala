@@ -1,9 +1,11 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.position.{ CryptoFiatPosition => CJPosition, CryptoFiatPositionEntry => CJPositionEntry }
+import domain.model.{FungibleData => CJFungibleData}
+import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
+import domain.pricequote.PriceQuotes
 
-import zio.json.{ DeriveJsonCodec, JsonCodec }
+import zio.json.{DeriveJsonCodec, JsonCodec}
 
 import java.time.Instant
 
@@ -37,16 +39,21 @@ object dto {
         position.state.toString,
         position.openedAt,
         position.closedAt,
-        position.entries.map(fromPositionEntry)
+        position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty())))
       )
 
-    def fromPositionEntry(entry: CJPositionEntry): PositionEntry =
+    def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry = {
       PositionEntry(
         entry.`type`.toString,
-        FungibleData(entry.value.crypto.amount, entry.value.crypto.currency),
-        entry.value.fiat.map(fiat => FungibleData(fiat.amount, fiat.currency)),
-        FungibleData(entry.fee.crypto.amount, entry.fee.crypto.currency),
-        entry.fee.fiat.map(fiat => FungibleData(fiat.amount, fiat.currency)),
+        entry.value.asJson,
+        entry.fiatValue.map(_.asJson),
+        entry.fee.asJson,
+        entry.fiatFee.map(_.asJson)
       )
+    }
+  }
+
+  implicit class FungibleDataOps(data: CJFungibleData) {
+    def asJson: FungibleData = FungibleData(data.amount, data.currency)
   }
 }

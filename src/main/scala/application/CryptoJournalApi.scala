@@ -1,12 +1,12 @@
 package io.softwarechain.cryptojournal
 package application
 
-import domain.position.CryptoFiatPosition
+import domain.position.Position
 import service.PositionService
 
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object CryptoJournalApi {
-  def getCryptoFiatPositions(walletAddress: String): ZIO[Has[PositionService], Throwable, List[CryptoFiatPosition]] =
+  def getPositions(walletAddress: String): ZIO[Has[PositionService], Throwable, List[Position]] =
     ZIO.serviceWith[PositionService](_.getPositions(walletAddress))
 }

@@ -15,7 +15,7 @@ object Routes {
 
       case Method.GET -> Root / "positions" / rawWalletAddress =>
         CryptoJournalApi
-          .getCryptoFiatPositions(rawWalletAddress)
+          .getPositions(rawWalletAddress)
           .fold(
             _ => Response.status(Status.INTERNAL_SERVER_ERROR),
             positions =>
