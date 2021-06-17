@@ -3,7 +3,7 @@ package infrastructure.api
 
 import domain.model.{FungibleData => CJFungibleData}
 import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
-import domain.pricequote.PriceQuotes
+import domain.pricequote.{PriceQuote => CJPriceQuote, PriceQuotes}
 
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
@@ -15,6 +15,14 @@ object dto {
     state: String,
     openedAt: Instant,
     closedAt: Option[Instant],
+    totalCost: Option[FungibleData],
+    totalFees: Option[FungibleData],
+    fiatReturn: Option[FungibleData],
+    totalCoins: FungibleData,
+    entryPrice: Option[PriceQuote],
+    exitPrice: Option[PriceQuote],
+    numberOfExecutions: Int,
+    holdTime: Option[Long],
     entries: List[PositionEntry]
   )
 
@@ -28,7 +36,10 @@ object dto {
 
   final case class FungibleData(amount: BigDecimal, currency: String)
 
+  final case class PriceQuote(price: Float, timestamp: Instant)
+
   object Position {
+    implicit val priceQuoteCodec: JsonCodec[PriceQuote] = DeriveJsonCodec.gen[PriceQuote]
     implicit val feeCodec: JsonCodec[FungibleData]            = DeriveJsonCodec.gen[FungibleData]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
@@ -39,6 +50,14 @@ object dto {
         position.state.toString,
         position.openedAt,
         position.closedAt,
+        position.totalCost().asJson,
+        position.totalFees().asJson,
+        position.fiatReturn().asJson,
+        position.totalCoins().asJson,
+        position.entryPrice().asJson,
+        position.exitPrice().asJson,
+        position.numberOfExecutions(),
+        position.holdTime,
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty())))
       )
 
@@ -55,5 +74,17 @@ object dto {
 
   implicit class FungibleDataOps(data: CJFungibleData) {
     def asJson: FungibleData = FungibleData(data.amount, data.currency)
+  }
+
+  implicit class OptionalFungibleDataOps(data: Option[CJFungibleData]) {
+    def asJson: Option[FungibleData] = data.map(_.asJson)
+  }
+
+  implicit class PriceQuoteOps(data: CJPriceQuote) {
+    def asJson: PriceQuote = PriceQuote(data.price, data.timestamp)
+  }
+
+  implicit class OptionPriceQuoteOps(data: Option[CJPriceQuote]) {
+    def asJson: Option[PriceQuote] = data.map(_.asJson)
   }
 }

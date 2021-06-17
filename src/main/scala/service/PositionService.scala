@@ -32,7 +32,7 @@ final case class LivePositionService(positionRepo: PositionRepo, priceQuoteRepo:
       positions   <- positionRepo.getPositions(walletAddress)
       interval    = extractTimeInterval(positions)
       priceQuotes <- priceQuoteRepo.getQuotes(interval.get).map(PriceQuotes.apply)
-      enrichedPositions = positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
+      enrichedPositions = positions.map(position => position.copy(priceQuotes = Some(priceQuotes))) //.subset(position.timeInterval())
     } yield enrichedPositions
 }
 

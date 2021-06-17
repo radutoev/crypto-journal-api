@@ -28,4 +28,11 @@ object Routes {
     },
     config = CORSConfig(anyOrigin = true)
   )
+
+//  implicit class ListResponseOps[T](list: List[T]) {
+//    def asResponse: UResponse = list match {
+//      case Nil => Response.status(Status.NO_CONTENT)
+//      case list => Response.jsonString("test") //TODO I need to have a json representation trait or something
+//    }
+//  }
 }
