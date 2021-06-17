@@ -23,7 +23,7 @@ object dto {
     exitPrice: Option[PriceQuote],
     numberOfExecutions: Int,
     holdTime: Option[Long],
-    win: Option[Boolean],
+    win: Option[String],
     entries: List[PositionEntry]
   )
 
@@ -59,7 +59,7 @@ object dto {
         position.exitPrice().asJson,
         position.numberOfExecutions(),
         position.holdTime,
-        position.win(),
+        position.win().map(isWin => if(isWin) "win" else "lose"),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty())))
       )
 

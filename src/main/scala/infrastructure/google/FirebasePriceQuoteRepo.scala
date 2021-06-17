@@ -2,7 +2,8 @@ package io.softwarechain.cryptojournal
 package infrastructure.google
 
 import domain.pricequote.{PriceQuote, PriceQuoteRepo}
-import util.CompletablePromise
+
+import io.softwarechain.cryptojournal.util.CompletablePromise
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp

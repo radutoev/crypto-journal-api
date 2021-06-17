@@ -1,6 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
+import util.InstantOps
 import vo.TimeInterval
 
 import java.time.Instant
@@ -10,10 +11,13 @@ final case class PriceQuotes(quotes: List[PriceQuote]) extends AnyVal {
     quotes.filter(quote => quote.timestamp.isBefore(timestamp) || quote.timestamp == timestamp ).lastOption
 
   def subset(interval: TimeInterval): PriceQuotes = PriceQuotes {
-    quotes.filter(quote => quote.timestamp.isAfter(interval.start) || quote.timestamp == interval.start)
+    val startInstant = interval.start.resetHourAndMinute()
+    val endInstant = interval.end.map(_.resetHourAndMinute())
+
+    quotes.filter(quote => quote.timestamp.isAfter(startInstant) || quote.timestamp == startInstant)
       .filter { quote =>
-        if(interval.end.isDefined) {
-          val end = interval.end.get
+        if(endInstant.isDefined) {
+          val end = endInstant.get
           quote.timestamp.isBefore(end) || quote.timestamp == end
         } else {
           true
