@@ -1,6 +1,12 @@
 package io.softwarechain.cryptojournal
 package domain
 
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.boolean.And
+import eu.timepit.refined.collection.Size
+import eu.timepit.refined.generic.Equal
+import eu.timepit.refined.string.MatchesRegex
+
 object model {
   sealed trait State
   final case object Open   extends State
@@ -16,6 +22,9 @@ object model {
   }
 
   type Fee = FungibleData
+
+  type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-z0-9]{40}"]]
+  type WalletAddress = String Refined WalletAddressPredicate
 
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData = list.foldLeft(FungibleData(BigDecimal(0), "USD")) { (acc, value) =>
