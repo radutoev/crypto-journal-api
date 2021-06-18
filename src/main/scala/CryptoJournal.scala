@@ -6,14 +6,14 @@ import infrastructure.covalent.CovalentFacade
 import infrastructure.google.FirebasePriceQuoteRepo
 import service.LivePositionService
 
-import com.google.cloud.firestore.FirestoreOptions
-import com.typesafe.config.{Config, ConfigFactory}
+import com.google.cloud.datastore.DatastoreOptions
+import com.typesafe.config.{ Config, ConfigFactory }
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.{ EventLoopGroup, Server }
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{App, ExitCode, Has, Task, URIO, ZIO, ZLayer, console}
+import zio.{ console, App, ExitCode, Has, Task, URIO, ZIO, ZLayer }
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -33,9 +33,7 @@ object CryptoJournal extends App {
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
 
-    val firestoreLayer = ZLayer.fromAcquireRelease(ZIO(FirestoreOptions.getDefaultInstance.getService))(client =>
-      Task(client.close()).ignore
-    )
+    val datastoreLayer = ZIO(DatastoreOptions.getDefaultInstance.toBuilder.build().getService).toLayer
 
     lazy val loggingLayer = {
       val logFormat = "%s"
@@ -44,7 +42,7 @@ object CryptoJournal extends App {
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
-    lazy val priceQuoteRepoLayer = firestoreLayer >>> FirebasePriceQuoteRepo.layer
+    lazy val priceQuoteRepoLayer = datastoreLayer >>> FirebasePriceQuoteRepo.layer
 
     lazy val positionRepoLayer =
       ((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer
