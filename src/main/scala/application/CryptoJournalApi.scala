@@ -5,7 +5,7 @@ import domain.account.UserContext
 import domain.error.WalletError
 import domain.model.WalletAddress
 import domain.position.Position
-import domain.wallet.WalletService
+import domain.wallet.{Wallet, WalletService}
 import service.PositionService
 
 import zio.{Has, ZIO}
@@ -19,4 +19,11 @@ object CryptoJournalApi {
       userId <- UserContext.userId
       _      <- ZIO.serviceWith[WalletService](_.addWallet(userId, address))
     } yield ()
+
+  def getWallets(): ZIO[Has[WalletService] with Has[UserContext], WalletError, List[Wallet]] = {
+    for {
+      userId  <- UserContext.userId
+      wallets <- ZIO.serviceWith[WalletService](_.getWallets(userId))
+    } yield wallets
+  }
 }

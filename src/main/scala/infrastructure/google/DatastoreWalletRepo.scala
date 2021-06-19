@@ -7,19 +7,32 @@ import domain.wallet.{Wallet, WalletRepo}
 import infrastructure.google.DatastoreWalletRepo.WalletKind
 import util.EitherOps
 
+import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, URLayer, Task, ZIO}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import scala.util.Try
+import scala.jdk.CollectionConverters._
 
 final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String]) extends WalletRepo {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
-    getWallet(userId, address).catchSome {
-      case _: WalletNotFound => insertWallet(userId, address)
-    }.unit
+    getWallet(userId, address)
+      .zipRight(ZIO.fail(WalletAddressExists(address)))
+      .catchSome {
+        case _: WalletNotFound => insertWallet(userId, address)
+      }
+  }
+
+  override def getWallets(userId: UserId): IO[WalletError, List[Wallet]] = {
+    val query = Query.newEntityQueryBuilder().setKind(WalletKind).setFilter(PropertyFilter.eq("userId", userId.value)).build()
+    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
+      .mapError {
+        case t: Throwable => WalletsFetchError(userId, t)
+      }
+      .map(results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet })
   }
 
   private def insertWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {

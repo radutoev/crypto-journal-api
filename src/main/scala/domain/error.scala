@@ -12,4 +12,5 @@ object error {
   final case class UnableToAddWallet(address: WalletAddress) extends WalletError
   final case class WalletNotFound(userId: UserId, address: WalletAddress) extends WalletError
   final case class WalletFetchError(userId: UserId, address: WalletAddress, throwable: Throwable) extends WalletError
+  final case class WalletsFetchError(userId: UserId, throwable: Throwable) extends WalletError
 }

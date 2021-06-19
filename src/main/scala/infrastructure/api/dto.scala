@@ -4,6 +4,7 @@ package infrastructure.api
 import domain.model.{FungibleData => CJFungibleData}
 import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
 import domain.pricequote.{PriceQuote => CJPriceQuote, PriceQuotes}
+import domain.wallet.{Wallet => CJWallet}
 
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
@@ -71,6 +72,16 @@ object dto {
         entry.fee.asJson,
         entry.fiatFee.map(_.asJson)
       )
+    }
+  }
+
+  final case class Wallet(userId: String, address: String)
+
+  object Wallet {
+    implicit val walletCodec: JsonCodec[Wallet] = DeriveJsonCodec.gen[Wallet]
+
+    def fromWallet(wallet: CJWallet): Wallet = {
+      Wallet(wallet.userId.value, wallet.address.value)
     }
   }
 

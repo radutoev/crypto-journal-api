@@ -2,14 +2,16 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{UserId, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddressPredicate }
+import domain.error._
 import domain.wallet.WalletService
 import infrastructure.api.dto.Position._
+import infrastructure.api.dto.Wallet._
 import infrastructure.auth.JwtUserContext
 
 import eu.timepit.refined.types.string.NonEmptyString
 import eu.timepit.refined.refineV
-import pdi.jwt.{Jwt, JwtClaim}
+import pdi.jwt.{ Jwt, JwtClaim }
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio._
@@ -28,14 +30,33 @@ object Routes {
   }
 
   private def wallets(userId: UserId) = HttpApp.collectM {
-    case Method.POST -> Root / "wallets" / rawWalletAddress => for {
-      address <- ZIO.fromEither(refineV[WalletAddressPredicate](rawWalletAddress)).orElseFail(BadRequest("Invalid address"))
-      response <- CryptoJournalApi.addWallet(address)
-        .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
-        .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), _ => Response.status(Status.CREATED))
-    } yield response
+    case Method.POST -> Root / "wallets" / rawWalletAddress =>
+      for {
+        address <- ZIO
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
+        response <- CryptoJournalApi
+                     .addWallet(address)
+                     .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
+                     .fold(
+                       {
+                         case WalletAddressExists(address) => Response.status(Status.CONFLICT)
+                         case _                            => Response.status(Status.INTERNAL_SERVER_ERROR)
+                       },
+                       _ => Response.status(Status.CREATED)
+                     )
+      } yield response
 
-//    case Method.GET -> Root / "wallets" =>
+    case Method.GET -> Root / "wallets" =>
+      CryptoJournalApi
+        .getWallets()
+        .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
+        .fold(
+          _ => Response.status(Status.INTERNAL_SERVER_ERROR), {
+            case Nil     => Response.status(Status.NO_CONTENT)
+            case wallets => Response.jsonString(wallets.map(fromWallet).toJson)
+          }
+        )
   }
 
   private def positions(userId: UserId) = HttpApp.collectM {
@@ -57,8 +78,8 @@ object Routes {
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] =
     HttpApp.fromFunction {
       _.getHeader("Authorization")
-//        .flatMap(header => Some(header.value.toString.split("[ ]").last))
-//        .flatMap(jwtDecode) //TODO I need a function that can decode the AUTH0 token
+      //        .flatMap(header => Some(header.value.toString.split("[ ]").last))
+      //        .flatMap(jwtDecode) //TODO I need a function that can decode the AUTH0 token
         .flatMap(_ => Some(NonEmptyString.unsafeFrom("abcdef")))
         .fold[HttpApp[R, E]](fail)(success)
     }
