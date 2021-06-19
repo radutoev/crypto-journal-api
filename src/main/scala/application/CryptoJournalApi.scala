@@ -22,6 +22,13 @@ object CryptoJournalApi {
       _      <- ZIO.serviceWith[WalletService](_.addWallet(userId, address))
     } yield ()
 
+  def removeWallet(address: WalletAddress) = {
+    for {
+      userId <- UserContext.userId
+      _      <- ZIO.serviceWith[WalletService](_.removeWallet(userId, address))
+    } yield ()
+  }
+
   def getWallets(): ZIO[Has[WalletService] with Has[UserContext], WalletError, List[Wallet]] =
     for {
       userId  <- UserContext.userId

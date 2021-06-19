@@ -10,6 +10,8 @@ trait WalletRepo {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]
 
   def getWallets(userId: UserId): IO[WalletError, List[Wallet]]
+
+  def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit]
 }
 
 object WalletRepo {
@@ -18,4 +20,7 @@ object WalletRepo {
 
   def getWallets(userId: UserId): ZIO[Has[WalletRepo], WalletError, List[Wallet]] =
     ZIO.serviceWith[WalletRepo](_.getWallets(userId))
+
+  def removeWallet(userId: UserId, walletAddress: WalletAddress): ZIO[Has[WalletRepo], WalletError, Unit] =
+    ZIO.serviceWith[WalletRepo](_.removeWallet(userId, walletAddress))
 }

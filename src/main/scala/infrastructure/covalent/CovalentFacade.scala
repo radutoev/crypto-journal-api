@@ -17,10 +17,12 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
   override def fetchTransactions(address: WalletAddress): Task[List[Transaction]] =
     for {
       _ <- logger.info(s"Fetching transactions for $address")
+      url = s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&limit=${config.demoTxCount}"
+      _ <- logger.debug(s"Fetching transactions at $url")
       response <- httpClient
                    .send(
                      basicRequest
-                       .get(uri"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&limit=${config.demoTxCount}")
+                       .get(uri"$url")
                        .response(asString)
                    )
       //TODO Better handling of response.
@@ -35,9 +37,11 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
   override def fetchTransaction(txHash: String): Task[Transaction] =
     for {
       _ <- logger.info(s"Fetching transaction $txHash")
+      url = s"${config.baseUrl}/56/transaction_v2/$txHash/?key=${config.key}"
+      _ <- logger.debug(s"Fetching transaction: ${url}")
       response <- httpClient.send(
                    basicRequest
-                     .get(uri"${config.baseUrl}/56/transaction_v2/$txHash/?key=${config.key}")
+                     .get(uri"$url")
                      .response(asString)
                  )
       body <- ZIO

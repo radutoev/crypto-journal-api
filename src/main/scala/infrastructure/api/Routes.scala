@@ -48,6 +48,20 @@ object Routes {
                      )
       } yield response
 
+    case Method.DELETE -> Root / "wallets" / rawWalletAddress =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+        response <- CryptoJournalApi
+          .removeWallet(address)
+          .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
+          .fold(
+            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+            _ => Response.status(Status.OK)
+          )
+      } yield response
+
     case Method.GET -> Root / "wallets" =>
       CryptoJournalApi
         .getWallets()

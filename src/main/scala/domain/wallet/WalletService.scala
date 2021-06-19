@@ -12,6 +12,8 @@ trait WalletService {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]
 
   def getWallets(userId: UserId): IO[WalletError, List[Wallet]]
+
+  def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit]
 }
 
 final case class LiveWalletService(walletRepo: WalletRepo,
@@ -24,6 +26,10 @@ final case class LiveWalletService(walletRepo: WalletRepo,
   }
 
   override def getWallets(userId: UserId): IO[WalletError, List[Wallet]] = walletRepo.getWallets(userId)
+
+  override def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
+    walletRepo.removeWallet(userId, address)
+  }
 }
 
 object LiveWalletService {

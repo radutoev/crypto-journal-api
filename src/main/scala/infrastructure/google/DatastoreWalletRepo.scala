@@ -34,6 +34,13 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
       .map(results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet })
   }
 
+  override def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
+    Task(datastore.delete(userWalletPk(userId, address)))
+      .tapError(err => logger.warn(err.toString))
+      .orElseFail(UnableToRemoveWallet(address))
+      .unit
+  }
+
   private def insertWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
     val entity = Entity.newBuilder(userWalletPk(userId, address)).set("userId", userId.value).set("address", address.value).build()
     Task(datastore.put(entity))
