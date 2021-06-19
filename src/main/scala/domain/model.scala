@@ -6,6 +6,7 @@ import eu.timepit.refined.boolean.And
 import eu.timepit.refined.collection.Size
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.string.MatchesRegex
+import eu.timepit.refined.types.string.NonEmptyString
 
 object model {
   sealed trait State
@@ -25,6 +26,8 @@ object model {
 
   type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-z0-9]{40}"]]
   type WalletAddress = String Refined WalletAddressPredicate
+
+  type UserId = NonEmptyString
 
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData = list.foldLeft(FungibleData(BigDecimal(0), "USD")) { (acc, value) =>

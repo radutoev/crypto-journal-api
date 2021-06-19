@@ -14,4 +14,8 @@ package object util {
         .toInstant(ZoneOffset.UTC)
     }
   }
+
+  implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {
+    def mapLeft(left: Left => Left2) = either.left.map(left)
+  }
 }
