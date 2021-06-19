@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 
-import domain.position.{LivePositionService, LivePositionRepo}
+import domain.position.LivePositionService
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.{DatastoreWalletRepo, FirebasePriceQuoteRepo}
+import infrastructure.google.{DatastoreWalletRepo, DatastorePositionRepo, FirebasePriceQuoteRepo}
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
@@ -42,15 +42,16 @@ object CryptoJournal extends App {
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
+    lazy val covalentFacadeLayer = ((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer)
+
     lazy val priceQuoteRepoLayer = datastoreLayer >>> FirebasePriceQuoteRepo.layer
 
-    lazy val positionRepoLayer =
-      ((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer) >>> LivePositionRepo.layer
+    lazy val positionRepoLayer = datastoreLayer ++ loggingLayer >>> DatastorePositionRepo.layer
 
-    lazy val positionServiceLayer = positionRepoLayer ++ priceQuoteRepoLayer >>> LivePositionService.layer
+    lazy val positionServiceLayer = positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ loggingLayer >>> LivePositionService.layer
 
     lazy val walletServiceLayer =
-      (loggingLayer ++ datastoreLayer >>> DatastoreWalletRepo.layer) ++ loggingLayer >>> LiveWalletService.layer
+      (loggingLayer ++ datastoreLayer >>> DatastoreWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
 
     lazy val applicationServiceLayer = positionServiceLayer ++ walletServiceLayer
 

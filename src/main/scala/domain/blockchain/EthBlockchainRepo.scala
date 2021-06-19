@@ -1,17 +1,19 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import zio.{ Has, Task, ZIO }
+import domain.model.WalletAddress
+
+import zio.{Has, Task, ZIO}
 
 trait EthBlockchainRepo {
-  def fetchTransactions(walletAddress: String): Task[List[Transaction]]
+  def fetchTransactions(address: WalletAddress): Task[List[Transaction]]
 
   def fetchTransaction(txHash: String): Task[Transaction]
 }
 
 object EthBlockchainRepo {
-  def fetchTransactions(walletAddress: String): ZIO[Has[EthBlockchainRepo], Throwable, List[Transaction]] =
-    ZIO.serviceWith[EthBlockchainRepo](_.fetchTransactions(walletAddress))
+  def fetchTransactions(address: WalletAddress): ZIO[Has[EthBlockchainRepo], Throwable, List[Transaction]] =
+    ZIO.serviceWith[EthBlockchainRepo](_.fetchTransactions(address))
 
   def fetchTransaction(txHash: String): ZIO[Has[EthBlockchainRepo], Throwable, Transaction] =
     ZIO.serviceWith[EthBlockchainRepo](_.fetchTransaction(txHash))

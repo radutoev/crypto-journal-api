@@ -2,6 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
 import domain.blockchain.{ EthBlockchainRepo, Transaction }
+import domain.model.WalletAddress
 import infrastructure.covalent.dto.TransactionQueryResponse
 
 import sttp.client3._
@@ -12,20 +13,21 @@ import zio.{ Has, Task, URLayer, ZIO }
 
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
     extends EthBlockchainRepo {
-  override def fetchTransactions(walletAddress: String): Task[List[Transaction]] =
+  //I have a limit at the moment because I use this only for the demo import functionality.
+  override def fetchTransactions(address: WalletAddress): Task[List[Transaction]] =
     for {
-      _ <- logger.info(s"Fetching transactions for $walletAddress")
+      _ <- logger.info(s"Fetching transactions for $address")
       response <- httpClient
                    .send(
                      basicRequest
-                       .get(uri"${config.baseUrl}/56/address/$walletAddress/transactions_v2/?key=${config.key}")
+                       .get(uri"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&limit=${config.demoTxCount}")
                        .response(asString)
                    )
       //TODO Better handling of response.
       slimTransactions <- ZIO
                            .fromEither(response.body)
                            .map(_.fromJson[TransactionQueryResponse])
-                           .map(_.fold[List[Transaction]](err => List.empty, response => response.data.items))
+                           .map(_.fold[List[Transaction]](_ => List.empty, response => response.data.items))
                            .mapError(_ => new RuntimeException("booboo"))
       transactions <- ZIO.foreach(slimTransactions.map(_.hash))(fetchTransaction)
     } yield transactions

@@ -8,4 +8,4 @@ object CryptoJournalConfig {
 
 final case class CryptoJournalConfig(covalent: CovalentConfig)
 
-final case class CovalentConfig(baseUrl: String, key: String)
+final case class CovalentConfig(baseUrl: String, key: String, demoTxCount: Int = 30)
