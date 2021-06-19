@@ -1,19 +1,20 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ EthBlockchainRepo, Transaction }
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.model._
+import domain.position.LivePositionService.findPositions
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import vo.TimeInterval
 
-import zio.logging.{ Logger, Logging }
-import zio.{ Function2ToLayerSyntax, Has, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 
 trait PositionService {
-  def getPositions(walletAddress: String): Task[List[Position]]
+  def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]]
 
   def importPositions(userId: UserId, address: WalletAddress): Task[Unit]
 
@@ -28,8 +29,8 @@ trait PositionService {
 }
 
 object PositionService {
-  def getPositions(walletAddress: String): ZIO[Has[PositionService], Throwable, List[Position]] =
-    ZIO.serviceWith[PositionService](_.getPositions(walletAddress))
+  def getPositions(userId: UserId, address: WalletAddress): ZIO[Has[PositionService], Throwable, List[Position]] =
+    ZIO.serviceWith[PositionService](_.getPositions(userId, address))
 }
 
 final case class LivePositionService(
@@ -38,17 +39,21 @@ final case class LivePositionService(
   blockchainRepo: EthBlockchainRepo,
   logger: Logger[String]
 ) extends PositionService {
-//  override def getPositions(walletAddress: String): Task[List[Position]] =
-//    for {
-//      positions   <- positionRepo.getPositions(walletAddress)
-//      interval    = extractTimeInterval(positions)
-//      priceQuotes <- priceQuoteRepo.getQuotes(interval.get).map(PriceQuotes.apply)
-//      enrichedPositions = positions.map(position =>
-//        position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval())))
-//      )
-//    } yield enrichedPositions
-
-  override def getPositions(walletAddress: String): Task[List[Position]] = ???
+  override def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]] = {
+    for {
+      positions   <- positionRepo.getPositions(userId, address)
+      enrichedPositions <- if(positions.nonEmpty) {
+        val interval = extractTimeInterval(positions)
+        priceQuoteRepo.getQuotes(interval.get)
+          .map(PriceQuotes.apply)
+          .map(priceQuotes => positions.map(position =>
+            position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval())))
+          ))
+      } else {
+        UIO(positions)
+      }
+    } yield enrichedPositions
+  }
 
   //demo for now
   override def importPositions(userId: UserId, address: WalletAddress): Task[Unit] =
@@ -58,6 +63,13 @@ final case class LivePositionService(
       _         <- positionRepo.save(userId, address, positions)
       _         <- logger.info(s"Demo data import complete for ${address.value}")
     } yield ()
+}
+
+object LivePositionService {
+  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Logging, Has[
+    PositionService
+  ]] =
+    (LivePositionService(_, _, _, _)).toLayer
 
   val TransactionTypes = Vector(Buy, Sell)
 
@@ -125,11 +137,4 @@ final case class LivePositionService(
 
   val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx =>
     tx.value.map(value => PositionEntry(tx.transactionType, value, tx.fee, tx.instant))
-}
-
-object LivePositionService {
-  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Logging, Has[
-    PositionService
-  ]] =
-    (LivePositionService(_, _, _, _)).toLayer
 }

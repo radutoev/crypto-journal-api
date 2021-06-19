@@ -5,6 +5,7 @@ import application.CryptoJournalApi
 import domain.model.{ UserId, WalletAddressPredicate }
 import domain.wallet.error._
 import domain.wallet.WalletService
+import domain.position.PositionService
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
 import infrastructure.auth.JwtUserContext
@@ -60,19 +61,25 @@ object Routes {
   }
 
   private def positions(userId: UserId) = HttpApp.collectM {
-    case Method.GET -> Root / "positions" / rawWalletAddress => {
-      CryptoJournalApi
-        .getPositions(rawWalletAddress)
-        .fold(
-          _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-          positions =>
-            if (positions.nonEmpty) {
-              Response.jsonString(positions.map(fromPosition).toJson)
-            } else {
-              Response.status(Status.NO_CONTENT)
-            }
-        )
-    }
+    case Method.GET -> Root / "positions" / rawWalletAddress =>
+      for {
+        address <- ZIO
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
+
+        response <- CryptoJournalApi
+                     .getPositions(address)
+                     .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
+                     .fold(
+                       _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+                       positions =>
+                         if (positions.nonEmpty) {
+                           Response.jsonString(positions.map(fromPosition).toJson)
+                         } else {
+                           Response.status(Status.NO_CONTENT)
+                         }
+                     )
+      } yield response
   }
 
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] =

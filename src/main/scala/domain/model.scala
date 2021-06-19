@@ -13,10 +13,28 @@ object model {
   final case object Open   extends State
   final case object Closed extends State
 
+  object State {
+    def apply(value: String): Either[String, State] =
+      value.trim.toLowerCase match {
+        case "open"   => Right(Open)
+        case "closed" => Right(Closed)
+        case _        => Left(s"Invalid state representation: $value")
+      }
+  }
+
   sealed trait TransactionType
   final case object Unknown extends TransactionType //used as a fallback.
   final case object Buy     extends TransactionType
   final case object Sell    extends TransactionType
+
+  object TransactionType {
+    def apply(value: String): TransactionType =
+      value.trim.toLowerCase match {
+        case "buy"  => Buy
+        case "sell" => Sell
+        case _      => Unknown
+      }
+  }
 
   final case class FungibleData(amount: BigDecimal, currency: String) {
     def add(value: BigDecimal): FungibleData = copy(amount = amount + value)
@@ -25,7 +43,7 @@ object model {
   type Fee = FungibleData
 
   type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-z0-9]{40}"]]
-  type WalletAddress = String Refined WalletAddressPredicate
+  type WalletAddress          = String Refined WalletAddressPredicate
 
   type UserId = NonEmptyString
 
@@ -36,8 +54,9 @@ object model {
   }
 
   implicit class OptionalFungibleDataOps(list: List[Option[FungibleData]]) {
-    def sumFungibleData(): FungibleData = list.collect  {
-      case Some(value) => value
-    }.sumFungibleData()
+    def sumFungibleData(): FungibleData =
+      list.collect {
+        case Some(value) => value
+      }.sumFungibleData()
   }
 }

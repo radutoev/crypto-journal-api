@@ -5,7 +5,7 @@ import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
 import domain.wallet.{Wallet, WalletRepo}
 import domain.wallet.error._
 import infrastructure.google.DatastoreWalletRepo.WalletKind
-import util.EitherOps
+import util.{EitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
@@ -14,7 +14,6 @@ import eu.timepit.refined.refineV
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, URLayer, ZIO}
 
-import scala.util.Try
 import scala.jdk.CollectionConverters._
 
 final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String]) extends WalletRepo {
@@ -59,15 +58,11 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
 
   private val entityToWallet: Entity => Either[InvalidWallet, Wallet] = entity => {
     for {
-      userId <- tryOrMessage(entity.getString("userId"), InvalidWallet("userId does not exist on entity"))
-      address <- tryOrMessage(entity.getString("address"), InvalidWallet("address does not exist on entity"))
+      userId <- tryOrLeft(entity.getString("userId"), InvalidWallet("userId does not exist on entity"))
+      address <- tryOrLeft(entity.getString("address"), InvalidWallet("address does not exist on entity"))
       refinedUserId <- refineV[NonEmpty](userId).mapLeft(_ => InvalidWallet("Invalid userId"))
       refinedAddress <- refineV[WalletAddressPredicate](address).mapLeft(_ => InvalidWallet("Invalid address"))
     } yield Wallet(refinedUserId, refinedAddress)
-  }
-
-  private def tryOrMessage[T, E](f: => T, fail: E): Either[E, T] = {
-    Try(f).toEither.left.map(_ => fail)
   }
 }
 

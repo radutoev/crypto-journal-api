@@ -1,6 +1,7 @@
 package io.softwarechain.cryptojournal
 
 import java.time.{Instant, ZoneId, ZoneOffset}
+import scala.util.Try
 
 package object util {
   implicit class InstantOps(instant: Instant) {
@@ -17,5 +18,9 @@ package object util {
 
   implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {
     def mapLeft(left: Left => Left2) = either.left.map(left)
+  }
+
+  def tryOrLeft[T, E](f: => T, fail: E): Either[E, T] = {
+    Try(f).toEither.left.map(_ => fail)
   }
 }

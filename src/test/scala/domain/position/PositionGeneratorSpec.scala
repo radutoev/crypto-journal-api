@@ -4,7 +4,7 @@ package domain.position
 import domain.blockchain.Transaction
 import domain.model._
 
-import LivePositionRepo.findPositions
+import LivePositionService.findPositions
 
 import zio.json._
 import zio.test.Assertion.{ equalTo, hasSameElementsDistinct }
