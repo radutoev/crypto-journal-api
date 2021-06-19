@@ -1,11 +1,10 @@
 package io.softwarechain.cryptojournal
-package service
+package domain.position
 
-import domain.position._
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import vo.TimeInterval
 
-import zio.{ Function2ToLayerSyntax, Has, Task, URLayer, ZIO }
+import zio.{Function2ToLayerSyntax, Has, Task, URLayer, ZIO}
 
 trait PositionService {
   def getPositions(walletAddress: String): Task[List[Position]]

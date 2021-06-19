@@ -3,10 +3,9 @@ package application
 
 import domain.account.UserContext
 import domain.model.WalletAddress
-import domain.position.Position
+import domain.position.{Position, PositionService}
 import domain.wallet.{Wallet, WalletService}
 import domain.wallet.error.WalletError
-import service.PositionService
 
 import zio.{Has, ZIO}
 
