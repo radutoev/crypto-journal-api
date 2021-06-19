@@ -1,9 +1,9 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.error._
 import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
 import domain.wallet.{Wallet, WalletRepo}
+import domain.wallet.error._
 import infrastructure.google.DatastoreWalletRepo.WalletKind
 import util.EitherOps
 

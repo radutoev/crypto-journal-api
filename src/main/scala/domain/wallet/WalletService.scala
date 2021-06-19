@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.wallet
 
 import domain.model.{UserId, WalletAddress}
-import domain.error.WalletError
+import error.WalletError
 
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, URLayer}

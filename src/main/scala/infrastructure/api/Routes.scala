@@ -3,7 +3,7 @@ package infrastructure.api
 
 import application.CryptoJournalApi
 import domain.model.{ UserId, WalletAddressPredicate }
-import domain.error._
+import domain.wallet.error._
 import domain.wallet.WalletService
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
