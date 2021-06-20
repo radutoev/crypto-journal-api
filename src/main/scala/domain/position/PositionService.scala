@@ -55,7 +55,7 @@ final case class LivePositionService(
     } yield enrichedPositions
   }
 
-  //demo for now
+  //demo for now. TODO maybe I can use ZStream for batching data in the system when doing full imports.
   override def importPositions(userId: UserId, address: WalletAddress): Task[Unit] =
     for {
       _         <- logger.info(s"Importing demo data for ${address.value}")

@@ -1,49 +1,52 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.blockchain.{ EthBlockchainRepo, Transaction }
+import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.model.WalletAddress
 import infrastructure.covalent.dto.TransactionQueryResponse
 
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
+import zio.console.Console
 import zio.json._
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, Task, URLayer, ZIO}
 
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
     extends EthBlockchainRepo {
   //I have a limit at the moment because I use this only for the demo import functionality.
   override def fetchTransactions(address: WalletAddress): Task[List[Transaction]] =
     for {
-      _ <- logger.info(s"Fetching transactions for $address")
+      _   <- logger.info(s"Fetching transactions for $address")
       url = s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&limit=${config.demoTxCount}"
-      _ <- logger.debug(s"Fetching transactions at $url")
       response <- httpClient
                    .send(
                      basicRequest
                        .get(uri"$url")
                        .response(asString)
                    )
+                   .tapError(t => logger.warn(t.getMessage))
       //TODO Better handling of response.
       slimTransactions <- ZIO
                            .fromEither(response.body)
+                           .tapError(s => logger.warn(s))
                            .map(_.fromJson[TransactionQueryResponse])
                            .map(_.fold[List[Transaction]](_ => List.empty, response => response.data.items))
-                           .mapError(_ => new RuntimeException("booboo"))
+                           .mapError(err => new RuntimeException("booboo"))
       transactions <- ZIO.foreach(slimTransactions.map(_.hash))(fetchTransaction)
     } yield transactions
 
   override def fetchTransaction(txHash: String): Task[Transaction] =
     for {
-      _ <- logger.info(s"Fetching transaction $txHash")
+      _   <- logger.info(s"Fetching transaction $txHash")
       url = s"${config.baseUrl}/56/transaction_v2/$txHash/?key=${config.key}"
-      _ <- logger.debug(s"Fetching transaction: ${url}")
-      response <- httpClient.send(
-                   basicRequest
-                     .get(uri"$url")
-                     .response(asString)
-                 )
+      response <- httpClient
+                   .send(
+                     basicRequest
+                       .get(uri"$url")
+                       .response(asString)
+                   )
+                   .tapError(t => logger.warn(t.getMessage))
       body <- ZIO
                .fromEither(response.body)
                .map(_.fromJson[TransactionQueryResponse])

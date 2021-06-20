@@ -1,17 +1,17 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.model.{FungibleData, State, TransactionType, UserId, WalletAddress}
-import domain.position.{Position, PositionEntry, PositionRepo}
+import domain.model._
 import domain.position.error._
+import domain.position.{Position, PositionEntry, PositionRepo}
 import infrastructure.google.DatastorePositionRepo.DemoPositionsKind
 import util.tryOrLeft
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
-import com.google.cloud.datastore.{Datastore, DoubleValue, Entity, EntityValue, FullEntity, ListValue, Query, ReadOption, StringValue, TimestampValue}
-import zio.{Has, Task, URLayer}
+import com.google.cloud.datastore._
 import zio.logging.{Logger, Logging}
+import zio.{Has, Task, URLayer}
 
 import java.time.Instant
 import java.util.UUID
@@ -20,7 +20,7 @@ import scala.jdk.CollectionConverters._
 final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String]) extends PositionRepo {
   override def save(userId: UserId, address: WalletAddress, list: List[Position]): Task[Unit] = {
     val entities = list.map(pos => positionToEntity(pos, userId, address, DemoPositionsKind))
-    Task(datastore.add(entities: _*)).ignore
+    Task(datastore.add(entities: _*)).catchAllCause(cause => logger.error(s"Unable to save positions: ${cause}")).ignore
   }
 
   override def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]] =
@@ -45,7 +45,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       val entries = position.entries.map { entry =>
         EntityValue.of(
           Entity
-            .newBuilder(datastore.newKeyFactory().newKey(UUID.randomUUID().toString))
+            .newBuilder(datastore.newKeyFactory().setKind(DemoPositionsKind).newKey(UUID.randomUUID().toString))
             .set("type", StringValue.of(entry.`type`.toString))
             .set("value", DoubleValue.of(entry.value.amount.doubleValue))
             .set("valueCurrency", StringValue.of(entry.value.currency))
@@ -71,7 +71,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
           TimestampValue
             .of(Timestamp.ofTimeSecondsAndNanos(position.openedAt.getEpochSecond, position.openedAt.getNano))
         )
-        .set("entries", ListValue.newBuilder().set(entries.asJava).setExcludeFromIndexes(true).build())
+        .set("entries", ListValue.newBuilder().set(entries.asJava).build())
 
       if (position.closedAt.isDefined) {
         val closedAt = position.closedAt.get
@@ -115,7 +115,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     val entity = e.get()
     for {
       entryType <- tryOrLeft(
-                    TransactionType(entity.getString("value")),
+                    TransactionType(entity.getString("type")),
                     InvalidRepresentation("Invalid type representation")
                   )
       value <- tryOrLeft(entity.getDouble("value"), InvalidRepresentation("Invalid value representation"))
