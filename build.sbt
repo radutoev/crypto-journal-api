@@ -22,7 +22,6 @@ val root = (project in file("."))
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
     libraryDependencies ++= Seq(
       "com.google.cloud"              % "google-cloud-datastore"  % firestoreVersion,
-      "com.github.jwt-scala"          %% "jwt-core"               % jwtVersion,
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
       "com.softwaremill.sttp.client3" %% "httpclient-backend-zio" % sttpClientVersion,
       "dev.zio"                       %% "zio"                    % zioVersion,
