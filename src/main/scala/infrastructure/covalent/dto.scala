@@ -16,7 +16,7 @@ object dto {
     implicit val encoder: JsonDecoder[TransactionQueryResponse] = DeriveJsonDecoder.gen[TransactionQueryResponse]
   }
 
-  final case class TransactionResponse(quote_currency: Option[String], items: List[Transaction])
+  final case class TransactionResponse(quote_currency: Option[String], items: List[Transaction], pagination: Pagination)
 
   object TransactionResponse {
     implicit val encoder: JsonDecoder[TransactionResponse] = DeriveJsonDecoder.gen[TransactionResponse]

@@ -26,7 +26,7 @@ object CryptoJournal extends App {
       .use(_ => console.putStrLn("Server started on port 8080") *> ZIO.never)
       .provideCustomLayer(prepareEnvironment(config))
 
-  private def prepareEnvironment(config: Config) = {
+  def prepareEnvironment(config: Config) = {
     val configLayer = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
 
     val covalentConfigLayer = configLayer.map(c => Has(c.get.covalent))

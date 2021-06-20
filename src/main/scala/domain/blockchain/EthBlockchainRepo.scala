@@ -3,6 +3,7 @@ package domain.blockchain
 
 import domain.model.WalletAddress
 
+import zio.stream.ZStream
 import zio.{Has, Task, ZIO}
 
 trait EthBlockchainRepo {
