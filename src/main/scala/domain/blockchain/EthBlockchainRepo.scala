@@ -1,6 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
+import domain.blockchain.error.TransactionsGetError
 import domain.model.WalletAddress
 
 import zio.stream.ZStream
@@ -8,6 +9,8 @@ import zio.{Has, Task, ZIO}
 
 trait EthBlockchainRepo {
   def fetchTransactions(address: WalletAddress): Task[List[Transaction]]
+
+  def transactionsStream(address: WalletAddress): ZStream[Any, TransactionsGetError, Transaction]
 
   def fetchTransaction(txHash: String): Task[Transaction]
 }

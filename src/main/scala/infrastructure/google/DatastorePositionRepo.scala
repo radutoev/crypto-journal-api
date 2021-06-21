@@ -62,7 +62,6 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 
       var builder = Entity
         .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
-        .set("userId", StringValue.of(userId.value))
         .set("address", StringValue.of(address.value))
         .set("currency", StringValue.of(position.coin))
         .set("state", StringValue.of(position.state.toString))

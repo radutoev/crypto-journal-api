@@ -2,15 +2,19 @@ package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
 import domain.blockchain.{EthBlockchainRepo, Transaction}
+import domain.blockchain.error._
 import domain.model.WalletAddress
 import infrastructure.covalent.dto.TransactionQueryResponse
 
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.string.Url
+import eu.timepit.refined.refineV
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
 import zio.json._
 import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO, ZManaged}
+import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
 
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
     extends EthBlockchainRepo {
@@ -36,13 +40,13 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
       transactions <- ZIO.foreach(slimTransactions.map(_.hash))(fetchTransaction)
     } yield transactions
 
-  def transactionsStream(address: WalletAddress) = {
+  def transactionsStream(address: WalletAddress): ZStream[Any, TransactionsGetError, Transaction] = {
     ZStream {
       for {
         stateRef <- Ref.make(1).toManaged_
         pull = stateRef.get.flatMap { pageNumber =>
           if(pageNumber > 0) {
-            executeRequest(s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=20")
+            executeRequest(refineV[Url].unsafeFrom(s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=20"))
               .mapError(Some(_))
               .flatMap(txResponse => {
                 if(txResponse.pagination.hasMore) {
@@ -60,20 +64,19 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
   }
 
   // Refined Url
-  def executeRequest(url: String) =
+  def executeRequest(url: String Refined Url) =
     httpClient
       .send(
         basicRequest
-//          .get(uri"${url.value}")
-          .get(uri"$url")
+          .get(uri"${url.value}")
           .response(asString)
       )
       .tapError(t => logger.warn(t.getMessage))
-      .mapError(err => err.getMessage)
-      .flatMap(response => ZIO.fromEither(response.body.map(_.fromJson[TransactionQueryResponse])))
-      .flatMap(either => either.fold(m => ZIO.fail(m), response => {
+      .mapError(err => TransactionsGetError(err.getMessage))
+      .flatMap(response => ZIO.fromEither(response.body.map(_.fromJson[TransactionQueryResponse])).mapError(TransactionsGetError))
+      .flatMap(either => either.fold(m => ZIO.fail(TransactionsGetError(m)), response => {
         if(response.error) {
-          ZIO.fail("error")
+          ZIO.fail(TransactionsGetError(s"Failure fetching transactions: ${response.errorCode}"))
         } else {
           UIO(response.data)
         }

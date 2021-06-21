@@ -22,6 +22,7 @@ final case class LiveWalletService(walletRepo: WalletRepo, positionService: Posi
     walletRepo
       .addWallet(userId, address)
       .zipParRight(
+        //TODO Import positions only if data has not been added for the address.
         positionService
           .importPositions(userId, address)
           .tapCause(cause => logger.error(s"Import failed with $cause"))

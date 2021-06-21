@@ -5,10 +5,11 @@ import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.model._
 import domain.position.LivePositionService.findPositions
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.wallet.error._
 import vo.TimeInterval
 
 import zio.logging.{Logger, Logging}
-import zio.{Has, Task, UIO, URLayer, ZIO}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -56,13 +57,17 @@ final case class LivePositionService(
   }
 
   //demo for now. TODO maybe I can use ZStream for batching data in the system when doing full imports.
-  override def importPositions(userId: UserId, address: WalletAddress): Task[Unit] =
+  override def importPositions(userId: UserId, address: WalletAddress): Task[Unit] = {
     for {
       _         <- logger.info(s"Importing demo data for ${address.value}")
-      positions <- blockchainRepo.fetchTransactions(address).map(findPositions)
-      _         <- positionRepo.save(userId, address, positions)
+      positions <- blockchainRepo.transactionsStream(address)
+        .runCollect
+        .orElseFail(new RuntimeException("sss")) //TODO Replace with domaine error.
+        .map(chunks => findPositions(chunks.toList).take(30)) // TODO Try to optimize so as not to process the entire stream.
+      _         <- positionRepo.save(userId, address, positions).orElseFail(new RuntimeException("sss"))
       _         <- logger.info(s"Demo data import complete for ${address.value}")
     } yield ()
+  }
 }
 
 object LivePositionService {
