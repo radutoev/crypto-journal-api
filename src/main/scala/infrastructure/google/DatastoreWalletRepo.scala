@@ -7,22 +7,27 @@ import domain.wallet.error._
 import infrastructure.google.DatastoreWalletRepo.WalletKind
 import util.{EitherOps, tryOrLeft}
 
+import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
+import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, URLayer, ZIO}
 
+import java.time.Instant
 import scala.jdk.CollectionConverters._
 
-final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String]) extends WalletRepo {
+final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String], clock: Clock.Service) extends WalletRepo {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
-    getWallet(userId, address)
-      .zipRight(ZIO.fail(WalletAddressExists(address)))
-      .catchSome {
-        case _: WalletNotFound => insertWallet(userId, address)
-      }
+    clock.instant.flatMap(instant =>
+      getWallet(userId, address)
+        .zipRight(ZIO.fail(WalletAddressExists(address)))
+        .catchSome {
+          case _: WalletNotFound => insertWallet(userId, address)(instant)
+        }
+    )
   }
 
   override def getWallets(userId: UserId): IO[WalletError, List[Wallet]] = {
@@ -41,8 +46,12 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
       .unit
   }
 
-  private def insertWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
-    val entity = Entity.newBuilder(userWalletPk(userId, address)).set("userId", userId.value).set("address", address.value).build()
+  private def insertWallet(userId: UserId, address: WalletAddress)(timestamp: Instant): IO[WalletError, Unit] = {
+    val entity = Entity.newBuilder(userWalletPk(userId, address))
+      .set("userId", userId.value)
+      .set("address", address.value)
+      .set("addedAt", TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(timestamp.getEpochSecond, timestamp.getNano)))
+      .build()
     Task(datastore.put(entity))
       .tapError(err => logger.warn(err.toString))
       .orElseFail(UnableToAddWallet(address))

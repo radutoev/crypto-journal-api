@@ -19,6 +19,7 @@ import scala.jdk.CollectionConverters._
 
 final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String]) extends PositionRepo {
 
+  //TODO Look into transactions limits, maybe i need to split the list into multiple requests.
   override def save(userId: UserId, address: WalletAddress, list: List[Position]): Task[Unit] = {
     val entities = list.flatMap(pos => positionToEntity(pos, address, Positions))
 
