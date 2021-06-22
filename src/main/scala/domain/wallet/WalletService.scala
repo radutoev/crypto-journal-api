@@ -25,7 +25,7 @@ final case class LiveWalletService(walletRepo: WalletRepo, positionService: Posi
         positionService
           .importPositions(userId, address)
           .tapCause(cause => logger.error(s"Import failed with $cause"))
-          .unlessM(walletRepo.exists(address))
+          .unlessM(positionService.exists(address))
           .forkDaemon
       )
       .unit

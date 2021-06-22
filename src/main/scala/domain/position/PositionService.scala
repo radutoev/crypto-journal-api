@@ -27,6 +27,14 @@ trait PositionService {
       case Nil          => None
     }
   }
+
+  /**
+   * Checks if the system is aware of the given address.
+   *
+   * @param address to lookup
+   * @return true if system is aware of the wallet address, false otherwise.
+   */
+  def exists(address: WalletAddress): Task[Boolean]
 }
 
 object PositionService {
@@ -56,7 +64,6 @@ final case class LivePositionService(
     } yield enrichedPositions
   }
 
-  //demo for now. TODO maybe I can use ZStream for batching data in the system when doing full imports.
   override def importPositions(userId: UserId, address: WalletAddress): Task[Unit] = {
     for {
       _         <- logger.info(s"Importing demo data for ${address.value}")
@@ -68,6 +75,8 @@ final case class LivePositionService(
       _         <- logger.info(s"Demo data import complete for ${address.value}")
     } yield ()
   }
+
+  override def exists(address: WalletAddress): Task[Boolean] = positionRepo.exists(address)
 }
 
 object LivePositionService {
@@ -140,6 +149,10 @@ object LivePositionService {
       case Right(entry) => entry
     }
 
-  val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx =>
-    tx.value.map(value => PositionEntry(tx.transactionType, value, tx.fee, tx.instant))
+  val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {
+    for {
+      value <- tx.value
+      hash <- TransactionHash(tx.hash)
+    } yield PositionEntry(tx.transactionType, value, tx.fee, tx.instant, hash)
+  }
 }

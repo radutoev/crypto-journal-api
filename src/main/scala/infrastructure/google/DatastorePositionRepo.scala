@@ -20,7 +20,7 @@ import scala.jdk.CollectionConverters._
 final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String]) extends PositionRepo {
 
   override def save(userId: UserId, address: WalletAddress, list: List[Position]): Task[Unit] = {
-    val entities = list.map(pos => positionToEntity(pos, userId, address, Positions))
+    val entities = list.map(pos => positionToEntity(pos, address, Positions))
     Task(datastore.add(entities: _*)).catchAllCause(cause => logger.error(s"Unable to save positions: ${cause}")).ignore
   }
 
@@ -51,8 +51,8 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
   }
 
-  private val positionToEntity: (Position, UserId, WalletAddress, String) => Entity =
-    (position, userId, address, kind) => {
+  private val positionToEntity: (Position, WalletAddress, String) => Entity =
+    (position, address, kind) => {
       val entries = position.entries.map { entry =>
         EntityValue.of(
           Entity
@@ -67,6 +67,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
               TimestampValue
                 .of(Timestamp.ofTimeSecondsAndNanos(entry.timestamp.getEpochSecond, entry.timestamp.getNano))
             )
+            .set("hash", entry.txHash.value)
             .build()
         )
       }
@@ -121,7 +122,6 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     }
   }
 
-  //TODO Add the transaction hash as well.
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {
     val entity = e.get()
     for {
@@ -143,7 +143,9 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
                     Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
                     InvalidRepresentation("Invalid timestamp representation")
                   )
-    } yield PositionEntry(entryType, FungibleData(value, currency), FungibleData(feeValue, feeCurrency), timestamp)
+      hash <- tryOrLeft(entity.getString("hash"), InvalidRepresentation("Invalid hash representation"))
+        .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
+    } yield PositionEntry(entryType, FungibleData(value, currency), FungibleData(feeValue, feeCurrency), timestamp, hash)
   }
 }
 

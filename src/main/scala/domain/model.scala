@@ -3,8 +3,9 @@ package domain
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.Size
+import eu.timepit.refined.collection.{NonEmpty, Size}
 import eu.timepit.refined.generic.Equal
+import eu.timepit.refined.refineV
 import eu.timepit.refined.string.MatchesRegex
 import eu.timepit.refined.types.string.NonEmptyString
 
@@ -41,6 +42,14 @@ object model {
   }
 
   type Fee = FungibleData
+
+  type TransactionHash = NonEmptyString
+
+  object TransactionHash {
+    def apply(value: String): Either[String, TransactionHash] = {
+      refineV[NonEmpty](value)
+    }
+  }
 
   type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-z0-9]{40}"]]
   type WalletAddress          = String Refined WalletAddressPredicate

@@ -4,7 +4,7 @@ package infrastructure.google
 import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
 import domain.wallet.{Wallet, WalletRepo}
 import domain.wallet.error._
-import infrastructure.google.DatastoreWalletRepo.{WalletKind, WalletSyncJob}
+import infrastructure.google.DatastoreWalletRepo.WalletKind
 import util.{EitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
