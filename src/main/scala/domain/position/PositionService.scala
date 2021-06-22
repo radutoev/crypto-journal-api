@@ -62,8 +62,8 @@ final case class LivePositionService(
       _         <- logger.info(s"Importing demo data for ${address.value}")
       positions <- blockchainRepo.transactionsStream(address)
         .runCollect
-        .orElseFail(new RuntimeException("sss")) //TODO Replace with domaine error.
-        .map(chunks => findPositions(chunks.toList).take(30)) // TODO Try to optimize so as not to process the entire stream.
+        .orElseFail(new RuntimeException("sss")) //TODO Replace with domain error.
+        .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
       _         <- positionRepo.save(userId, address, positions).orElseFail(new RuntimeException("sss"))
       _         <- logger.info(s"Demo data import complete for ${address.value}")
     } yield ()

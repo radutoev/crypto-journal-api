@@ -4,22 +4,23 @@ package infrastructure.google
 import domain.model._
 import domain.position.error._
 import domain.position.{Position, PositionEntry, PositionRepo}
-import infrastructure.google.DatastorePositionRepo.DemoPositionsKind
+import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import zio.logging.{Logger, Logging}
-import zio.{Has, Task, URLayer}
+import zio.{Has, IO, Task, URLayer}
 
 import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters._
 
 final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String]) extends PositionRepo {
+
   override def save(userId: UserId, address: WalletAddress, list: List[Position]): Task[Unit] = {
-    val entities = list.map(pos => positionToEntity(pos, userId, address, DemoPositionsKind))
+    val entities = list.map(pos => positionToEntity(pos, userId, address, Positions))
     Task(datastore.add(entities: _*)).catchAllCause(cause => logger.error(s"Unable to save positions: ${cause}")).ignore
   }
 
@@ -28,7 +29,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       datastore.run(
         Query
           .newEntityQueryBuilder()
-          .setKind(DemoPositionsKind)
+          .setKind(Positions)
           .setFilter(
             CompositeFilter.and(PropertyFilter.eq("userId", userId.value), PropertyFilter.eq("address", address.value))
           )
@@ -40,12 +41,22 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       .tapError(throwable => logger.warn(throwable.getMessage))
       .map(results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position })
 
+  override def exists(address: WalletAddress): Task[Boolean] = {
+    executeQuery(Query.newKeyQueryBuilder().setKind(PositionSyncJob).setFilter(PropertyFilter.eq("address", address.value)).build())
+      .tapError(err => logger.warn(err.toString))
+      .map(results => results.asScala.nonEmpty)
+  }
+
+  private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] = {
+    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
+  }
+
   private val positionToEntity: (Position, UserId, WalletAddress, String) => Entity =
     (position, userId, address, kind) => {
       val entries = position.entries.map { entry =>
         EntityValue.of(
           Entity
-            .newBuilder(datastore.newKeyFactory().setKind(DemoPositionsKind).newKey(UUID.randomUUID().toString))
+            .newBuilder(datastore.newKeyFactory().setKind(Positions).newKey(UUID.randomUUID().toString))
             .set("type", StringValue.of(entry.`type`.toString))
             .set("value", DoubleValue.of(entry.value.amount.doubleValue))
             .set("valueCurrency", StringValue.of(entry.value.currency))
@@ -110,6 +121,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     }
   }
 
+  //TODO Add the transaction hash as well.
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {
     val entity = e.get()
     for {
@@ -136,7 +148,13 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 }
 
 object DatastorePositionRepo {
-  val DemoPositionsKind = "DemoPositions"
-
   lazy val layer: URLayer[Has[Datastore] with Logging, Has[PositionRepo]] = (DatastorePositionRepo(_, _)).toLayer
+
+  /* Tables */
+
+  val Positions = "Positions"
+
+  //Maintains state of the awareness of the system regarding wallets.
+  // Each wallet has a single entry, and metadata information regarding the latest blockchain sync.
+  val PositionSyncJob: String = "PositionSyncJob"
 }

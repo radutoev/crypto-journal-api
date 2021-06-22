@@ -106,6 +106,7 @@ final case class Position(
   def win(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 }
 
+//TODO Add transaction has on the position entry.
 final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee: Fee, timestamp: Instant) {
   def isBuy(): Boolean = `type` == Buy
 

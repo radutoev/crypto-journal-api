@@ -9,6 +9,14 @@ trait PositionRepo {
   def save(userId: UserId, address: WalletAddress, positions: List[Position]): Task[Unit]
 
   def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]]
+
+  /**
+   * Checks if the system is aware of the given address.
+   *
+   * @param address to lookup
+   * @return true if system is aware of the wallet address, false otherwise.
+   */
+  def exists(address: WalletAddress): Task[Boolean]
 }
 
 object PositionRepo {

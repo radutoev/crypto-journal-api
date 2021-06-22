@@ -4,7 +4,7 @@ package infrastructure.google
 import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
 import domain.wallet.{Wallet, WalletRepo}
 import domain.wallet.error._
-import infrastructure.google.DatastoreWalletRepo.WalletKind
+import infrastructure.google.DatastoreWalletRepo.{WalletKind, WalletSyncJob}
 import util.{EitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
@@ -52,8 +52,8 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
   def getWallet(userId: UserId, address: WalletAddress): IO[WalletError, Wallet] = {
     Task(datastore.get(userWalletPk(userId, address), Seq.empty[ReadOption]: _*))
       .mapError {
-        case ex: DatastoreException => WalletFetchError(userId, address, ex)
-        case t: Throwable => WalletFetchError(userId, address, t)
+        case ex: DatastoreException => WalletFetchError(address, ex)
+        case t: Throwable => WalletFetchError(address, t)
       }
       .flatMap(entity => ZIO.fromOption(Option(entity)).orElseFail(WalletNotFound(userId, address)))
       .flatMap(entity => ZIO.fromEither(entityToWallet(entity)))
@@ -76,5 +76,7 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
 object DatastoreWalletRepo {
   lazy val layer: URLayer[Has[Datastore] with Logging, Has[WalletRepo]] = (DatastoreWalletRepo(_, _)).toLayer
 
+  /* Tables */
+  //Holds the user-wallet mapping
   val WalletKind: String = "Wallet"
 }
