@@ -3,15 +3,15 @@ package infrastructure.google
 
 import domain.model._
 import domain.position.error._
-import domain.position.{Position, PositionEntry, PositionRepo}
+import domain.position.{ Position, PositionEntry, PositionRepo }
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
-import zio.logging.{Logger, Logging}
-import zio.{Has, Task, UIO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, Task, UIO, URLayer }
 
 import java.time.Instant
 import java.util.UUID
@@ -25,7 +25,9 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     val txn = datastore.newTransaction()
     txn.put(entities: _*)
     Task(txn.commit())
-      .catchAllCause(cause => logger.error(s"Unable to save positions: $cause") *> UIO(txn.rollback()))
+      .catchAllCause(cause =>
+        logger.error(s"Unable to save positions: $cause") *> UIO(txn.rollback()).when(txn.isActive)
+      )
       .ignore
   }
 
