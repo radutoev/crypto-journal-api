@@ -11,7 +11,7 @@ import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer}
+import zio.{Has, Task, UIO, URLayer}
 
 import java.time.Instant
 import java.util.UUID
@@ -20,8 +20,13 @@ import scala.jdk.CollectionConverters._
 final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String]) extends PositionRepo {
 
   override def save(userId: UserId, address: WalletAddress, list: List[Position]): Task[Unit] = {
-    val entities = list.map(pos => positionToEntity(pos, address, Positions))
-    Task(datastore.add(entities: _*)).catchAllCause(cause => logger.error(s"Unable to save positions: ${cause}")).ignore
+    val entities = list.flatMap(pos => positionToEntity(pos, address, Positions))
+
+    val txn = datastore.newTransaction()
+    txn.put(entities: _*)
+    Task(txn.commit())
+      .catchAllCause(cause => logger.error(s"Unable to save positions: $cause") *> UIO(txn.rollback()))
+      .ignore
   }
 
   override def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]] =
@@ -37,21 +42,19 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
           .build(),
         Seq.empty[ReadOption]: _*
       )
-    )
-      .tapError(throwable => logger.warn(throwable.getMessage))
+    ).tapError(throwable => logger.warn(throwable.getMessage))
       .map(results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position })
 
-  override def exists(address: WalletAddress): Task[Boolean] = {
-    executeQuery(Query.newKeyQueryBuilder().setKind(PositionSyncJob).setFilter(PropertyFilter.eq("address", address.value)).build())
-      .tapError(err => logger.warn(err.toString))
+  override def exists(address: WalletAddress): Task[Boolean] =
+    executeQuery(
+      Query.newKeyQueryBuilder().setKind(PositionSyncJob).setFilter(PropertyFilter.eq("address", address.value)).build()
+    ).tapError(err => logger.warn(err.toString))
       .map(results => results.asScala.nonEmpty)
-  }
 
-  private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] = {
+  private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-  }
 
-  private val positionToEntity: (Position, WalletAddress, String) => Entity =
+  private val positionToEntity: (Position, WalletAddress, String) => List[Entity] =
     (position, address, kind) => {
       val entries = position.entries.map { entry =>
         EntityValue.of(
@@ -92,7 +95,9 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
         )
       }
 
-      builder.build()
+      builder.build() :: position.entries.map(entry =>
+        Entity.newBuilder(datastore.newKeyFactory().setKind("TransactionHash").newKey(entry.txHash.value)).build()
+      )
     }
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
@@ -144,8 +149,14 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
                     InvalidRepresentation("Invalid timestamp representation")
                   )
       hash <- tryOrLeft(entity.getString("hash"), InvalidRepresentation("Invalid hash representation"))
-        .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
-    } yield PositionEntry(entryType, FungibleData(value, currency), FungibleData(feeValue, feeCurrency), timestamp, hash)
+               .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
+    } yield PositionEntry(
+      entryType,
+      FungibleData(value, currency),
+      FungibleData(feeValue, feeCurrency),
+      timestamp,
+      hash
+    )
   }
 }
 
@@ -154,7 +165,7 @@ object DatastorePositionRepo {
 
   /* Tables */
 
-  val Positions = "Positions"
+  val Positions = "Position"
 
   //Maintains state of the awareness of the system regarding wallets.
   // Each wallet has a single entry, and metadata information regarding the latest blockchain sync.
