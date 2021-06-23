@@ -10,37 +10,52 @@ import util.tryOrLeft
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
+import zio.clock.Clock
 import zio.logging.{ Logger, Logging }
-import zio.{ Has, Task, UIO, URLayer }
+import zio.{ Has, Task, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters._
 
-final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String]) extends PositionRepo {
+final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String], clock: Clock.Service)
+    extends PositionRepo {
 
-  //TODO Look into transactions limits, maybe i need to split the list into multiple requests.
-  override def save(userId: UserId, address: WalletAddress, list: List[Position]): Task[Unit] = {
-    val entities = list.flatMap(pos => positionToEntity(pos, address, Positions))
+  override def save(address: WalletAddress, positions: List[Position]): Task[Unit] = {
+    @inline
+    def saveEntities(list: List[Entity]) =
+      Task(datastore.newTransaction())
+        .bracket(txn => Task(txn.rollback()).when(txn.isActive).ignore) { txn =>
+          Task {
+            val addressLockKey = datastore.newKeyFactory().setKind("AddressImport").newKey(address.value)
+            txn.put(Entity.newBuilder(addressLockKey).build())
+            txn.put(list: _*)
+            txn.delete(addressLockKey)
+            txn.commit()
+          }
+        }
+        .tapError(throwable =>
+          logger.error(s"Error importing positions for ${address.value}") *> logger.error(throwable.getMessage)
+        )
+        .ignore //TODO handle transactions response when doing error handling.
 
-    val txn = datastore.newTransaction()
-    txn.put(entities: _*)
-    Task(txn.commit())
-      .catchAllCause(cause =>
-        logger.error(s"Unable to save positions: $cause") *> UIO(txn.rollback()).when(txn.isActive)
-      )
-      .ignore
+    val entities = positions.map(pos => positionToEntity(pos, address, Positions)).grouped(23).toList
+
+    for {
+      _       <- ZIO.foreach(entities)(saveEntities).ignore
+      instant <- clock.instant
+      _       <- upsertPositionSyncJob(address)(instant)
+      _       <- logger.info(s"Finished importing positions for address ${address.value}")
+    } yield ()
   }
 
-  override def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]] =
+  override def getPositions(address: WalletAddress): Task[List[Position]] =
     Task(
       datastore.run(
         Query
           .newEntityQueryBuilder()
           .setKind(Positions)
-          .setFilter(
-            CompositeFilter.and(PropertyFilter.eq("userId", userId.value), PropertyFilter.eq("address", address.value))
-          )
+          .setFilter(PropertyFilter.eq("address", address.value))
           .addOrderBy(OrderBy.asc("openedAt"))
           .build(),
         Seq.empty[ReadOption]: _*
@@ -54,10 +69,19 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     ).tapError(err => logger.warn(err.toString))
       .map(results => results.asScala.nonEmpty)
 
+  private def upsertPositionSyncJob(address: WalletAddress)(implicit instant: Instant) = Task {
+    datastore.put(
+      Entity
+        .newBuilder(datastore.newKeyFactory().setKind(PositionSyncJob).newKey(address.value))
+        .set("updatedAt", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
+        .build()
+    )
+  }
+
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
 
-  private val positionToEntity: (Position, WalletAddress, String) => List[Entity] =
+  private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {
       val entries = position.entries.map { entry =>
         EntityValue.of(
@@ -98,9 +122,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
         )
       }
 
-      builder.build() :: position.entries.map(entry =>
-        Entity.newBuilder(datastore.newKeyFactory().setKind("TransactionHash").newKey(entry.txHash.value)).build()
-      )
+      builder.build()
     }
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
@@ -164,7 +186,8 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 }
 
 object DatastorePositionRepo {
-  lazy val layer: URLayer[Has[Datastore] with Logging, Has[PositionRepo]] = (DatastorePositionRepo(_, _)).toLayer
+  lazy val layer: URLayer[Has[Datastore] with Logging with Clock, Has[PositionRepo]] =
+    (DatastorePositionRepo(_, _, _)).toLayer
 
   /* Tables */
 

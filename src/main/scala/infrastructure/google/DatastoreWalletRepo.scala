@@ -83,7 +83,7 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
 }
 
 object DatastoreWalletRepo {
-  lazy val layer: URLayer[Has[Datastore] with Logging, Has[WalletRepo]] = (DatastoreWalletRepo(_, _)).toLayer
+  lazy val layer: URLayer[Has[Datastore] with Logging with Clock, Has[WalletRepo]] = (DatastoreWalletRepo(_, _, _)).toLayer
 
   /* Tables */
   //Holds the user-wallet mapping

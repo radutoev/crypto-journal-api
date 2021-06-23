@@ -9,7 +9,7 @@ object dto {
   final case class TransactionQueryResponse(
     data: TransactionResponse,
     error: Boolean,
-    @jsonField("error_code") errorCode: Int
+    @jsonField("error_code") errorCode: Option[Int]
   )
 
   object TransactionQueryResponse {

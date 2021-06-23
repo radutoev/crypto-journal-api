@@ -47,6 +47,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
         pull = stateRef.get.flatMap { pageNumber =>
           if(pageNumber > 0) {
             executeRequest(refineV[Url].unsafeFrom(s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=20"))
+              .tapError(err => logger.warn("Covalent request failed: " + err.message))
               .mapError(Some(_))
               .flatMap(txResponse => {
                 if(txResponse.pagination.hasMore) {
@@ -71,7 +72,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
           .get(uri"${url.value}")
           .response(asString)
       )
-      .tapError(t => logger.warn(t.getMessage))
+      .tapError(t => logger.warn("Covalent request failed: " + t.getMessage))
       .mapError(err => TransactionsGetError(err.getMessage))
       .flatMap(response => ZIO.fromEither(response.body.map(_.fromJson[TransactionQueryResponse])).mapError(TransactionsGetError))
       .flatMap(either => either.fold(m => ZIO.fail(TransactionsGetError(m)), response => {

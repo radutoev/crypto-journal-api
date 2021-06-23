@@ -50,7 +50,7 @@ final case class LivePositionService(
 ) extends PositionService {
   override def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]] = {
     for {
-      positions   <- positionRepo.getPositions(userId, address)
+      positions   <- positionRepo.getPositions(address)
       enrichedPositions <- if(positions.nonEmpty) {
         val interval = extractTimeInterval(positions)
         priceQuoteRepo.getQuotes(interval.get)
@@ -66,12 +66,12 @@ final case class LivePositionService(
 
   override def importPositions(userId: UserId, address: WalletAddress): Task[Unit] = {
     for {
-      _         <- logger.info(s"Importing demo data for ${address.value}")
+      _         <- logger.info(s"Importing data for ${address.value}")
       positions <- blockchainRepo.transactionsStream(address)
         .runCollect
-        .orElseFail(new RuntimeException("sss")) //TODO Replace with domain error.
+        .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
         .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
-      _         <- positionRepo.save(userId, address, positions).orElseFail(new RuntimeException("sss"))
+      _         <- positionRepo.save(address, positions).orElseFail(new RuntimeException("sss"))
       _         <- logger.info(s"Demo data import complete for ${address.value}")
     } yield ()
   }

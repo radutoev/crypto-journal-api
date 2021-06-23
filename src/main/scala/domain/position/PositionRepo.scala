@@ -6,9 +6,9 @@ import domain.model.{UserId, WalletAddress}
 import zio.{Has, Task, ZIO}
 
 trait PositionRepo {
-  def save(userId: UserId, address: WalletAddress, positions: List[Position]): Task[Unit]
+  def save(address: WalletAddress, positions: List[Position]): Task[Unit]
 
-  def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]]
+  def getPositions(address: WalletAddress): Task[List[Position]]
 
   /**
    * Checks if the system is aware of the given address.
@@ -21,8 +21,8 @@ trait PositionRepo {
 
 object PositionRepo {
   def save(userId: UserId, address: WalletAddress, positions: List[Position]): ZIO[Has[PositionRepo], Throwable, Unit] =
-    ZIO.serviceWith[PositionRepo](_.save(userId, address, positions))
+    ZIO.serviceWith[PositionRepo](_.save(address, positions))
 
   def getPositions(userId: UserId, wallet: WalletAddress): ZIO[Has[PositionRepo], Throwable, List[Position]] =
-    ZIO.serviceWith[PositionRepo](_.getPositions(userId, wallet))
+    ZIO.serviceWith[PositionRepo](_.getPositions(wallet))
 }

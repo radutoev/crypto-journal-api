@@ -4,13 +4,14 @@ import domain.position.LivePositionService
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.{DatastoreWalletRepo, DatastorePositionRepo, FirebasePriceQuoteRepo}
+import infrastructure.google.{DatastorePositionRepo, DatastoreWalletRepo, FirebasePriceQuoteRepo}
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
+import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
 import zio.{App, ExitCode, Has, URIO, ZIO, console}
@@ -46,12 +47,12 @@ object CryptoJournal extends App {
 
     lazy val priceQuoteRepoLayer = datastoreLayer >>> FirebasePriceQuoteRepo.layer
 
-    lazy val positionRepoLayer = datastoreLayer ++ loggingLayer >>> DatastorePositionRepo.layer
+    lazy val positionRepoLayer = datastoreLayer ++ loggingLayer ++ Clock.live >>> DatastorePositionRepo.layer
 
     lazy val positionServiceLayer = positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ loggingLayer >>> LivePositionService.layer
 
     lazy val walletServiceLayer =
-      (loggingLayer ++ datastoreLayer >>> DatastoreWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
+      (loggingLayer ++ datastoreLayer ++ Clock.live >>> DatastoreWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
 
     lazy val applicationServiceLayer = positionServiceLayer ++ walletServiceLayer
 
