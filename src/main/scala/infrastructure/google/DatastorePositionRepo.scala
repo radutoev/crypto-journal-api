@@ -3,16 +3,17 @@ package infrastructure.google
 
 import domain.model._
 import domain.position.error._
-import domain.position.{ Position, PositionEntry, PositionRepo }
+import domain.position.{Position, PositionEntry, PositionRepo}
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
+import eu.timepit.refined.types.numeric.PosInt
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, Task, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -49,19 +50,18 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     } yield ()
   }
 
-  override def getPositions(address: WalletAddress): Task[List[Position]] =
-    Task(
-      datastore.run(
-        Query
-          .newEntityQueryBuilder()
-          .setKind(Positions)
-          .setFilter(PropertyFilter.eq("address", address.value))
-          .addOrderBy(OrderBy.asc("openedAt"))
-          .build(),
-        Seq.empty[ReadOption]: _*
-      )
-    ).tapError(throwable => logger.warn(throwable.getMessage))
+  override def getPositions(address: WalletAddress)(implicit count: PosInt): Task[List[Position]] = {
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(Positions)
+      .setFilter(PropertyFilter.eq("address", address.value))
+      .addOrderBy(OrderBy.asc("openedAt"))
+      .setLimit(count.value)
+      .build()
+
+    executeQuery(query)
       .map(results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position })
+  }
 
   override def exists(address: WalletAddress): Task[Boolean] =
     executeQuery(
@@ -80,6 +80,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
+      .tapError(throwable => logger.warn(throwable.getMessage))
 
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {

@@ -5,11 +5,11 @@ import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.model._
 import domain.position.LivePositionService.findPositions
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
-import domain.wallet.error._
 import vo.TimeInterval
 
+import eu.timepit.refined.types.numeric.PosInt
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{Has, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -46,11 +46,12 @@ final case class LivePositionService(
   positionRepo: PositionRepo,
   priceQuoteRepo: PriceQuoteRepo,
   blockchainRepo: EthBlockchainRepo,
+  demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
   override def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]] = {
     for {
-      positions   <- positionRepo.getPositions(address)
+      positions   <- positionRepo.getPositions(address)(demoAccountConfig.maxPositions)
       enrichedPositions <- if(positions.nonEmpty) {
         val interval = extractTimeInterval(positions)
         priceQuoteRepo.getQuotes(interval.get)
@@ -80,10 +81,10 @@ final case class LivePositionService(
 }
 
 object LivePositionService {
-  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Logging, Has[
+  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[DemoAccountConfig] with Logging, Has[
     PositionService
   ]] =
-    (LivePositionService(_, _, _, _)).toLayer
+    (LivePositionService(_, _, _, _, _)).toLayer
 
   val TransactionTypes = Vector(Buy, Sell)
 

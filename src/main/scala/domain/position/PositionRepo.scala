@@ -1,14 +1,15 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{UserId, WalletAddress}
+import domain.model.WalletAddress
 
+import eu.timepit.refined.types.numeric.PosInt
 import zio.{Has, Task, ZIO}
 
 trait PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): Task[Unit]
 
-  def getPositions(address: WalletAddress): Task[List[Position]]
+  def getPositions(address: WalletAddress)(implicit count: PosInt): Task[List[Position]]
 
   /**
    * Checks if the system is aware of the given address.
@@ -20,9 +21,9 @@ trait PositionRepo {
 }
 
 object PositionRepo {
-  def save(userId: UserId, address: WalletAddress, positions: List[Position]): ZIO[Has[PositionRepo], Throwable, Unit] =
+  def save(address: WalletAddress, positions: List[Position]): ZIO[Has[PositionRepo], Throwable, Unit] =
     ZIO.serviceWith[PositionRepo](_.save(address, positions))
 
-  def getPositions(userId: UserId, wallet: WalletAddress): ZIO[Has[PositionRepo], Throwable, List[Position]] =
+  def getPositions(wallet: WalletAddress)(implicit count: PosInt): ZIO[Has[PositionRepo], Throwable, List[Position]] =
     ZIO.serviceWith[PositionRepo](_.getPositions(wallet))
 }
