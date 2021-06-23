@@ -98,8 +98,8 @@ object Routes {
   }
 
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] =
-    HttpApp.fromFunction {
-      _.getHeader(EspForwardedHeaderName)
+    HttpApp.fromFunction { req =>
+      req.getHeader(EspForwardedHeaderName).orElse(req.getHeader(EspForwardedHeaderName.toLowerCase))
         .flatMap(header => AuthHeaderData(header.value.toString).toOption.map(_.id).map(NonEmptyString.unsafeFrom))
         .fold[HttpApp[R, E]](fail)(success)
     }

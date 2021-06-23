@@ -12,20 +12,20 @@ import java.time.Instant
 
 object dto {
   final case class Position(
-    coin: String,
-    state: String,
-    openedAt: Instant,
-    closedAt: Option[Instant],
-    totalCost: Option[FungibleData],
-    totalFees: Option[FungibleData],
-    fiatReturn: Option[FungibleData],
-    totalCoins: FungibleData,
-    entryPrice: Option[PriceQuote],
-    exitPrice: Option[PriceQuote],
-    numberOfExecutions: Int,
-    holdTime: Option[Long],
-    win: Option[String],
-    entries: List[PositionEntry]
+     currency: String,
+     state: String,
+     openedAt: Instant,
+     closedAt: Option[Instant],
+     totalCost: Option[FungibleData],
+     totalFees: Option[FungibleData],
+     fiatReturn: Option[FungibleData],
+     totalCoins: FungibleData,
+     entryPrice: Option[PriceQuote],
+     exitPrice: Option[PriceQuote],
+     numberOfExecutions: Int,
+     holdTime: Option[Long],
+     win: Option[String],
+     entries: List[PositionEntry]
   )
 
   final case class PositionEntry(
@@ -48,7 +48,7 @@ object dto {
 
     def fromPosition(position: CJPosition): Position =
       Position(
-        position.coin,
+        position.currency,
         position.state.toString,
         position.openedAt,
         position.closedAt,

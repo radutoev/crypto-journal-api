@@ -106,7 +106,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       var builder = Entity
         .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
         .set("address", StringValue.of(address.value))
-        .set("currency", StringValue.of(position.coin))
+        .set("currency", StringValue.of(position.currency))
         .set("state", StringValue.of(position.state.toString))
         .set(
           "openedAt",

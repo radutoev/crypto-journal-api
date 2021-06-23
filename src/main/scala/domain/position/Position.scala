@@ -8,12 +8,12 @@ import vo.TimeInterval
 import java.time.{Duration, Instant}
 
 final case class Position(
-  coin: String,
-  state: State,
-  openedAt: Instant,
-  closedAt: Option[Instant],
-  entries: List[PositionEntry],
-  priceQuotes: Option[PriceQuotes] = None //this is kind of a meta information for the aggregate.
+   currency: String,
+   state: State,
+   openedAt: Instant,
+   closedAt: Option[Instant],
+   entries: List[PositionEntry],
+   priceQuotes: Option[PriceQuotes] = None //this is kind of a meta information for the aggregate.
 ) {
   def timeInterval(): TimeInterval = TimeInterval(openedAt, closedAt)
 
@@ -63,7 +63,7 @@ final case class Position(
   def totalCoins(): FungibleData = {
     FungibleData(
       entries.filter(_.isBuy()).map(_.value.amount).sum,
-      coin
+      currency
     )
   }
 
