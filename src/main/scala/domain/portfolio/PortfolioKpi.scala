@@ -25,6 +25,6 @@ final class PortfolioKpi (positions: List[Position]) {
       //.get is safe because win will be present on all closed positions.
       position.win().get
     })
-    winCount / totalCount
+    winCount / totalCount.toFloat
   }
 }
