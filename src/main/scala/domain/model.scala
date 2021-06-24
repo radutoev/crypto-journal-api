@@ -5,6 +5,7 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
 import eu.timepit.refined.collection.{NonEmpty, Size}
 import eu.timepit.refined.generic.Equal
+import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 import eu.timepit.refined.string.MatchesRegex
 import eu.timepit.refined.types.string.NonEmptyString
@@ -55,6 +56,11 @@ object model {
   type WalletAddress          = String Refined WalletAddressPredicate
 
   type UserId = NonEmptyString
+
+  type TradeCountPredicate = NonNegative
+  type TradeCount = Int Refined TradeCountPredicate
+
+  final case class UserWallet(userId: UserId, address: WalletAddress)
 
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData = list.foldLeft(FungibleData(BigDecimal(0), "USD")) { (acc, value) =>

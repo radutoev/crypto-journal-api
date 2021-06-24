@@ -3,6 +3,7 @@ package infrastructure.api
 
 import domain.model.{FungibleData => CJFungibleData}
 import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
+import domain.portfolio.{PortfolioKpi => CJPorfolioKpi}
 import domain.pricequote.{PriceQuote => CJPriceQuote, PriceQuotes}
 import domain.wallet.{Wallet => CJWallet}
 
@@ -99,5 +100,15 @@ object dto {
 
   implicit class OptionPriceQuoteOps(data: Option[CJPriceQuote]) {
     def asJson: Option[PriceQuote] = data.map(_.asJson)
+  }
+
+  final case class PortfolioKpi(tradeCount: Int, winRate: Float, looseRate: Float)
+
+  object PortfolioKpi {
+    implicit val kpiCodec: JsonCodec[PortfolioKpi] = DeriveJsonCodec.gen[PortfolioKpi]
+
+    def apply(kpi: CJPorfolioKpi): PortfolioKpi = {
+      PortfolioKpi(kpi.tradeCount, kpi.winRate, 1 - kpi.winRate)
+    }
   }
 }
