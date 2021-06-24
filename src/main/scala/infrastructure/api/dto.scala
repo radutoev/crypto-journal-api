@@ -25,7 +25,7 @@ object dto {
      exitPrice: Option[PriceQuote],
      numberOfExecutions: Int,
      holdTime: Option[Long],
-     win: Option[String],
+     win: Option[Boolean],
      entries: List[PositionEntry]
   )
 
@@ -61,7 +61,7 @@ object dto {
         position.exitPrice().asJson,
         position.numberOfExecutions(),
         position.holdTime,
-        position.win().map(isWin => if(isWin) "win" else "lose"),
+        position.win(),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty())))
       )
 
@@ -102,7 +102,7 @@ object dto {
     def asJson: Option[PriceQuote] = data.map(_.asJson)
   }
 
-  final case class PortfolioKpi(tradeCount: Int, winRate: Float, looseRate: Float, netReturn: BigDecimal)
+  final case class PortfolioKpi(tradeCount: Int, winRate: Float, loseRate: Float, netReturn: BigDecimal)
 
   object PortfolioKpi {
     implicit val kpiCodec: JsonCodec[PortfolioKpi] = DeriveJsonCodec.gen[PortfolioKpi]
