@@ -26,7 +26,8 @@ object Routes {
   val api = CORS(
     health +++
       authenticate(HttpApp.forbidden("Not allowed!"), wallets) +++
-      authenticate(HttpApp.forbidden("Not allowed!"), positions),
+      authenticate(HttpApp.forbidden("Not allowed!"), positions) +++
+      authenticate(HttpApp.forbidden("Not allowed!"), portfolio),
     config = CORSConfig(anyOrigin = true)
   )
 
@@ -106,6 +107,7 @@ object Routes {
         address <- ZIO
           .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
           .orElseFail(BadRequest("Invalid address"))
+
         response <- CryptoJournalApi
           .getPortfolioKpis(address)
           .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
