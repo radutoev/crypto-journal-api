@@ -1,15 +1,22 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
+import domain.model.FungibleData
 import domain.position.Position
 
-//I have the positions, so I can hardcode the timeline.
 final class PortfolioKpi (positions: List[Position]) {
-  lazy val tradeCount = positions.count(_.isClosed())
+  private lazy val closedPositions = positions.filter(_.isClosed())
+
+  lazy val tradeCount = closedPositions.size
 
   lazy val winRate: Float = {
-    val closedPositions = positions.filter(_.isClosed())
     winRate(closedPositions)
+  }
+
+  lazy val netReturn: FungibleData = {
+    val currency = closedPositions.head.currency
+    val amount = closedPositions.map(_.fiatReturn().get.amount).sum
+    FungibleData(amount, currency)
   }
 
   private def winRate(reference: List[Position]): Float = {

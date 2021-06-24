@@ -102,13 +102,13 @@ object dto {
     def asJson: Option[PriceQuote] = data.map(_.asJson)
   }
 
-  final case class PortfolioKpi(tradeCount: Int, winRate: Float, looseRate: Float)
+  final case class PortfolioKpi(tradeCount: Int, winRate: Float, looseRate: Float, netReturn: BigDecimal)
 
   object PortfolioKpi {
     implicit val kpiCodec: JsonCodec[PortfolioKpi] = DeriveJsonCodec.gen[PortfolioKpi]
 
     def apply(kpi: CJPorfolioKpi): PortfolioKpi = {
-      PortfolioKpi(kpi.tradeCount, kpi.winRate, 1 - kpi.winRate)
+      PortfolioKpi(kpi.tradeCount, kpi.winRate, 1 - kpi.winRate, kpi.netReturn.amount)
     }
   }
 }
