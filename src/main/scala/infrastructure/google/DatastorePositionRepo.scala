@@ -71,7 +71,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       .setKind(Positions)
       .setFilter(CompositeFilter.and(
         PropertyFilter.eq("address", address.value),
-        PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(timeInterval.start.getEpochSecond, timeInterval.start.getNano))
+        PropertyFilter.ge("openedAt", Timestamp.ofTimeSecondsAndNanos(timeInterval.start.getEpochSecond, timeInterval.start.getNano))
       ))
       .addOrderBy(OrderBy.asc("openedAt"))
       .build()

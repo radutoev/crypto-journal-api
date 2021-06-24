@@ -14,6 +14,7 @@ import infrastructure.api.dto.PortfolioKpi
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
+import vo.TimeInterval
 
 import eu.timepit.refined.types.string.NonEmptyString
 import eu.timepit.refined.refineV
@@ -21,6 +22,9 @@ import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio._
 import zio.json._
+
+import java.time.Instant
+import java.time.temporal.{ChronoUnit, TemporalUnit}
 
 object Routes {
   val api = CORS(
@@ -102,14 +106,14 @@ object Routes {
   }
 
   private def portfolio(userId: UserId) = HttpApp.collectM {
-    case Method.GET -> Root / "positions" / rawWalletAddress =>
+    case Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
       for {
         address <- ZIO
           .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
           .orElseFail(BadRequest("Invalid address"))
 
         response <- CryptoJournalApi
-          .getPortfolioKpis(address)
+          .getPortfolioKpis(address, TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Some(Instant.now())))
           .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
           .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), portfolioKpi => Response.jsonString(PortfolioKpi(portfolioKpi).toJson))
       } yield response
