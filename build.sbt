@@ -4,7 +4,7 @@ val refinedVersion    = "0.9.18"
 val sttpClientVersion = "3.3.6" //Used until zio-http fixes its client
 val zioVersion        = "1.0.9"
 val zioConfigVersion  = "1.0.6"
-val zioHttpVersion    = "1.0.0.0-RC17+6-65c86f2b-SNAPSHOT"
+val zioHttpVersion    = "1.0.0.0-RC17+8-8a1d1e37-SNAPSHOT"
 val zioJsonVersion    = "0.1.5"
 val zioLoggingVersion = "0.5.8"
 
