@@ -4,20 +4,20 @@ package domain.portfolio
 import domain.model.UserWallet
 import domain.position.PositionService
 
+import vo.TimeInterval
+
 import zio.clock.Clock
 import zio.{Has, Task, URLayer}
 
 trait KpiService {
-  //TODO Add time-interval.
-  def portfolioKpi(userWallet: UserWallet): Task[PortfolioKpi]
+  def portfolioKpi(userWallet: UserWallet, interval: TimeInterval): Task[PortfolioKpi]
 }
 
 final case class LiveKpiService(positionService: PositionService,
                                 clock: Clock.Service) extends KpiService {
-  override def portfolioKpi(userWallet: UserWallet): Task[PortfolioKpi] = {
+  override def portfolioKpi(userWallet: UserWallet, interval: TimeInterval): Task[PortfolioKpi] = {
     for {
-      instant <- clock.instant
-      positions <- positionService.getPositions(userWallet)
+      positions <- positionService.getPositions(userWallet, interval)
     } yield new PortfolioKpi(positions)
   }
 }

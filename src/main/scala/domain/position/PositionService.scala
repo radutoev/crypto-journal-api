@@ -16,6 +16,8 @@ import scala.collection.mutable.ArrayBuffer
 trait PositionService {
   def getPositions(userWallet: UserWallet): Task[List[Position]]
 
+  def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
+
   def importPositions(userWallet: UserWallet): Task[Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
@@ -49,19 +51,25 @@ final case class LivePositionService(
   logger: Logger[String]
 ) extends PositionService {
   override def getPositions(userWallet: UserWallet): Task[List[Position]] = {
-    for {
-      positions   <- positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
-      enrichedPositions <- if(positions.nonEmpty) {
-        val interval = extractTimeInterval(positions)
-        priceQuoteRepo.getQuotes(interval.get)
-          .map(PriceQuotes.apply)
-          .map(priceQuotes => positions.map(position =>
-            position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval())))
-          ))
-      } else {
-        UIO(positions)
-      }
-    } yield enrichedPositions
+    positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
+      .flatMap(enrichPositions)
+  }
+
+
+  override def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]] = {
+    positionRepo.getPositions(userWallet.address, interval)
+      .flatMap(enrichPositions)
+  }
+
+  private def enrichPositions(positions: List[Position]): Task[List[Position]] = {
+    val interval = extractTimeInterval(positions)
+    if(positions.nonEmpty) {
+      priceQuoteRepo.getQuotes(interval.get)
+        .map(PriceQuotes.apply)
+        .map(priceQuotes => positions.map(position =>
+          position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval())))
+        ))
+    } else UIO(positions)
   }
 
   override def importPositions(userWallet: UserWallet): Task[Unit] = {
