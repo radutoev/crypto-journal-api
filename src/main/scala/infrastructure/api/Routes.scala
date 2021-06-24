@@ -97,7 +97,7 @@ object Routes {
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        positions =>
                          if (positions.nonEmpty) {
-                           Response.jsonString(positions.map(fromPosition).toJson)
+                           Response.jsonString(positions.map(fromPosition).reverse.toJson)
                          } else {
                            Response.status(Status.NO_CONTENT)
                          }

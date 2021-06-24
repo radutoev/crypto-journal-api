@@ -4,6 +4,7 @@ package infrastructure.api
 import domain.model.{FungibleData => CJFungibleData}
 import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
 import domain.pricequote.{PriceQuote => CJPriceQuote, PriceQuotes}
+import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
 import domain.wallet.{Wallet => CJWallet}
 
 import zio.json.{DeriveJsonCodec, JsonCodec}
@@ -99,5 +100,15 @@ object dto {
 
   implicit class OptionPriceQuoteOps(data: Option[CJPriceQuote]) {
     def asJson: Option[PriceQuote] = data.map(_.asJson)
+  }
+
+  final case class PortfolioKpi(tradeCount: Int, winRate: Float, loseRate: Float, netReturn: BigDecimal)
+
+  object PortfolioKpi {
+    implicit val portfolioCodec: JsonCodec[PortfolioKpi] = DeriveJsonCodec.gen[PortfolioKpi]
+
+    def apply(kpi: CJPortfolioKpi): PortfolioKpi = {
+      PortfolioKpi(kpi.tradeCount, kpi.winRate, 1 - kpi.winRate, kpi.netReturn.amount)
+    }
   }
 }
