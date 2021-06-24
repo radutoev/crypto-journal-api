@@ -1,20 +1,21 @@
 package io.softwarechain.cryptojournal
 
 import domain.position.LivePositionService
+import domain.portfolio.LiveKpiService
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.{ DatastorePositionRepo, DatastoreWalletRepo, FirebasePriceQuoteRepo }
+import infrastructure.google.{DatastorePositionRepo, DatastoreWalletRepo, FirebasePriceQuoteRepo}
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{Config, ConfigFactory}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{ EventLoopGroup, Server }
+import zhttp.service.{EventLoopGroup, Server}
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{ console, App, ExitCode, Has, URIO, ZIO }
+import zio.{App, ExitCode, Has, URIO, ZIO, console}
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -56,7 +57,9 @@ object CryptoJournal extends App {
     lazy val walletServiceLayer =
       (loggingLayer ++ datastoreLayer ++ Clock.live >>> DatastoreWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
 
-    lazy val applicationServiceLayer = positionServiceLayer ++ walletServiceLayer
+    lazy val kpiServiceLayer = (positionServiceLayer ++ Clock.live) >>> LiveKpiService.layer
+
+    lazy val applicationServiceLayer = positionServiceLayer ++ walletServiceLayer ++ kpiServiceLayer
 
     zioHttpServerLayer ++ applicationServiceLayer
   }

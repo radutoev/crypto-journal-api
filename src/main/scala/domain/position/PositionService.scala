@@ -7,7 +7,6 @@ import domain.position.LivePositionService.findPositions
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import vo.TimeInterval
 
-import eu.timepit.refined.types.numeric.PosInt
 import zio.logging.{Logger, Logging}
 import zio.{Has, Task, UIO, URLayer, ZIO}
 
@@ -15,9 +14,11 @@ import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 
 trait PositionService {
-  def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]]
+  def getPositions(userWallet: UserWallet): Task[List[Position]]
 
-  def importPositions(userId: UserId, address: WalletAddress): Task[Unit]
+  def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
+
+  def importPositions(userWallet: UserWallet): Task[Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp)
@@ -38,8 +39,8 @@ trait PositionService {
 }
 
 object PositionService {
-  def getPositions(userId: UserId, address: WalletAddress): ZIO[Has[PositionService], Throwable, List[Position]] =
-    ZIO.serviceWith[PositionService](_.getPositions(userId, address))
+  def getPositions(userWallet: UserWallet): ZIO[Has[PositionService], Throwable, List[Position]] =
+    ZIO.serviceWith[PositionService](_.getPositions(userWallet))
 }
 
 final case class LivePositionService(
@@ -49,31 +50,37 @@ final case class LivePositionService(
   demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userId: UserId, address: WalletAddress): Task[List[Position]] = {
-    for {
-      positions   <- positionRepo.getPositions(address)(demoAccountConfig.maxPositions)
-      enrichedPositions <- if(positions.nonEmpty) {
-        val interval = extractTimeInterval(positions)
-        priceQuoteRepo.getQuotes(interval.get)
-          .map(PriceQuotes.apply)
-          .map(priceQuotes => positions.map(position =>
-            position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval())))
-          ))
-      } else {
-        UIO(positions)
-      }
-    } yield enrichedPositions
+  override def getPositions(userWallet: UserWallet): Task[List[Position]] = {
+    positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
+      .flatMap(enrichPositions)
   }
 
-  override def importPositions(userId: UserId, address: WalletAddress): Task[Unit] = {
+
+  override def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]] = {
+    positionRepo.getPositions(userWallet.address, interval)
+      .flatMap(enrichPositions)
+  }
+
+  private def enrichPositions(positions: List[Position]): Task[List[Position]] = {
+    val interval = extractTimeInterval(positions)
+    if(positions.nonEmpty) {
+      priceQuoteRepo.getQuotes(interval.get)
+        .map(PriceQuotes.apply)
+        .map(priceQuotes => positions.map(position =>
+          position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval())))
+        ))
+    } else UIO(positions)
+  }
+
+  override def importPositions(userWallet: UserWallet): Task[Unit] = {
     for {
-      _         <- logger.info(s"Importing data for ${address.value}")
-      positions <- blockchainRepo.transactionsStream(address)
+      _         <- logger.info(s"Importing data for ${userWallet.address.value}")
+      positions <- blockchainRepo.transactionsStream(userWallet.address)
         .runCollect
         .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
         .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
-      _         <- positionRepo.save(address, positions).orElseFail(new RuntimeException("sss"))
-      _         <- logger.info(s"Demo data import complete for ${address.value}")
+      _         <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
+      _         <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
     } yield ()
   }
 

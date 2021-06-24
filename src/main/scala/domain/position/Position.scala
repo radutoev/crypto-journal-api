@@ -104,6 +104,10 @@ final case class Position(
 //  }
 
   def win(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
+
+  def isClosed(): Boolean = closedAt.isDefined
+
+  def isOpen(): Boolean = closedAt.isEmpty
 }
 
 final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee: Fee, timestamp: Instant, txHash: TransactionHash) {
