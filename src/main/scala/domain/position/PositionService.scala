@@ -2,6 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.{EthBlockchainRepo, Transaction}
+import domain.blockchain.error._
 import domain.model._
 import domain.position.error._
 import domain.position.LivePositionService.findPositions
@@ -9,6 +10,7 @@ import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import vo.TimeInterval
 
 import zio.logging.{Logger, Logging}
+import zio.stream.ZStream
 import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
@@ -78,22 +80,17 @@ final case class LivePositionService(
   }
 
   override def importPositions(userWallet: UserWallet): Task[Unit] = {
-    for {
-      _         <- logger.info(s"Importing data for ${userWallet.address.value}")
-      positions <- blockchainRepo.transactionsStream(userWallet.address)
-        .runCollect
-        .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
-        .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
-      _         <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
-      _         <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
-    } yield ()
+    importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
   }
 
   override def importPositions(userWallet: UserWallet, startFrom: Instant): Task[Unit] = {
+    importPositions(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
+  }
+
+  private def importPositions(txStream: ZStream[Any, TransactionsGetError, Transaction])(userWallet: UserWallet): Task[Unit] = {
     for {
       _         <- logger.info(s"Importing data for ${userWallet.address.value}")
-      positions <- blockchainRepo.transactionsStream(userWallet.address, startFrom)
-        .runCollect
+      positions <- txStream.runCollect
         .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
         .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
       _         <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
