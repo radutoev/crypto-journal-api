@@ -49,8 +49,9 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       val latestTxInstant = positions.head.openedAt
 
       for {
-        _       <- ZIO.foreach(entities)(saveEntities).ignore
         instant <- clock.instant
+        _       <- upsertCheckpoint(address)(instant)
+        _       <- ZIO.foreach(entities)(saveEntities).ignore
         _       <- upsertCheckpoint(address, latestTxInstant)(instant)
         _       <- logger.info(s"Finished importing positions for address ${address.value}")
       } yield ()
@@ -136,6 +137,15 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
           "latestTxTimestamp",
           Timestamp.ofTimeSecondsAndNanos(latestTxTimestamp.getEpochSecond, latestTxTimestamp.getNano)
         )
+        .build()
+    )
+  }
+
+  private def upsertCheckpoint(address: WalletAddress)(implicit instant: Instant) = Task {
+    datastore.put(
+      Entity
+        .newBuilder(datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+        .set("timestamp", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
         .build()
     )
   }
