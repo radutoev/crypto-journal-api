@@ -13,7 +13,7 @@ import scala.util.Try
  * @see https://cloud.google.com/endpoints/docs/openapi/authenticating-users-auth0?authuser=2
  */
 //TODO There is also a `claims` property; might need it in the future
-case class AuthHeaderData (id: String, issuer: String, email: Option[String], audiences: List[String])
+case class AuthHeaderData (id: String, issuer: Option[String], email: Option[String], audiences: List[String])
 
 object AuthHeaderData {
   implicit val authHeaderDataCode: JsonDecoder[AuthHeaderData] = DeriveJsonDecoder.gen[AuthHeaderData]

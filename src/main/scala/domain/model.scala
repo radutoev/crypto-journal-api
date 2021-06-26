@@ -52,7 +52,7 @@ object model {
     }
   }
 
-  type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-z0-9]{40}"]]
+  type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-zA-Z0-9]{40}"]]
   type WalletAddress          = String Refined WalletAddressPredicate
 
   type UserId = NonEmptyString

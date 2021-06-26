@@ -3,28 +3,28 @@ package infrastructure.api
 
 import application.CryptoJournalApi
 import domain.model.{UserId, WalletAddressPredicate}
-import domain.wallet.error._
-import domain.wallet.WalletService
 import domain.portfolio.KpiService
 import domain.position.PositionService
+import domain.wallet.WalletService
+import domain.wallet.error._
+import infrastructure.api.dto.PortfolioKpi
+import infrastructure.api.dto.PortfolioKpi._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.PortfolioKpi
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
 import vo.TimeInterval
 
-import eu.timepit.refined.types.string.NonEmptyString
 import eu.timepit.refined.refineV
+import eu.timepit.refined.types.string.NonEmptyString
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio._
 import zio.json._
 
 import java.time.Instant
-import java.time.temporal.{ChronoUnit, TemporalUnit}
+import java.time.temporal.ChronoUnit
 
 object Routes {
   val api = CORS(
@@ -43,7 +43,7 @@ object Routes {
     case Method.POST -> Root / "wallets" / rawWalletAddress =>
       for {
         address <- ZIO
-                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress.toLowerCase))
                     .orElseFail(BadRequest("Invalid address"))
         response <- CryptoJournalApi
                      .addWallet(address)

@@ -22,12 +22,16 @@ final case class LiveWalletService(walletRepo: WalletRepo, positionService: Posi
     val userWallet = UserWallet(userId, address)
     walletRepo
       .addWallet(userId, address)
-      .zipParRight(
-        positionService
-          .importPositions(userWallet)
-          .unlessM(positionService.exists(address))
-          .forkDaemon
-      )
+      .zipParRight {
+        positionService.exists(address).flatMap { positionsFound =>
+          if(positionsFound) {
+            positionService
+              .importPositions(userWallet)
+          } else {
+            logger.debug(s"Positions already imported for ${address.value}")
+          }
+        }.forkDaemon
+      }
       .unit
   }
 
