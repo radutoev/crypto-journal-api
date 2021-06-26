@@ -43,30 +43,14 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
     } yield transactions
 
   def transactionsStream(address: WalletAddress): ZStream[Any, TransactionsGetError, Transaction] = {
-    ZStream {
-      for {
-        stateRef <- Ref.make(1).toManaged_
-        pull = stateRef.get.flatMap { pageNumber =>
-          if(pageNumber > 0) {
-            executeRequest(refineV[Url].unsafeFrom(s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=20"))
-              .tapError(err => logger.warn("Covalent request failed: " + err.message))
-              .mapError(Some(_))
-              .flatMap(txResponse => {
-                if(txResponse.pagination.hasMore) {
-                  stateRef.set(pageNumber + 1) *> UIO(Chunk.fromIterable(txResponse.items))
-                } else {
-                  stateRef.set(0) *> UIO(Chunk.fromIterable(txResponse.items))
-                }
-              })
-          } else {
-            IO.fail(None)
-          }
-        }
-      } yield pull
-    }
+    txStream(address, _ => true)
   }
 
   override def transactionsStream(address: WalletAddress, startFrom: Instant): ZStream[Any, TransactionsGetError, Transaction] = {
+    txStream(address, tx => tx.instant.compareTo(startFrom) > 0)
+  }
+
+  private def txStream(address: WalletAddress, predicate: Transaction => Boolean): ZStream[Any, TransactionsGetError, Transaction] = {
     ZStream {
       for {
         stateRef <- Ref.make(1).toManaged_
@@ -76,7 +60,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
               .tapError(err => logger.warn("Covalent request failed: " + err.message))
               .mapError(Some(_))
               .flatMap(txResponse => {
-                val items = txResponse.items.filter(tx => tx.instant.compareTo(startFrom) > 0)
+                val items = txResponse.items.filter(predicate)
                 if(txResponse.pagination.hasMore && items.nonEmpty) {
                   stateRef.set(pageNumber + 1) *> UIO(Chunk.fromIterable(items))
                 } else {
