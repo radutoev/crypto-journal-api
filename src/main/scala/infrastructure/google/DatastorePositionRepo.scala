@@ -3,18 +3,18 @@ package infrastructure.google
 
 import domain.model._
 import domain.position.error._
-import domain.position.{Position, PositionEntry, PositionRepo}
+import domain.position.{ Checkpoint, Position, PositionEntry, PositionRepo }
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import eu.timepit.refined.types.numeric.PosInt
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -43,12 +43,18 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 
     val entities = positions.map(pos => positionToEntity(pos, address, Positions)).grouped(23).toList
 
-    for {
-      _       <- ZIO.foreach(entities)(saveEntities).ignore
-      instant <- clock.instant
-      _       <- upsertPositionSyncJob(address)(instant)
-      _       <- logger.info(s"Finished importing positions for address ${address.value}")
-    } yield ()
+    if (positions.isEmpty) {
+      logger.debug(s"No positions to import for ${address.value}")
+    } else {
+      val latestTxInstant = positions.head.openedAt
+
+      for {
+        _       <- ZIO.foreach(entities)(saveEntities).ignore
+        instant <- clock.instant
+        _       <- upsertCheckpoint(address, latestTxInstant)(instant)
+        _       <- logger.info(s"Finished importing positions for address ${address.value}")
+      } yield ()
+    }
   }
 
   override def getPositions(address: WalletAddress)(implicit count: PosInt): Task[List[Position]] = {
@@ -69,10 +75,15 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     val query = Query
       .newEntityQueryBuilder()
       .setKind(Positions)
-      .setFilter(CompositeFilter.and(
-        PropertyFilter.eq("address", address.value),
-        PropertyFilter.ge("openedAt", Timestamp.ofTimeSecondsAndNanos(timeInterval.start.getEpochSecond, timeInterval.start.getNano))
-      ))
+      .setFilter(
+        CompositeFilter.and(
+          PropertyFilter.eq("address", address.value),
+          PropertyFilter.ge(
+            "openedAt",
+            Timestamp.ofTimeSecondsAndNanos(timeInterval.start.getEpochSecond, timeInterval.start.getNano)
+          )
+        )
+      )
       .addOrderBy(OrderBy.asc("openedAt"))
       .build()
     executeQuery(query)
@@ -81,15 +92,48 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 
   override def exists(address: WalletAddress): Task[Boolean] =
     executeQuery(
-      Query.newKeyQueryBuilder().setKind(PositionSyncJob).setFilter(PropertyFilter.eq("address", address.value)).build()
+      Query
+        .newKeyQueryBuilder()
+        .setKind(CheckpointTable)
+        .setFilter(PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value)))
+        .build()
     ).tapError(err => logger.warn(err.toString))
       .map(results => results.asScala.nonEmpty)
 
-  private def upsertPositionSyncJob(address: WalletAddress)(implicit instant: Instant) = Task {
+  override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] =
+    executeQuery(
+      Query
+        .newEntityQueryBuilder()
+        .setKind(CheckpointTable)
+        .setFilter(PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value)))
+        .build()
+    ).tapError(err => logger.warn(err.getMessage))
+      .mapError(throwable => CheckpointFetchError(address, throwable))
+      .flatMap { results =>
+        val checkpoints = results.asScala
+        if (checkpoints.nonEmpty) {
+          val entity = checkpoints.next()
+          UIO(
+            Checkpoint(
+              address,
+              Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
+              Instant.ofEpochSecond(entity.getTimestamp("latestTxTimestamp").getSeconds)
+            )
+          )
+        } else {
+          ZIO.fail(CheckpointNotFound(address))
+        }
+      }
+
+  private def upsertCheckpoint(address: WalletAddress, latestTxTimestamp: Instant)(implicit instant: Instant) = Task {
     datastore.put(
       Entity
-        .newBuilder(datastore.newKeyFactory().setKind(PositionSyncJob).newKey(address.value))
-        .set("updatedAt", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
+        .newBuilder(datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+        .set("timestamp", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
+        .set(
+          "latestTxTimestamp",
+          Timestamp.ofTimeSecondsAndNanos(latestTxTimestamp.getEpochSecond, latestTxTimestamp.getNano)
+        )
         .build()
     )
   }
@@ -212,5 +256,5 @@ object DatastorePositionRepo {
 
   //Maintains state of the awareness of the system regarding wallets.
   // Each wallet has a single entry, and metadata information regarding the latest blockchain sync.
-  val PositionSyncJob: String = "PositionSyncJob"
+  val CheckpointTable: String = "Checkpoint"
 }

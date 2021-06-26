@@ -16,6 +16,8 @@ import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
 import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
 
+import java.time.Instant
+
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
     extends EthBlockchainRepo {
   //I have a limit at the moment because I use this only for the demo import functionality.
@@ -54,6 +56,31 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                   stateRef.set(pageNumber + 1) *> UIO(Chunk.fromIterable(txResponse.items))
                 } else {
                   stateRef.set(0) *> UIO(Chunk.fromIterable(txResponse.items))
+                }
+              })
+          } else {
+            IO.fail(None)
+          }
+        }
+      } yield pull
+    }
+  }
+
+  override def transactionsStream(address: WalletAddress, startFrom: Instant): ZStream[Any, TransactionsGetError, Transaction] = {
+    ZStream {
+      for {
+        stateRef <- Ref.make(1).toManaged_
+        pull = stateRef.get.flatMap { pageNumber =>
+          if(pageNumber > 0) {
+            executeRequest(refineV[Url].unsafeFrom(s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=20"))
+              .tapError(err => logger.warn("Covalent request failed: " + err.message))
+              .mapError(Some(_))
+              .flatMap(txResponse => {
+                val items = txResponse.items.filter(tx => tx.instant.compareTo(startFrom) > 0)
+                if(txResponse.pagination.hasMore && items.nonEmpty) {
+                  stateRef.set(pageNumber + 1) *> UIO(Chunk.fromIterable(items))
+                } else {
+                  stateRef.set(0) *> UIO(Chunk.fromIterable(items))
                 }
               })
           } else {

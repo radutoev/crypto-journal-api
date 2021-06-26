@@ -7,10 +7,14 @@ import domain.model.WalletAddress
 import zio.stream.ZStream
 import zio.{Has, Task, ZIO}
 
+import java.time.Instant
+
 trait EthBlockchainRepo {
   def fetchTransactions(address: WalletAddress): Task[List[Transaction]]
 
   def transactionsStream(address: WalletAddress): ZStream[Any, TransactionsGetError, Transaction]
+
+  def transactionsStream(address: WalletAddress, startFrom: Instant): ZStream[Any, TransactionsGetError, Transaction]
 
   def fetchTransaction(txHash: String): Task[Transaction]
 }

@@ -2,11 +2,11 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model.WalletAddress
-
+import domain.position.error._
 import vo.TimeInterval
 
 import eu.timepit.refined.types.numeric.PosInt
-import zio.{Has, Task, ZIO}
+import zio.{Has, IO, Task, ZIO}
 
 trait PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): Task[Unit]
@@ -22,6 +22,8 @@ trait PositionRepo {
    * @return true if system is aware of the wallet address, false otherwise.
    */
   def exists(address: WalletAddress): Task[Boolean]
+
+  def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint]
 }
 
 object PositionRepo {

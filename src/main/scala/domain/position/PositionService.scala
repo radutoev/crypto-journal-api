@@ -3,12 +3,13 @@ package domain.position
 
 import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.model._
+import domain.position.error._
 import domain.position.LivePositionService.findPositions
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import vo.TimeInterval
 
 import zio.logging.{Logger, Logging}
-import zio.{Has, Task, UIO, URLayer, ZIO}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -19,6 +20,8 @@ trait PositionService {
   def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
 
   def importPositions(userWallet: UserWallet): Task[Unit]
+
+  def importPositions(userWallet: UserWallet, startingFrom: Instant): Task[Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp)
@@ -36,6 +39,8 @@ trait PositionService {
    * @return true if system is aware of the wallet address, false otherwise.
    */
   def exists(address: WalletAddress): Task[Boolean]
+
+  def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint]
 }
 
 object PositionService {
@@ -84,7 +89,21 @@ final case class LivePositionService(
     } yield ()
   }
 
+  override def importPositions(userWallet: UserWallet, startFrom: Instant): Task[Unit] = {
+    for {
+      _         <- logger.info(s"Importing data for ${userWallet.address.value}")
+      positions <- blockchainRepo.transactionsStream(userWallet.address, startFrom)
+        .runCollect
+        .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
+        .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
+      _         <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
+      _         <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
+    } yield ()
+  }
+
   override def exists(address: WalletAddress): Task[Boolean] = positionRepo.exists(address)
+
+  override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] = positionRepo.getCheckpoint(address)
 }
 
 object LivePositionService {

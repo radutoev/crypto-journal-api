@@ -15,6 +15,7 @@ trait KpiService {
 
 final case class LiveKpiService(positionService: PositionService,
                                 clock: Clock.Service) extends KpiService {
+  //TODO Add error domain, and handle empty positions case with NoData error or something.
   override def portfolioKpi(userWallet: UserWallet, interval: TimeInterval): Task[PortfolioKpi] = {
     for {
       positions <- positionService.getPositions(userWallet, interval)
