@@ -3,7 +3,8 @@ package application
 
 import domain.account.UserContext
 import domain.model._
-import domain.position.{Position, PositionService}
+import domain.position.{PositionService, Positions}
+import domain.position.error.PositionError
 import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.wallet.{Wallet, WalletService}
 import domain.wallet.error.WalletError
@@ -12,7 +13,7 @@ import vo.TimeInterval
 import zio.{Has, ZIO}
 
 object CryptoJournalApi {
-  def getPositions(address: WalletAddress): ZIO[Has[PositionService] with Has[UserContext], Throwable, List[Position]] =
+  def getPositions(address: WalletAddress): ZIO[Has[PositionService] with Has[UserContext], PositionError, Positions] =
     for {
       userId    <- UserContext.userId
       positions <- ZIO.serviceWith[PositionService](_.getPositions(UserWallet(userId, address)))

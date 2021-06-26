@@ -17,7 +17,7 @@ import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 
 trait PositionService {
-  def getPositions(userWallet: UserWallet): Task[List[Position]]
+  def getPositions(userWallet: UserWallet): IO[PositionError, Positions]
 
   def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
 
@@ -46,7 +46,7 @@ trait PositionService {
 }
 
 object PositionService {
-  def getPositions(userWallet: UserWallet): ZIO[Has[PositionService], Throwable, List[Position]] =
+  def getPositions(userWallet: UserWallet): ZIO[Has[PositionService], PositionError, Positions] =
     ZIO.serviceWith[PositionService](_.getPositions(userWallet))
 }
 
@@ -57,11 +57,14 @@ final case class LivePositionService(
   demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: UserWallet): Task[List[Position]] = {
-    positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
-      .flatMap(enrichPositions)
+  override def getPositions(userWallet: UserWallet): IO[PositionError, Positions] = {
+    for {
+      positions <- positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
+        .flatMap(enrichPositions)
+        .orElseFail(PositionsFetchError(userWallet.address))
+      checkpoint <- positionRepo.getCheckpoint(userWallet.address)
+    } yield Positions(positions, checkpoint.latestTxTimestamp)
   }
-
 
   override def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]] = {
     positionRepo.getPositions(userWallet.address, interval)

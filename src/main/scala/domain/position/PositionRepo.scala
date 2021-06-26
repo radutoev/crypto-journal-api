@@ -11,7 +11,7 @@ import zio.{Has, IO, Task, ZIO}
 trait PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): Task[Unit]
 
-  def getPositions(address: WalletAddress)(implicit count: PosInt): Task[List[Position]]
+  def getPositions(address: WalletAddress)(implicit count: PosInt): IO[PositionError, List[Position]]
 
   def getPositions(address: WalletAddress, timeInterval: TimeInterval): Task[List[Position]]
 
@@ -30,6 +30,6 @@ object PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): ZIO[Has[PositionRepo], Throwable, Unit] =
     ZIO.serviceWith[PositionRepo](_.save(address, positions))
 
-  def getPositions(wallet: WalletAddress)(implicit count: PosInt): ZIO[Has[PositionRepo], Throwable, List[Position]] =
+  def getPositions(wallet: WalletAddress)(implicit count: PosInt): ZIO[Has[PositionRepo], PositionError, List[Position]] =
     ZIO.serviceWith[PositionRepo](_.getPositions(wallet))
 }

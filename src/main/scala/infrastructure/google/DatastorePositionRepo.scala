@@ -57,7 +57,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     }
   }
 
-  override def getPositions(address: WalletAddress)(implicit count: PosInt): Task[List[Position]] = {
+  override def getPositions(address: WalletAddress)(implicit count: PosInt): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
       .setKind(Positions)
@@ -68,6 +68,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 
     executeQuery(query)
       .map(results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position })
+      .orElseFail(PositionsFetchError(address))
   }
 
   //TODO How to include end?
@@ -117,7 +118,8 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
             Checkpoint(
               address,
               Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
-              Instant.ofEpochSecond(entity.getTimestamp("latestTxTimestamp").getSeconds)
+              if(entity.contains("latestTxTimestamp")) Some(Instant.ofEpochSecond(entity.getTimestamp("latestTxTimestamp").getSeconds))
+              else None
             )
           )
         } else {

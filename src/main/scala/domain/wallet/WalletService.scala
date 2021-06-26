@@ -4,10 +4,10 @@ package domain.wallet
 import domain.model.{UserId, UserWallet, WalletAddress}
 import domain.position.PositionService
 import domain.position.error._
+import domain.wallet.error.WalletError
 
-import error.WalletError
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, UIO, URLayer}
+import zio.{Has, IO, Task, URLayer}
 
 trait WalletService {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]
@@ -24,17 +24,23 @@ final case class LiveWalletService(walletRepo: WalletRepo, positionService: Posi
     walletRepo
       .addWallet(userId, address)
       .zipParRight {
-        positionService.getCheckpoint(address).foldM(
-          {
-            case CheckpointNotFound(address) =>
-              logger.debug(s"No checkpoint found for ${address.value} Performing full import...") *>
-                positionService.importPositions(userWallet)
-            case _ => logger.error(s"Unable to fetch latest checkpoint. Aborting address ${address.value} import")
-          },
-          checkpoint =>
-            logger.debug(s"Importing positions starting from ${checkpoint.latestTxTimestamp}") *>
-              positionService.importPositions(userWallet, checkpoint.latestTxTimestamp)
-        ).forkDaemon
+        positionService
+          .getCheckpoint(address)
+          .foldM(
+            {
+              case CheckpointNotFound(address) =>
+                logger.debug(s"No checkpoint found for ${address.value} Performing full import...") *>
+                  positionService.importPositions(userWallet)
+              case _ => logger.error(s"Unable to fetch latest checkpoint. Aborting address ${address.value} import")
+            },
+            checkpoint =>
+              checkpoint.latestTxTimestamp.fold[Task[Unit]](logger.debug("Import job currently running. Skipping..."))(
+                timestamp =>
+                  logger.debug(s"Importing positions starting from ${checkpoint.latestTxTimestamp}") *>
+                    positionService.importPositions(userWallet, timestamp)
+              )
+          )
+          .forkDaemon
       }
       .unit
   }

@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{UserId, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.PositionService
 import domain.wallet.WalletService
@@ -60,15 +60,15 @@ object Routes {
     case Method.DELETE -> Root / "wallets" / rawWalletAddress =>
       for {
         address <- ZIO
-          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-          .orElseFail(BadRequest("Invalid address"))
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
         response <- CryptoJournalApi
-          .removeWallet(address)
-          .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
-          .fold(
-            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-            _ => Response.status(Status.OK)
-          )
+                     .removeWallet(address)
+                     .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
+                     .fold(
+                       _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+                       _ => Response.status(Status.OK)
+                     )
       } yield response
 
     case Method.GET -> Root / "wallets" =>
@@ -96,8 +96,16 @@ object Routes {
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        positions =>
-                         if (positions.nonEmpty) {
-                           Response.jsonString(positions.map(fromPosition).reverse.toJson)
+                         if (positions.items.nonEmpty) {
+                           if (positions.lastSync.isDefined) {
+                             Response.http(
+                               status = Status.OK,
+                               headers = List(Header("X-CoinLogger-LatestSync", positions.lastSync.get.toString), Header("Content-Type", "application/json")),
+                               content = HttpData.CompleteData(Chunk.fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET)))
+                             )
+                           } else {
+                             Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
+                           }
                          } else {
                            Response.status(Status.NO_CONTENT)
                          }
@@ -109,19 +117,27 @@ object Routes {
     case Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
       for {
         address <- ZIO
-          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-          .orElseFail(BadRequest("Invalid address"))
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
 
         response <- CryptoJournalApi
-          .getPortfolioKpis(address, TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Some(Instant.now())))
-          .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
-          .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), portfolioKpi => Response.jsonString(PortfolioKpi(portfolioKpi).toJson))
+                     .getPortfolioKpis(
+                       address,
+                       TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Some(Instant.now()))
+                     )
+                     .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
+                     .fold(
+                       _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+                       portfolioKpi => Response.jsonString(PortfolioKpi(portfolioKpi).toJson)
+                     )
       } yield response
   }
 
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {
     HttpApp.fromFunction { req =>
-      req.getHeader(EspForwardedHeaderName).orElse(req.getHeader(EspForwardedHeaderName.toLowerCase))
+      req
+        .getHeader(EspForwardedHeaderName)
+        .orElse(req.getHeader(EspForwardedHeaderName.toLowerCase))
         .flatMap(header => AuthHeaderData(header.value.toString).toOption.map(_.id).map(NonEmptyString.unsafeFrom))
         .fold[HttpApp[R, E]](fail)(success)
     }

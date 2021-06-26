@@ -2,9 +2,9 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import domain.model.{FungibleData => CJFungibleData}
-import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
-import domain.pricequote.{PriceQuote => CJPriceQuote, PriceQuotes}
 import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
+import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
+import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
 
 import zio.json.{DeriveJsonCodec, JsonCodec}
@@ -12,6 +12,8 @@ import zio.json.{DeriveJsonCodec, JsonCodec}
 import java.time.Instant
 
 object dto {
+  final case class Positions(positions: List[Position], lastSync: Option[Instant])
+
   final case class Position(
      currency: String,
      state: String,
