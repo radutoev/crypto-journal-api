@@ -25,10 +25,10 @@ final case class LiveWalletService(walletRepo: WalletRepo, positionService: Posi
       .zipParRight {
         positionService.exists(address).flatMap { positionsFound =>
           if(positionsFound) {
+            logger.debug(s"Positions already imported for ${address.value}")
+          } else {
             positionService
               .importPositions(userWallet)
-          } else {
-            logger.debug(s"Positions already imported for ${address.value}")
           }
         }.forkDaemon
       }
