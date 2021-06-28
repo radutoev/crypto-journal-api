@@ -26,7 +26,8 @@ object dto {
      numberOfExecutions: Int,
      holdTime: Option[Long],
      win: Option[Boolean],
-     entries: List[PositionEntry]
+     entries: List[PositionEntry],
+     id: Option[String]
   )
 
   final case class PositionEntry(
@@ -62,7 +63,8 @@ object dto {
         position.numberOfExecutions(),
         position.holdTime,
         position.win().map(isWin => if(isWin) true else false),
-        position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty())))
+        position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
+        position.id.map(_.value)
       )
 
     def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry = {
