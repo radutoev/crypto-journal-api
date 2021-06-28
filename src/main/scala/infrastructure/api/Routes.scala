@@ -4,6 +4,8 @@ package infrastructure.api
 import application.CryptoJournalApi
 import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
+import domain.position.error._
+import domain.position.Position.PositionIdPredicate
 import domain.position.PositionService
 import domain.wallet.WalletService
 import domain.wallet.error._
@@ -84,7 +86,8 @@ object Routes {
   }
 
   private def positions(userId: UserId) = HttpApp.collectM {
-    case Method.GET -> Root / "positions" / rawWalletAddress =>
+    //TODO Flip ths arround -> address/ ${} / positions
+    case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
@@ -100,8 +103,14 @@ object Routes {
                            if (positions.lastSync.isDefined) {
                              Response.http(
                                status = Status.OK,
-                               headers = List(Header("X-CoinLogger-LatestSync", positions.lastSync.get.toString), Header("Content-Type", "application/json")),
-                               content = HttpData.CompleteData(Chunk.fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET)))
+                               headers = List(
+                                 Header("X-CoinLogger-LatestSync", positions.lastSync.get.toString),
+                                 Header("Content-Type", "application/json")
+                               ),
+                               content = HttpData.CompleteData(
+                                 Chunk
+                                   .fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
+                               )
                              )
                            } else {
                              Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
@@ -109,6 +118,25 @@ object Routes {
                          } else {
                            Response.status(Status.NO_CONTENT)
                          }
+                     )
+      } yield response
+
+    case Method.GET -> Root / "positions" / rawPositionId =>
+      for {
+        positionId <- ZIO
+                       .fromEither(refineV[PositionIdPredicate](rawPositionId))
+                       .orElseFail(BadRequest("Invalid address"))
+
+        response <- CryptoJournalApi
+                     .getPosition(positionId)
+                     .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
+                     .fold(
+                       {
+                         case PositionNotFound(_) =>
+                           Response.status(Status.NOT_FOUND)
+                         case _ => Response.status(Status.INTERNAL_SERVER_ERROR)
+                       },
+                       position => Response.jsonString(fromPosition(position).toJson)
                      )
       } yield response
   }

@@ -2,6 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model.WalletAddress
+import domain.position.Position.PositionId
 import domain.position.error._
 import vo.TimeInterval
 
@@ -14,6 +15,8 @@ trait PositionRepo {
   def getPositions(address: WalletAddress)(implicit count: PosInt): IO[PositionError, List[Position]]
 
   def getPositions(address: WalletAddress, timeInterval: TimeInterval): Task[List[Position]]
+
+  def getPosition(positionId: PositionId): IO[PositionError, Position]
 
   /**
    * Checks if the system is aware of the given address.

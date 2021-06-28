@@ -1,17 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{EthBlockchainRepo, Transaction}
+import domain.blockchain.{ EthBlockchainRepo, Transaction }
 import domain.blockchain.error._
 import domain.model._
 import domain.position.error._
+import domain.position.Position._
 import domain.position.LivePositionService.findPositions
-import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
 import vo.TimeInterval
 
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -20,6 +21,8 @@ trait PositionService {
   def getPositions(userWallet: UserWallet): IO[PositionError, Positions]
 
   def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
+
+  def getPosition(positionId: PositionId): IO[PositionError, Position]
 
   def importPositions(userWallet: UserWallet): Task[Unit]
 
@@ -57,57 +60,74 @@ final case class LivePositionService(
   demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: UserWallet): IO[PositionError, Positions] = {
+  override def getPositions(userWallet: UserWallet): IO[PositionError, Positions] =
     for {
-      positions <- positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
-        .flatMap(enrichPositions)
-        .orElseFail(PositionsFetchError(userWallet.address))
+      positions <- positionRepo
+                    .getPositions(userWallet.address)(demoAccountConfig.maxPositions)
+                    .flatMap(enrichPositions)
+                    .orElseFail(PositionsFetchError(userWallet.address))
       checkpoint <- positionRepo.getCheckpoint(userWallet.address)
     } yield Positions(positions, checkpoint.latestTxTimestamp)
-  }
 
-  override def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]] = {
-    positionRepo.getPositions(userWallet.address, interval)
+  override def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]] =
+    positionRepo
+      .getPositions(userWallet.address, interval)
       .flatMap(enrichPositions)
-  }
+
+  override def getPosition(positionId: PositionId): IO[PositionError, Position] =
+    positionRepo
+      .getPosition(positionId)
+      .flatMap(enrichPosition)
+      .orElseFail(PositionFetchError(positionId, new RuntimeException("Unable to enrich position")))
 
   private def enrichPositions(positions: List[Position]): Task[List[Position]] = {
     val interval = extractTimeInterval(positions)
-    if(positions.nonEmpty) {
-      priceQuoteRepo.getQuotes(interval.get)
+    if (positions.nonEmpty) {
+      priceQuoteRepo
+        .getQuotes(interval.get)
         .map(PriceQuotes.apply)
-        .map(priceQuotes => positions.map(position =>
-          position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval())))
-        ))
+        .map(priceQuotes =>
+          positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
+        )
     } else UIO(positions)
   }
 
-  override def importPositions(userWallet: UserWallet): Task[Unit] = {
+  private def enrichPosition(position: Position): Task[Position] = {
+    val interval = position.timeInterval()
+    priceQuoteRepo
+      .getQuotes(interval)
+      .map(PriceQuotes.apply)
+      .map(priceQuotes => position.copy(priceQuotes = Some(priceQuotes)))
+  }
+
+  override def importPositions(userWallet: UserWallet): Task[Unit] =
     importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
-  }
 
-  override def importPositions(userWallet: UserWallet, startFrom: Instant): Task[Unit] = {
+  override def importPositions(userWallet: UserWallet, startFrom: Instant): Task[Unit] =
     importPositions(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
-  }
 
-  private def importPositions(txStream: ZStream[Any, TransactionsGetError, Transaction])(userWallet: UserWallet): Task[Unit] = {
+  private def importPositions(
+    txStream: ZStream[Any, TransactionsGetError, Transaction]
+  )(userWallet: UserWallet): Task[Unit] =
     for {
-      _         <- logger.info(s"Importing data for ${userWallet.address.value}")
+      _ <- logger.info(s"Importing data for ${userWallet.address.value}")
       positions <- txStream.runCollect
-        .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
-        .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
-      _         <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
-      _         <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
+                    .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
+                    .map(chunks => findPositions(chunks.toList))                      // TODO Try to optimize so as not to process the entire stream.
+      _ <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
+      _ <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
     } yield ()
-  }
 
   override def exists(address: WalletAddress): Task[Boolean] = positionRepo.exists(address)
 
-  override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] = positionRepo.getCheckpoint(address)
+  override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] =
+    positionRepo.getCheckpoint(address)
 }
 
 object LivePositionService {
-  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[DemoAccountConfig] with Logging, Has[
+  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[
+    DemoAccountConfig
+  ] with Logging, Has[
     PositionService
   ]] =
     (LivePositionService(_, _, _, _, _)).toLayer
@@ -179,7 +199,7 @@ object LivePositionService {
   val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {
     for {
       value <- tx.value
-      hash <- TransactionHash(tx.hash)
+      hash  <- TransactionHash(tx.hash)
     } yield PositionEntry(tx.transactionType, value, tx.fee, tx.instant, hash)
   }
 }

@@ -4,7 +4,7 @@ package infrastructure.google
 import domain.model._
 import domain.position.error._
 import domain.position.{ Checkpoint, Position, PositionEntry, PositionRepo }
-import domain.position.Position.PositionIdPredicate
+import domain.position.Position.{ PositionId, PositionIdPredicate }
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 import vo.TimeInterval
@@ -94,41 +94,58 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       .map(results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position })
   }
 
+  override def getPosition(positionId: PositionId): IO[PositionError, Position] = {
+    val key   = datastore.newKeyFactory().setKind(Positions).newKey(positionId.value)
+    val query = Query.newEntityQueryBuilder().setKind(Positions).setFilter(PropertyFilter.eq("__key__", key)).build()
+    executeQuery(query)
+      .mapError(throwable => PositionFetchError(positionId, throwable))
+      .flatMap { queryResult =>
+        val results = queryResult.asScala
+        if (results.nonEmpty) {
+          ZIO.fromEither(entityToPosition(results.next()))
+        } else {
+          ZIO.fail(PositionNotFound(positionId))
+        }
+      }
+  }
+
   override def exists(address: WalletAddress): Task[Boolean] =
     executeQuery(
       Query
         .newKeyQueryBuilder()
         .setKind(CheckpointTable)
-        .setFilter(PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value)))
+        .setFilter(
+          PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+        )
         .build()
-    ).tapError(err => logger.warn(err.toString))
-      .map(results => results.asScala.nonEmpty)
+    ).map(results => results.asScala.nonEmpty)
 
   override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] =
     executeQuery(
       Query
         .newEntityQueryBuilder()
         .setKind(CheckpointTable)
-        .setFilter(PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value)))
+        .setFilter(
+          PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+        )
         .build()
-    ).tapError(err => logger.warn(err.getMessage))
-      .mapError(throwable => CheckpointFetchError(address, throwable))
-      .flatMap { results =>
-        val checkpoints = results.asScala
-        if (checkpoints.nonEmpty) {
-          val entity = checkpoints.next()
-          UIO(
-            Checkpoint(
-              address,
-              Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
-              if(entity.contains("latestTxTimestamp")) Some(Instant.ofEpochSecond(entity.getTimestamp("latestTxTimestamp").getSeconds))
-              else None
-            )
+    ).mapError(throwable => CheckpointFetchError(address, throwable)).flatMap { results =>
+      val checkpoints = results.asScala
+      if (checkpoints.nonEmpty) {
+        val entity = checkpoints.next()
+        UIO(
+          Checkpoint(
+            address,
+            Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
+            if (entity.contains("latestTxTimestamp"))
+              Some(Instant.ofEpochSecond(entity.getTimestamp("latestTxTimestamp").getSeconds))
+            else None
           )
-        } else {
-          ZIO.fail(CheckpointNotFound(address))
-        }
+        )
+      } else {
+        ZIO.fail(CheckpointNotFound(address))
       }
+    }
 
   private def upsertCheckpoint(address: WalletAddress, latestTxTimestamp: Instant)(implicit instant: Instant) = Task {
     datastore.put(
