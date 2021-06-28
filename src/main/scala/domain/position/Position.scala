@@ -1,9 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
+import Position.PositionId
 import domain.model._
 import domain.pricequote.{PriceQuote, PriceQuotes}
 import vo.TimeInterval
+
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.collection.NonEmpty
 
 import java.time.{Duration, Instant}
 
@@ -13,7 +17,8 @@ final case class Position(
    openedAt: Instant,
    closedAt: Option[Instant],
    entries: List[PositionEntry],
-   priceQuotes: Option[PriceQuotes] = None //this is kind of a meta information for the aggregate.
+   priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
+   id: Option[PositionId] = None
 ) {
   def timeInterval(): TimeInterval = TimeInterval(openedAt, closedAt)
 
@@ -108,6 +113,11 @@ final case class Position(
   def isClosed(): Boolean = closedAt.isDefined
 
   def isOpen(): Boolean = closedAt.isEmpty
+}
+
+object Position {
+  type PositionIdPredicate = NonEmpty
+  type PositionId = String Refined PositionIdPredicate
 }
 
 final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee: Fee, timestamp: Instant, txHash: TransactionHash) {

@@ -3,18 +3,20 @@ package infrastructure.google
 
 import domain.model._
 import domain.position.error._
-import domain.position.{Position, PositionEntry, PositionRepo}
+import domain.position.{ Position, PositionEntry, PositionRepo }
+import domain.position.Position.PositionIdPredicate
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
+import eu.timepit.refined
 import eu.timepit.refined.types.numeric.PosInt
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, Task, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -69,10 +71,15 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     val query = Query
       .newEntityQueryBuilder()
       .setKind(Positions)
-      .setFilter(CompositeFilter.and(
-        PropertyFilter.eq("address", address.value),
-        PropertyFilter.ge("openedAt", Timestamp.ofTimeSecondsAndNanos(timeInterval.start.getEpochSecond, timeInterval.start.getNano))
-      ))
+      .setFilter(
+        CompositeFilter.and(
+          PropertyFilter.eq("address", address.value),
+          PropertyFilter.ge(
+            "openedAt",
+            Timestamp.ofTimeSecondsAndNanos(timeInterval.start.getEpochSecond, timeInterval.start.getNano)
+          )
+        )
+      )
       .addOrderBy(OrderBy.asc("openedAt"))
       .build()
     executeQuery(query)
@@ -143,7 +150,15 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     }
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
+
     (for {
+      id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
+             .flatMap(rawIdStr =>
+               refined
+                 .refineV[PositionIdPredicate](rawIdStr)
+                 .left
+                 .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
+             )
       currency <- tryOrLeft(
                    entity.getString("currency"),
                    InvalidRepresentation("Invalid value currency representation")
@@ -163,7 +178,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
                     .toList,
                   InvalidRepresentation("Invalid entries representation")
                 )
-    } yield Position(currency, state, openedAt, None, entries)).map { position =>
+    } yield Position(currency, state, openedAt, None, entries, None, Some(id))).map { position =>
       tryOrLeft(Instant.ofEpochSecond(entity.getTimestamp("closedAt").getSeconds), "")
         .fold(_ => position, closedAt => position.copy(closedAt = Some(closedAt)))
     }
