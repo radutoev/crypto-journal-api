@@ -37,7 +37,8 @@ object dto {
     value: FungibleData,
     fiatValue: Option[FungibleData],
     fee: FungibleData,
-    fiatFee: Option[FungibleData]
+    fiatFee: Option[FungibleData],
+    id: Option[String]
   )
 
   final case class FungibleData(amount: BigDecimal, currency: String)
@@ -75,7 +76,8 @@ object dto {
         entry.value.asJson,
         entry.fiatValue.map(_.asJson),
         entry.fee.asJson,
-        entry.fiatFee.map(_.asJson)
+        entry.fiatFee.map(_.asJson),
+        entry.id.map(_.value)
       )
     }
   }

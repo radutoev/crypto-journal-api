@@ -3,20 +3,20 @@ package infrastructure.google
 
 import domain.model._
 import domain.position.error._
-import domain.position.{ Checkpoint, Position, PositionEntry, PositionRepo }
-import domain.position.Position.{ PositionId, PositionIdPredicate }
+import domain.position.{Checkpoint, Position, PositionEntry, PositionRepo}
+import domain.position.Position.{PositionId, PositionIdPredicate, PositionEntryIdPredicate}
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.types.numeric.PosInt
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -178,7 +178,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       val entries = position.entries.map { entry =>
         EntityValue.of(
           Entity
-            .newBuilder(datastore.newKeyFactory().setKind(Positions).newKey(UUID.randomUUID().toString))
+            .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
             .set("type", StringValue.of(entry.`type`.toString))
             .set("value", DoubleValue.of(entry.value.amount.doubleValue))
             .set("valueCurrency", StringValue.of(entry.value.currency))
@@ -255,6 +255,13 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {
     val entity = e.get()
     for {
+      id <- tryOrLeft(entity.getKey().asInstanceOf[Key].getName, InvalidRepresentation("Entry has no key name"))
+        .flatMap(rawIdStr =>
+          refined
+            .refineV[PositionEntryIdPredicate](rawIdStr)
+            .left
+            .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
+        )
       entryType <- tryOrLeft(
                     TransactionType(entity.getString("type")),
                     InvalidRepresentation("Invalid type representation")
@@ -280,7 +287,8 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       FungibleData(value, currency),
       FungibleData(feeValue, feeCurrency),
       timestamp,
-      hash
+      hash,
+      id = Some(id)
     )
   }
 }

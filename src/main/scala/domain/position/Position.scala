@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import Position.PositionId
+import Position.{PositionId, PositionEntryId}
 import domain.model._
 import domain.pricequote.{PriceQuote, PriceQuotes}
 import vo.TimeInterval
@@ -118,9 +118,12 @@ final case class Position(
 object Position {
   type PositionIdPredicate = NonEmpty
   type PositionId = String Refined PositionIdPredicate
+
+  type PositionEntryIdPredicate = NonEmpty
+  type PositionEntryId = String Refined PositionEntryIdPredicate
 }
 
-final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee: Fee, timestamp: Instant, txHash: TransactionHash) {
+final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee: Fee, timestamp: Instant, txHash: TransactionHash, id: Option[PositionEntryId] = None) {
   def isBuy(): Boolean = `type` == Buy
 
   def isSell(): Boolean = `type` == Sell
