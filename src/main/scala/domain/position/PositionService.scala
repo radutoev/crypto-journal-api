@@ -2,23 +2,28 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.{EthBlockchainRepo, Transaction}
+import domain.blockchain.error._
 import domain.model._
+import domain.position.error._
 import domain.position.LivePositionService.findPositions
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import vo.TimeInterval
 
 import zio.logging.{Logger, Logging}
-import zio.{Has, Task, UIO, URLayer, ZIO}
+import zio.stream.ZStream
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 
 trait PositionService {
-  def getPositions(userWallet: UserWallet): Task[List[Position]]
+  def getPositions(userWallet: UserWallet): IO[PositionError, Positions]
 
   def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
 
   def importPositions(userWallet: UserWallet): Task[Unit]
+
+  def importPositions(userWallet: UserWallet, startingFrom: Instant): Task[Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp)
@@ -36,10 +41,12 @@ trait PositionService {
    * @return true if system is aware of the wallet address, false otherwise.
    */
   def exists(address: WalletAddress): Task[Boolean]
+
+  def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint]
 }
 
 object PositionService {
-  def getPositions(userWallet: UserWallet): ZIO[Has[PositionService], Throwable, List[Position]] =
+  def getPositions(userWallet: UserWallet): ZIO[Has[PositionService], PositionError, Positions] =
     ZIO.serviceWith[PositionService](_.getPositions(userWallet))
 }
 
@@ -50,11 +57,14 @@ final case class LivePositionService(
   demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: UserWallet): Task[List[Position]] = {
-    positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
-      .flatMap(enrichPositions)
+  override def getPositions(userWallet: UserWallet): IO[PositionError, Positions] = {
+    for {
+      positions <- positionRepo.getPositions(userWallet.address)(demoAccountConfig.maxPositions)
+        .flatMap(enrichPositions)
+        .orElseFail(PositionsFetchError(userWallet.address))
+      checkpoint <- positionRepo.getCheckpoint(userWallet.address)
+    } yield Positions(positions, checkpoint.latestTxTimestamp)
   }
-
 
   override def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]] = {
     positionRepo.getPositions(userWallet.address, interval)
@@ -73,10 +83,17 @@ final case class LivePositionService(
   }
 
   override def importPositions(userWallet: UserWallet): Task[Unit] = {
+    importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
+  }
+
+  override def importPositions(userWallet: UserWallet, startFrom: Instant): Task[Unit] = {
+    importPositions(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
+  }
+
+  private def importPositions(txStream: ZStream[Any, TransactionsGetError, Transaction])(userWallet: UserWallet): Task[Unit] = {
     for {
       _         <- logger.info(s"Importing data for ${userWallet.address.value}")
-      positions <- blockchainRepo.transactionsStream(userWallet.address)
-        .runCollect
+      positions <- txStream.runCollect
         .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
         .map(chunks => findPositions(chunks.toList)) // TODO Try to optimize so as not to process the entire stream.
       _         <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
@@ -85,6 +102,8 @@ final case class LivePositionService(
   }
 
   override def exists(address: WalletAddress): Task[Boolean] = positionRepo.exists(address)
+
+  override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] = positionRepo.getCheckpoint(address)
 }
 
 object LivePositionService {
