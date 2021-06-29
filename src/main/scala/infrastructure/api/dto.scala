@@ -6,6 +6,7 @@ import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
 import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry}
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
+import vo.JournalPosition
 
 import eu.timepit.refined.types.string.NonEmptyString
 import zio.json.{DeriveJsonCodec, JsonCodec}
@@ -30,7 +31,8 @@ object dto {
      holdTime: Option[Long],
      win: Option[Boolean],
      entries: List[PositionEntry],
-     id: Option[String]
+     id: Option[String],
+     journalEntry: Option[JournalEntry]
   )
 
   final case class PositionEntry(
@@ -53,7 +55,11 @@ object dto {
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
 
-    def fromPosition(position: CJPosition): Position =
+    def fromJournalPosition(journalPosition: JournalPosition): Position = {
+      fromPosition(journalPosition.position).copy(journalEntry = journalPosition.entry.map(_.toDto))
+    }
+
+    def fromPosition(position: CJPosition): Position = {
       Position(
         position.currency,
         position.state.toString,
@@ -69,8 +75,10 @@ object dto {
         position.holdTime,
         position.win().map(isWin => if(isWin) true else false),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
-        position.id.map(_.value)
+        position.id.map(_.value),
+        None
       )
+    }
 
     def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry = {
       PositionEntry(
@@ -131,5 +139,9 @@ object dto {
         CJJournalEntry(entry.notes.map(NonEmptyString.unsafeFrom))
       }
     }
+  }
+
+  implicit class DomainJournalEntryOps(entry: CJJournalEntry) {
+    def toDto: JournalEntry = JournalEntry(entry.notes.map(_.value))
   }
 }

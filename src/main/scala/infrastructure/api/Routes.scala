@@ -137,7 +137,7 @@ object Routes {
                            Response.status(Status.NOT_FOUND)
                          case _ => Response.status(Status.INTERNAL_SERVER_ERROR)
                        },
-                       position => Response.jsonString(fromPosition(position).toJson)
+                       position => Response.jsonString(fromJournalPosition(position).toJson)
                      )
       } yield response
 

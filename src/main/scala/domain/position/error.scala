@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.position.Position.PositionId
-import domain.model.WalletAddress
+import domain.model.{UserId, WalletAddress}
 
 object error {
   sealed trait PositionError
@@ -17,4 +17,6 @@ object error {
   final case class CheckpointNotFound(address: WalletAddress) extends PositionError
 
   final case class JournalSaveError(throwable: Throwable) extends PositionError
+  final case class JournalFetchError(throwable: Throwable) extends PositionError
+  final case class JournalNotFound(userId: UserId, positionId: PositionId) extends PositionError
 }

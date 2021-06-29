@@ -13,7 +13,7 @@ trait JournalingService {
 
 final case class LiveJournalingService(journalingRepo: JournalingRepo) extends JournalingService {
   override def saveJournalEntry(userId: UserId, positionId: PositionId, entry: JournalEntry): IO[JournalSaveError, Unit] = {
-    journalingRepo.saveEntry(positionId, entry)
+    journalingRepo.saveEntry(userId, positionId, entry)
   }
 }
 

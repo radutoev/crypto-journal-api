@@ -1,18 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ EthBlockchainRepo, Transaction }
+import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.blockchain.error._
 import domain.model._
 import domain.position.error._
 import domain.position.Position._
 import domain.position.LivePositionService.findPositions
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
-import vo.TimeInterval
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import vo.{JournalPosition, TimeInterval}
 
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -22,7 +22,7 @@ trait PositionService {
 
   def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
 
-  def getPosition(positionId: PositionId): IO[PositionError, Position]
+  def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition]
 
   def importPositions(userWallet: UserWallet): Task[Unit]
 
@@ -57,6 +57,7 @@ final case class LivePositionService(
   positionRepo: PositionRepo,
   priceQuoteRepo: PriceQuoteRepo,
   blockchainRepo: EthBlockchainRepo,
+  journalingRepo: JournalingRepo,
   demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
@@ -74,11 +75,19 @@ final case class LivePositionService(
       .getPositions(userWallet.address, interval)
       .flatMap(enrichPositions)
 
-  override def getPosition(positionId: PositionId): IO[PositionError, Position] =
+  override def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition] = {
+    //TODO Better error handling with zipPar.
     positionRepo
       .getPosition(positionId)
       .flatMap(enrichPosition)
+      .zipPar(journalingRepo.getEntry(userId, positionId).map(Some(_)).catchSome {
+        case _: JournalNotFound => UIO.none
+      })
+      .map {
+        case (position, entry) => JournalPosition(position, entry)
+      }
       .orElseFail(PositionFetchError(positionId, new RuntimeException("Unable to enrich position")))
+  }
 
   private def enrichPositions(positions: List[Position]): Task[List[Position]] = {
     val interval = extractTimeInterval(positions)
@@ -125,12 +134,12 @@ final case class LivePositionService(
 }
 
 object LivePositionService {
-  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[
+  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[JournalingRepo] with Has[
     DemoAccountConfig
   ] with Logging, Has[
     PositionService
   ]] =
-    (LivePositionService(_, _, _, _, _)).toLayer
+    (LivePositionService(_, _, _, _, _, _)).toLayer
 
   val TransactionTypes = Vector(Buy, Sell)
 

@@ -10,7 +10,7 @@ import domain.position.error.PositionError
 import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.wallet.{Wallet, WalletService}
 import domain.wallet.error.WalletError
-import vo.TimeInterval
+import vo.{JournalPosition, TimeInterval}
 
 import zio.{Has, ZIO}
 
@@ -21,10 +21,10 @@ object CryptoJournalApi {
       positions <- ZIO.serviceWith[PositionService](_.getPositions(UserWallet(userId, address)))
     } yield positions
 
-  def getPosition(positionId: PositionId): ZIO[Has[PositionService] with Has[UserContext], PositionError, Position] =
+  def getPosition(positionId: PositionId): ZIO[Has[PositionService] with Has[UserContext], PositionError, JournalPosition] =
     for {
       userId   <- UserContext.userId
-      position <- ZIO.serviceWith[PositionService](_.getPosition(positionId))
+      position <- ZIO.serviceWith[PositionService](_.getPosition(userId, positionId))
     } yield position
 
   def getPortfolioKpis(address: WalletAddress, interval: TimeInterval): ZIO[Has[KpiService] with Has[UserContext], Throwable, PortfolioKpi] =
