@@ -76,7 +76,8 @@ final case class LivePositionService(
       .flatMap(enrichPositions)
 
   override def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition] = {
-    //TODO Better error handling with zipPar.
+    //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
+    // We lose the error type here.
     positionRepo
       .getPosition(positionId)
       .flatMap(enrichPosition)
