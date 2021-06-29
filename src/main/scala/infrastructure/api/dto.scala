@@ -3,10 +3,11 @@ package infrastructure.api
 
 import domain.model.{FungibleData => CJFungibleData}
 import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
-import domain.position.{Position => CJPosition, PositionEntry => CJPositionEntry}
+import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry}
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
 
+import eu.timepit.refined.types.string.NonEmptyString
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 import java.time.Instant
@@ -117,6 +118,18 @@ object dto {
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi = {
       PortfolioKpi(kpi.tradeCount, kpi.winRate, 1 - kpi.winRate, kpi.netReturn.amount)
+    }
+  }
+
+  final case class JournalEntry(notes: Option[String])
+
+  object JournalEntry {
+    implicit val journalEntryCodec: JsonCodec[JournalEntry] = DeriveJsonCodec.gen[JournalEntry]
+
+    implicit class JournalEntryOps(entry: JournalEntry) {
+      def toDomainModel: CJJournalEntry = {
+        CJJournalEntry(entry.notes.map(NonEmptyString.unsafeFrom))
+      }
     }
   }
 }

@@ -15,4 +15,6 @@ object error {
 
   final case class CheckpointFetchError(address: WalletAddress, throwable: Throwable) extends PositionError
   final case class CheckpointNotFound(address: WalletAddress) extends PositionError
+
+  final case class JournalSaveError(throwable: Throwable) extends PositionError
 }

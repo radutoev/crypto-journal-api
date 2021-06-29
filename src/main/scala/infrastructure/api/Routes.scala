@@ -2,17 +2,19 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ UserId, WalletAddressPredicate }
+import domain.model.{UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.error._
 import domain.position.Position.PositionIdPredicate
-import domain.position.PositionService
+import domain.position.{JournalingService, PositionService}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.PortfolioKpi
 import infrastructure.api.dto.PortfolioKpi._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
+import infrastructure.api.dto.JournalEntry
+import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
@@ -86,7 +88,6 @@ object Routes {
   }
 
   private def positions(userId: UserId) = HttpApp.collectM {
-    //TODO Flip ths arround -> address/ ${} / positions
     case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" =>
       for {
         address <- ZIO
@@ -125,7 +126,7 @@ object Routes {
       for {
         positionId <- ZIO
                        .fromEither(refineV[PositionIdPredicate](rawPositionId))
-                       .orElseFail(BadRequest("Invalid address"))
+                       .orElseFail(BadRequest("Invalid positionId"))
 
         response <- CryptoJournalApi
                      .getPosition(positionId)
@@ -138,6 +139,21 @@ object Routes {
                        },
                        position => Response.jsonString(fromPosition(position).toJson)
                      )
+      } yield response
+
+    case req@Method.PUT -> Root / "positions" / rawPositionId / "journal" =>
+      for {
+        positionId <- ZIO
+          .fromEither(refineV[PositionIdPredicate](rawPositionId))
+          .orElseFail(BadRequest("Invalid positionId"))
+
+        journalEntry <- ZIO.fromOption(req.getBodyAsString)
+          .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[JournalEntry]))
+          .orElseFail(BadRequest("Invalid request"))
+
+        response <- CryptoJournalApi.saveJournalEntry(positionId, journalEntry.toDomainModel)
+          .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
+          .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), _ => Response.status(Status.OK))
       } yield response
   }
 

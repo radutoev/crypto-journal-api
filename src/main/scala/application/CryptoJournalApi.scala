@@ -3,8 +3,9 @@ package application
 
 import domain.account.UserContext
 import domain.model._
-import domain.position.{PositionService, Position, Positions}
+import domain.position.{JournalingService, Position, PositionService, Positions}
 import domain.position.Position.PositionId
+import domain.position.JournalEntry
 import domain.position.error.PositionError
 import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.wallet.{Wallet, WalletService}
@@ -50,4 +51,10 @@ object CryptoJournalApi {
       userId  <- UserContext.userId
       wallets <- ZIO.serviceWith[WalletService](_.getWallets(userId))
     } yield wallets
+
+  def saveJournalEntry(positionId: PositionId, entry: JournalEntry): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
+    for {
+      userId  <- UserContext.userId
+      _       <- ZIO.serviceWith[JournalingService](_.saveJournalEntry(userId, positionId, entry))
+    } yield ()
 }
