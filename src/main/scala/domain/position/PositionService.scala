@@ -191,15 +191,15 @@ object LivePositionService {
     positions.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
-  val transactionsToPositionEntries: List[Transaction] => List[PositionEntry] =
-    _.map(transactionToPositionEntry).collect {
-      case Right(entry) => entry
-    }
-
   val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {
     for {
       value <- tx.value
       hash  <- TransactionHash(tx.hash)
     } yield PositionEntry(tx.transactionType, value, tx.fee, tx.instant, hash)
   }
+
+  val transactionsToPositionEntries: List[Transaction] => List[PositionEntry] =
+    _.map(transactionToPositionEntry).collect {
+      case Right(entry) => entry
+    }
 }

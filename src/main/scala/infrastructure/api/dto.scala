@@ -38,6 +38,7 @@ object dto {
     fiatValue: Option[FungibleData],
     fee: FungibleData,
     fiatFee: Option[FungibleData],
+    timestamp: Instant,
     id: Option[String]
   )
 
@@ -77,6 +78,7 @@ object dto {
         entry.fiatValue.map(_.asJson),
         entry.fee.asJson,
         entry.fiatFee.map(_.asJson),
+        entry.timestamp,
         entry.id.map(_.value)
       )
     }
