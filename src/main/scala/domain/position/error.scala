@@ -13,6 +13,8 @@ object error {
   final case class PositionNotFound(positionId: PositionId) extends PositionError
   final case class PositionFetchError(positionId: PositionId, throwable: Throwable) extends PositionError
 
+  final case class PriceQuotesError(throwable: Throwable) extends PositionError
+
   final case class CheckpointFetchError(address: WalletAddress, throwable: Throwable) extends PositionError
   final case class CheckpointNotFound(address: WalletAddress) extends PositionError
 

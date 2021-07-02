@@ -9,12 +9,16 @@ import vo.TimeInterval
 import eu.timepit.refined.types.numeric.PosInt
 import zio.{Has, IO, Task, ZIO}
 
+import java.time.Instant
+
 trait PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): Task[Unit]
 
   def getPositions(address: WalletAddress)(implicit count: PosInt): IO[PositionError, List[Position]]
 
-  def getPositions(address: WalletAddress, timeInterval: TimeInterval): Task[List[Position]]
+  def getPositions(address: WalletAddress, timeInterval: TimeInterval): IO[PositionError, List[Position]]
+
+  def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]]
 
   def getPosition(positionId: PositionId): IO[PositionError, Position]
 

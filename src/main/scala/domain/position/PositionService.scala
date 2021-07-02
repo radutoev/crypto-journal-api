@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 trait PositionService {
   def getPositions(userWallet: UserWallet): IO[PositionError, Positions]
 
-  def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]]
+  def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, List[Position]]
 
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition]
 
@@ -72,16 +72,21 @@ final case class LivePositionService(
       checkpoint <- positionRepo.getCheckpoint(userWallet.address)
     } yield Positions(positions, checkpoint.latestTxTimestamp)
 
-  override def getPositions(userWallet: UserWallet, interval: TimeInterval): Task[List[Position]] =
+  override def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, List[Position]] =
     positionRepo
       .getPositions(userWallet.address, interval)
       .flatMap(enrichPositions)
 
-  private def enrichPositions(positions: List[Position]): Task[List[Position]] = {
+  private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
+    positionRepo.getPositions(userWallet.address, startFrom).flatMap(enrichPositions)
+      .map(positions => Positions(positions, Some(startFrom)))
+
+  private def enrichPositions(positions: List[Position]): IO[PositionError, List[Position]] = {
     val interval = extractTimeInterval(positions)
     if (positions.nonEmpty) {
       priceQuoteRepo
         .getQuotes(interval.get)
+        .mapError(PriceQuotesError)
         .map(PriceQuotes.apply)
         .map(priceQuotes =>
           positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
@@ -115,7 +120,7 @@ final case class LivePositionService(
   override def diff(userWallet: UserWallet): IO[PositionError, Positions] = {
     @inline
     def diffPositions(timestamp: Instant): IO[PositionError, Positions] =
-      importPositions(userWallet, timestamp) *> getPositions(userWallet)
+      importPositions(userWallet, timestamp) *> getPositions(userWallet, timestamp)
 
     def noNewPositions(): UIO[Positions] = logger.debug(s"No new positions found for ${userWallet.address}") *> UIO(Positions.empty())
 

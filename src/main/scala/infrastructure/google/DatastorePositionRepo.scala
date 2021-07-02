@@ -75,7 +75,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   }
 
   //TODO How to include end?
-  override def getPositions(address: WalletAddress, timeInterval: TimeInterval): Task[List[Position]] = {
+  override def getPositions(address: WalletAddress, timeInterval: TimeInterval): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
       .setKind(Positions)
@@ -92,6 +92,28 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
       .build()
     executeQuery(query)
       .map(results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position })
+      .orElseFail(PositionsFetchError(address))
+  }
+
+
+  override def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]] = {
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(Positions)
+      .setFilter(
+        CompositeFilter.and(
+          PropertyFilter.eq("address", address.value),
+          PropertyFilter.gt(
+            "openedAt",
+            Timestamp.ofTimeSecondsAndNanos(startFrom.getEpochSecond, startFrom.getNano)
+          )
+        )
+      )
+      .addOrderBy(OrderBy.asc("openedAt"))
+      .build()
+    executeQuery(query)
+      .map(results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position })
+      .orElseFail(PositionsFetchError(address))
   }
 
   override def getPosition(positionId: PositionId): IO[PositionError, Position] = {
