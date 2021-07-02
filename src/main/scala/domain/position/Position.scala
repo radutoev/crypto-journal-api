@@ -14,7 +14,6 @@ import java.time.{Duration, Instant}
 
 final case class Position(
    currency: Currency,
-   state: State,
    openedAt: Instant,
    closedAt: Option[Instant],
    entries: List[PositionEntry],
@@ -111,9 +110,11 @@ final case class Position(
 
   def win(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 
-  def isClosed(): Boolean = closedAt.isDefined
+  def state: State = entries.lastOption.fold[State](Open)(last => if(last.isSell()) Closed else Open)
 
-  def isOpen(): Boolean = closedAt.isEmpty
+  def isClosed(): Boolean = state == Closed
+
+  def isOpen(): Boolean = state == Open
 }
 
 object Position {

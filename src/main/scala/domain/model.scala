@@ -47,7 +47,8 @@ object model {
 
   type Fee = FungibleData
 
-  type TransactionHash = NonEmptyString
+  type TransactionHashPredicate = NonEmpty
+  type TransactionHash = String Refined TransactionHashPredicate
 
   object TransactionHash {
     def apply(value: String): Either[String, TransactionHash] = {

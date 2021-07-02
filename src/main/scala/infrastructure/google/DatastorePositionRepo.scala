@@ -269,8 +269,6 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
                    entity.getString("currency"),
                    InvalidRepresentation("Invalid value currency representation")
                  ).flatMap(refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
-      state <- tryOrLeft(entity.getString("state"), InvalidRepresentation("Invalid value currency representation"))
-                .flatMap(State.apply(_).left.map(InvalidRepresentation))
       openedAt <- tryOrLeft(
                    Instant.ofEpochSecond(entity.getTimestamp("openedAt").getSeconds),
                    InvalidRepresentation("Invalid openedAt representation")
@@ -284,7 +282,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
                     .toList,
                   InvalidRepresentation("Invalid entries representation")
                 )
-    } yield Position(currency, state, openedAt, None, entries, None, Some(id))).map { position =>
+    } yield Position(currency, openedAt, None, entries, None, Some(id))).map { position =>
       tryOrLeft(Instant.ofEpochSecond(entity.getTimestamp("closedAt").getSeconds), "")
         .fold(_ => position, closedAt => position.copy(closedAt = Some(closedAt)))
     }
