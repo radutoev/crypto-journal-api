@@ -16,7 +16,19 @@ object PositionsMergeSpec extends DefaultRunnableSpec {
   override def spec = suite("PositionsMergeSpec")(
     testM("Union the two sets if no common currency") {
       check(Gen.listOf(genPosition)) { positions =>
-        assert(1)(equalTo(1))
+        val uniqueCurrencyPositions = positions.distinctBy(_.currency).sortBy(_.openedAt)(Ordering[Instant])
+
+        if(uniqueCurrencyPositions.length > 1) {
+          val random = scala.util.Random.between(0, uniqueCurrencyPositions.length - 1)
+          val (first, second) = uniqueCurrencyPositions.splitAt(random)
+          val firstPositions = Positions(first)
+          val secondPositions = Positions(second)
+          val result = firstPositions.merge(secondPositions)
+          assert(result.items)(hasSameElements(positions))
+        } else {
+          assert(1)(equalTo(1)) //no-op
+        }
+
       }
     }
   )
