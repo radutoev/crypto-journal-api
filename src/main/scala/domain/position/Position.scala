@@ -1,18 +1,19 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import Position.{PositionId, PositionEntryId}
+import Position.{PositionEntryId, PositionId}
 import domain.model._
 import domain.pricequote.{PriceQuote, PriceQuotes}
 import vo.TimeInterval
 
+import eu.timepit.refined
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 
 import java.time.{Duration, Instant}
 
 final case class Position(
-   currency: String,
+   currency: Currency,
    state: State,
    openedAt: Instant,
    closedAt: Option[Instant],
@@ -31,7 +32,7 @@ final case class Position(
     priceQuotes.map { implicit quotes =>
       val buyCost = entries.filter(_.isBuy()).map(_.fiatTotalValue()).sumFungibleData()
       val sellCost = entries.filter(_.isSell()).map(_.fiatFee()).sumFungibleData()
-      FungibleData(buyCost.add(sellCost.amount).amount.abs, "USD")
+      FungibleData(buyCost.add(sellCost.amount).amount.abs, refined.refineV[NonEmpty].unsafeFrom("USD"))
     }
   }
 
@@ -132,13 +133,13 @@ final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee
     priceQuotes
       .findPrice(timestamp)
       .map(priceQuote => value.amount * priceQuote.price)
-      .map(fiatAmount => FungibleData(fiatAmount, "USD"))
+      .map(fiatAmount => FungibleData(fiatAmount, refined.refineV[NonEmpty].unsafeFrom("USD")))
 
   def fiatFee()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
     priceQuotes
       .findPrice(timestamp)
       .map(priceQuote => fee.amount * priceQuote.price)
-      .map(fiatAmount => FungibleData(fiatAmount, "USD"))
+      .map(fiatAmount => FungibleData(fiatAmount, refined.refineV[NonEmpty].unsafeFrom("USD")))
 
   /**
    * Calculates fiat value for the given price quotes based on the type of the entry.
@@ -154,5 +155,5 @@ final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee
                      case Sell => fiatValue.amount - fiatFee.amount
                      case _    => 0
                    })
-    } yield FungibleData(fiatReturn, "USD")
+    } yield FungibleData(fiatReturn, refined.refineV[NonEmpty].unsafeFrom("USD"))
 }

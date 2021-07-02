@@ -11,6 +11,9 @@ import eu.timepit.refined.string.MatchesRegex
 import eu.timepit.refined.types.string.NonEmptyString
 
 object model {
+  type CurrencyPredicate = NonEmpty
+  type Currency = String Refined CurrencyPredicate
+
   sealed trait State
   final case object Open   extends State
   final case object Closed extends State
@@ -38,7 +41,7 @@ object model {
       }
   }
 
-  final case class FungibleData(amount: BigDecimal, currency: String) {
+  final case class FungibleData(amount: BigDecimal, currency: Currency) {
     def add(value: BigDecimal): FungibleData = copy(amount = amount + value)
   }
 
@@ -63,7 +66,7 @@ object model {
   final case class UserWallet(userId: UserId, address: WalletAddress)
 
   implicit class FungibleDataOps(list: List[FungibleData]) {
-    def sumFungibleData(): FungibleData = list.foldLeft(FungibleData(BigDecimal(0), "USD")) { (acc, value) =>
+    def sumFungibleData(): FungibleData = list.foldLeft(FungibleData(BigDecimal(0), refineV[NonEmpty]("USD").right.get)) { (acc, value) =>
       acc.add(value.amount)
     }
   }

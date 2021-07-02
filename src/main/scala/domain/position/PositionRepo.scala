@@ -1,8 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.WalletAddress
-import domain.position.Position.PositionId
+import domain.model.{State, WalletAddress}
+import domain.position.Position.{PositionId}
 import domain.position.error._
 import vo.TimeInterval
 
@@ -19,6 +19,8 @@ trait PositionRepo {
   def getPositions(address: WalletAddress, timeInterval: TimeInterval): IO[PositionError, List[Position]]
 
   def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]]
+
+  def getPositions(address: WalletAddress, state: State): IO[PositionError, List[Position]]
 
   def getPosition(positionId: PositionId): IO[PositionError, Position]
 

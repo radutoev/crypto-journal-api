@@ -61,7 +61,7 @@ object dto {
 
     def fromPosition(position: CJPosition): Position = {
       Position(
-        position.currency,
+        position.currency.value,
         position.state.toString,
         position.openedAt,
         position.closedAt,
@@ -104,7 +104,7 @@ object dto {
   }
 
   implicit class FungibleDataOps(data: CJFungibleData) {
-    def asJson: FungibleData = FungibleData(data.amount, data.currency)
+    def asJson: FungibleData = FungibleData(data.amount, data.currency.value)
   }
 
   implicit class OptionalFungibleDataOps(data: Option[CJFungibleData]) {

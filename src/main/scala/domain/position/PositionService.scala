@@ -10,6 +10,8 @@ import domain.position.LivePositionService.findPositions
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import vo.{JournalPosition, TimeInterval}
 
+import eu.timepit.refined
+import eu.timepit.refined.collection.NonEmpty
 import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
 import zio.{Has, IO, Task, UIO, URLayer, ZIO}
@@ -78,7 +80,9 @@ final case class LivePositionService(
       .flatMap(enrichPositions)
 
   private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
-    positionRepo.getPositions(userWallet.address, startFrom).flatMap(enrichPositions)
+    positionRepo
+      .getPositions(userWallet.address, startFrom)
+      .flatMap(enrichPositions)
       .map(positions => Positions(positions, Some(startFrom)))
 
   private def enrichPositions(positions: List[Position]): IO[PositionError, List[Position]] = {
@@ -94,7 +98,7 @@ final case class LivePositionService(
     } else UIO(positions)
   }
 
-  override def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition] = {
+  override def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition] =
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
     positionRepo
@@ -107,7 +111,6 @@ final case class LivePositionService(
         case (position, entry) => JournalPosition(position, entry)
       }
       .orElseFail(PositionFetchError(positionId, new RuntimeException("Unable to enrich position")))
-  }
 
   private def enrichPosition(position: Position): Task[Position] = {
     val interval = position.timeInterval()
@@ -122,7 +125,8 @@ final case class LivePositionService(
     def diffPositions(timestamp: Instant): IO[PositionError, Positions] =
       importPositions(userWallet, timestamp) *> getPositions(userWallet, timestamp)
 
-    def noNewPositions(): UIO[Positions] = logger.debug(s"No new positions found for ${userWallet.address}") *> UIO(Positions.empty())
+    def noNewPositions(): UIO[Positions] =
+      logger.debug(s"No new positions found for ${userWallet.address}") *> UIO(Positions.empty())
 
     for {
       checkpoint <- getCheckpoint(userWallet.address)
@@ -138,15 +142,36 @@ final case class LivePositionService(
 
   private def importPositions(
     txStream: ZStream[Any, TransactionsGetError, Transaction]
-  )(userWallet: UserWallet): IO[PositionError, Unit] =
+  )(userWallet: UserWallet): IO[PositionError, Unit] = {
+    val noPositionsEffect = logger.debug(s"No positions to import for ${userWallet.address}")
+
+    @inline
+    def handlePositionsImport(positions: List[Position]): IO[PositionImportError, Unit] = {
+      positionRepo
+        .save(userWallet.address, positions)
+        .mapError(throwable => PositionImportError(userWallet.address, throwable)) *>
+        logger.info(s"Demo data import complete for ${userWallet.address.value}")
+    }
+
     for {
-      _ <- logger.info(s"Importing data for ${userWallet.address.value}")
+      _ <- logger.info(s"Importing data for ${userWallet.address.value}...")
+
+      //Get open positions that might become closed with the new data coming in
+      existentPositions <- positionRepo.getPositions(userWallet.address, Open)
+
       positions <- txStream.runCollect
-                    .mapError(error => PositionImportError(userWallet.address, new RuntimeException(error.message)))
-                    .map(chunks => findPositions(chunks.toList))  // TODO Try to optimize so as not to process the entire stream.
-      _ <- positionRepo.save(userWallet.address, positions).mapError(throwable => PositionImportError(userWallet.address, throwable))
-      _ <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
+                    .bimap(
+                      error => PositionImportError(userWallet.address, new RuntimeException(error.message)),
+                      chunks => findPositions(chunks.toList)
+                    ) // TODO Try to optimize so as not to process the entire stream.
+
+      _ <- if (positions.isEmpty) {
+            noPositionsEffect
+          } else {
+            handlePositionsImport(positions)
+          }
     } yield ()
+  }
 
   override def exists(address: WalletAddress): Task[Boolean] = positionRepo.exists(address)
 
@@ -155,11 +180,12 @@ final case class LivePositionService(
 }
 
 object LivePositionService {
-  lazy val layer: URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[JournalingRepo] with Has[
-    DemoAccountConfig
-  ] with Logging, Has[
-    PositionService
-  ]] =
+  lazy val layer
+    : URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[JournalingRepo] with Has[
+      DemoAccountConfig
+    ] with Logging, Has[
+      PositionService
+    ]] =
     (LivePositionService(_, _, _, _, _, _)).toLayer
 
   val TransactionTypes = Vector(Buy, Sell)
@@ -173,7 +199,8 @@ object LivePositionService {
       .groupBy(_.coin.get)
 
     val positions = transactionsByCoin.flatMap {
-      case (coin, txList) => {
+      case (rawCurrency, txList) =>
+        val currency = refined.refineV[NonEmpty].unsafeFrom(rawCurrency)
         val grouped: ArrayBuffer[List[Transaction]] = ArrayBuffer.empty
 
         val acc: ArrayBuffer[Transaction] = ArrayBuffer.empty
@@ -204,10 +231,10 @@ object LivePositionService {
 
         grouped.toList.map { txList =>
           txList.last.transactionType match {
-            case Buy => Position(coin, Open, txList.head.instant, None, transactionsToPositionEntries(txList))
+            case Buy => Position(currency, Open, txList.head.instant, None, transactionsToPositionEntries(txList))
             case Sell =>
               Position(
-                coin,
+                currency,
                 Closed,
                 txList.head.instant,
                 Some(txList.last.instant),
@@ -215,7 +242,6 @@ object LivePositionService {
               )
           }
         }
-      }
     }.toList
 
     positions.sortBy(_.openedAt)(Ordering[Instant].reverse)

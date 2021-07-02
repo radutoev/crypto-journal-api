@@ -5,10 +5,10 @@ import domain.blockchain.Transaction
 import domain.model._
 
 import LivePositionService.findPositions
-
+import eu.timepit.refined
 import zio.json._
-import zio.test.Assertion.{ equalTo, hasSameElementsDistinct }
-import zio.test.{ assert, DefaultRunnableSpec }
+import zio.test.Assertion.{equalTo, hasSameElementsDistinct}
+import zio.test.{DefaultRunnableSpec, assert}
 
 import java.time.Instant
 import scala.io.Source
@@ -29,7 +29,7 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
       val expected = ExpectedData.map { row =>
         val parts = row.split("[;]")
         Position(
-          parts(0),
+          refined.refineV[CurrencyPredicate].unsafeFrom(parts(0)),
           if (parts(1) == "Closed") Closed else Open,
           Instant.parse(parts(3)),
           Try(Instant.parse(parts(4))).toOption,
