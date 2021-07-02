@@ -24,9 +24,11 @@ trait PositionService {
 
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition]
 
-  def importPositions(userWallet: UserWallet): Task[Unit]
+  def diff(userWallet: UserWallet): IO[PositionError, Positions]
 
-  def importPositions(userWallet: UserWallet, startingFrom: Instant): Task[Unit]
+  def importPositions(userWallet: UserWallet): IO[PositionError, Unit]
+
+  def importPositions(userWallet: UserWallet, startingFrom: Instant): IO[PositionError, Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp)
@@ -75,6 +77,18 @@ final case class LivePositionService(
       .getPositions(userWallet.address, interval)
       .flatMap(enrichPositions)
 
+  private def enrichPositions(positions: List[Position]): Task[List[Position]] = {
+    val interval = extractTimeInterval(positions)
+    if (positions.nonEmpty) {
+      priceQuoteRepo
+        .getQuotes(interval.get)
+        .map(PriceQuotes.apply)
+        .map(priceQuotes =>
+          positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
+        )
+    } else UIO(positions)
+  }
+
   override def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition] = {
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
@@ -90,18 +104,6 @@ final case class LivePositionService(
       .orElseFail(PositionFetchError(positionId, new RuntimeException("Unable to enrich position")))
   }
 
-  private def enrichPositions(positions: List[Position]): Task[List[Position]] = {
-    val interval = extractTimeInterval(positions)
-    if (positions.nonEmpty) {
-      priceQuoteRepo
-        .getQuotes(interval.get)
-        .map(PriceQuotes.apply)
-        .map(priceQuotes =>
-          positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
-        )
-    } else UIO(positions)
-  }
-
   private def enrichPosition(position: Position): Task[Position] = {
     val interval = position.timeInterval()
     priceQuoteRepo
@@ -110,21 +112,34 @@ final case class LivePositionService(
       .map(priceQuotes => position.copy(priceQuotes = Some(priceQuotes)))
   }
 
-  override def importPositions(userWallet: UserWallet): Task[Unit] =
+  override def diff(userWallet: UserWallet): IO[PositionError, Positions] = {
+    @inline
+    def diffPositions(timestamp: Instant): IO[PositionError, Positions] =
+      importPositions(userWallet, timestamp) *> getPositions(userWallet)
+
+    def noNewPositions(): UIO[Positions] = logger.debug(s"No new positions found for ${userWallet.address}") *> UIO(Positions.empty())
+
+    for {
+      checkpoint <- getCheckpoint(userWallet.address)
+      positions  <- checkpoint.latestTxTimestamp.fold[IO[PositionError, Positions]](noNewPositions())(diffPositions)
+    } yield positions
+  }
+
+  override def importPositions(userWallet: UserWallet): IO[PositionError, Unit] =
     importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
 
-  override def importPositions(userWallet: UserWallet, startFrom: Instant): Task[Unit] =
+  override def importPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Unit] =
     importPositions(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
 
   private def importPositions(
     txStream: ZStream[Any, TransactionsGetError, Transaction]
-  )(userWallet: UserWallet): Task[Unit] =
+  )(userWallet: UserWallet): IO[PositionError, Unit] =
     for {
       _ <- logger.info(s"Importing data for ${userWallet.address.value}")
       positions <- txStream.runCollect
-                    .orElseFail(new RuntimeException("Unable to fetch transactions")) //TODO Replace with domain error.
-                    .map(chunks => findPositions(chunks.toList))                      // TODO Try to optimize so as not to process the entire stream.
-      _ <- positionRepo.save(userWallet.address, positions).orElseFail(new RuntimeException("sss"))
+                    .mapError(error => PositionImportError(userWallet.address, new RuntimeException(error.message)))
+                    .map(chunks => findPositions(chunks.toList))  // TODO Try to optimize so as not to process the entire stream.
+      _ <- positionRepo.save(userWallet.address, positions).mapError(throwable => PositionImportError(userWallet.address, throwable))
       _ <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
     } yield ()
 

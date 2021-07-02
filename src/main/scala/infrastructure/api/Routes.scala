@@ -122,6 +122,40 @@ object Routes {
                      )
       } yield response
 
+    case Method.GET ->  Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+
+        response <- CryptoJournalApi
+          .diff(address)
+          .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
+          .fold(
+            {
+              case _: CheckpointNotFound => Response.status(Status.NOT_FOUND)
+            },
+            positions => if(positions.items.nonEmpty) {
+              positions.lastSync match {
+                case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
+                case Some(timestamp) =>
+                  Response.http(
+                    status = Status.OK,
+                    headers = List(
+                      Header("X-CoinLogger-LatestSync", timestamp.toString),
+                      Header("Content-Type", "application/json")
+                    ),
+                    content = HttpData.CompleteData(
+                      Chunk.fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
+                    )
+                  )
+              }
+            } else {
+              Response.status(Status.NO_CONTENT)
+            }
+          )
+      } yield response
+
     case Method.GET -> Root / "positions" / rawPositionId =>
       for {
         positionId <- ZIO

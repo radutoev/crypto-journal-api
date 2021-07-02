@@ -19,4 +19,6 @@ object error {
   final case class JournalSaveError(throwable: Throwable) extends PositionError
   final case class JournalFetchError(throwable: Throwable) extends PositionError
   final case class JournalNotFound(userId: UserId, positionId: PositionId) extends PositionError
+
+  final case class PositionImportError(address: WalletAddress, throwable: Throwable) extends PositionError
 }

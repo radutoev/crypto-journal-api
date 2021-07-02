@@ -27,6 +27,12 @@ object CryptoJournalApi {
       position <- ZIO.serviceWith[PositionService](_.getPosition(userId, positionId))
     } yield position
 
+  def diff(address: WalletAddress): ZIO[Has[PositionService] with Has[UserContext], PositionError, Positions] =
+    for {
+      userId   <- UserContext.userId
+      position <- ZIO.serviceWith[PositionService](_.diff(UserWallet(userId, address)))
+    } yield position
+
   def getPortfolioKpis(address: WalletAddress, interval: TimeInterval): ZIO[Has[KpiService] with Has[UserContext], Throwable, PortfolioKpi] =
     for {
       userId <- UserContext.userId
@@ -39,7 +45,7 @@ object CryptoJournalApi {
       _      <- ZIO.serviceWith[WalletService](_.addWallet(userId, address))
     } yield ()
 
-  def removeWallet(address: WalletAddress) = {
+  def removeWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[UserContext], WalletError, Unit] = {
     for {
       userId <- UserContext.userId
       _      <- ZIO.serviceWith[WalletService](_.removeWallet(userId, address))
