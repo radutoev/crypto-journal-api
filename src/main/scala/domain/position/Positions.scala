@@ -1,33 +1,42 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
+import domain.model.Currency
+
 import java.time.Instant
+import scala.collection.mutable.ArrayBuffer
 
 //most recent items first.
 final case class Positions(items: List[Position], lastSync: Option[Instant]) {
   def merge(other: Positions): Positions = {
-    val (open, closed) = other.items.partition(_.isOpen())
+    var currencyPositionMap = Map.empty[Currency, Position]
+    val otherItems = ArrayBuffer.empty[Position]
 
-    //i cannot have more than 1 position opened for a single currency, therefore I can create a map
-    var currencyPositionMap = open.map(pos => pos.currency -> pos).toMap
+    other.items.foreach(position => {
+      if(currencyPositionMap.contains(position.currency)) {
+        otherItems.addOne(position)
+      } else {
+        currencyPositionMap += position.currency -> position
+      }
+    })
 
     //oldest first
     val merged = items.reverse.map(position => {
       if(currencyPositionMap.contains(position.currency)) {
-        val oldOpenPosition = currencyPositionMap(position.currency)
-        oldOpenPosition.copy(
-          entries = oldOpenPosition.entries ::: position.entries
+        val oldPosition = currencyPositionMap(position.currency)
+        oldPosition.copy(
+          entries = oldPosition.entries ::: position.entries
         )
         currencyPositionMap -= position.currency
-        oldOpenPosition
+        oldPosition
       } else {
         position
       }
     })
 
-    val stillOpen = currencyPositionMap.values.toList
+    val notCorrelated = currencyPositionMap.values.toList
 
-    Positions((closed ::: stillOpen ::: merged).sortBy(_.openedAt)(Ordering[Instant]), lastSync)
+    Positions((otherItems.toList ::: notCorrelated ::: merged).sortBy(_.openedAt)(Ordering[Instant]), lastSync)
   }
 }
 
