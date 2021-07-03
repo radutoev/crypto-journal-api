@@ -46,15 +46,24 @@ object PositionsMergeSpec extends DefaultRunnableSpec {
             assert(Positions(positions).merge(Positions.empty()).items)(hasSameElements(positions))
           }
       }
-    }
+    },
 
-//    testM("Close open positions for matching coins") {
-//      check(genPosition, genPosition, genPosition) { (pos1, pos2, pos3) =>
-//        val c1 = refineV[CurrencyPredicate].unsafeFrom("WBNB")
+    testM("Close open positions for matching coins") {
+      check(Gen.listOfN(3)(genPosition), genOpenPositionEntry, genClosedPositionEntry) { (positions, e1, e2) =>
+        val c1 = refineV[CurrencyPredicate].unsafeFrom("WBNB")
+        val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
+
+        val p1 = Positions(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
+        val p2 = Positions(List(positions.last.copy(currency = c1, entries = List(e2))))
+
+        val result = p2.merge(p1)
+
+        assert(result.items.length)(equalTo(2))
+      }
+    },
+
+//    testM("Merge open position for matching coins") {
 //
-//        val p1 = Positions(List(pos1.copy(currency = c1,), pos2))
-//        val p2 = Positions(List(pos3))
-//      }
 //    }
   )
 }
@@ -81,11 +90,12 @@ object Generators {
 
   val genClosedPositionEntry = genPositionEntry.map(entry => entry.copy(`type` = Sell))
 
+  val genOpenPositionEntry = genPositionEntry.map(entry => entry.copy(`type` = Buy))
+
   val genPosition = for {
     positionId <- genPositionId
     currency   <- genCurrency
     openedAt   <- Gen.anyInstant
-    closedAt   <- Gen.option(Gen.anyShort).map(_.map(x => openedAt.plusSeconds(x)))
-    entries    <- Gen.listOf(genPositionEntry)
-  } yield Position(currency, openedAt, closedAt, entries, None, Some(positionId))
+    entries    <- Gen.listOfN(2)(genPositionEntry)
+  } yield Position(currency, openedAt, entries, None, Some(positionId))
 }

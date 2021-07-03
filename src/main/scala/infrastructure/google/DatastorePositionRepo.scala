@@ -2,9 +2,9 @@ package io.softwarechain.cryptojournal
 package infrastructure.google
 
 import domain.model._
+import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
 import domain.position.error._
 import domain.position.{Checkpoint, Position, PositionEntry, PositionRepo}
-import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
 import vo.TimeInterval
@@ -13,7 +13,6 @@ import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.numeric.PosInt
 import zio.clock.Clock
@@ -244,8 +243,8 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
         )
         .set("entries", ListValue.newBuilder().set(entries.asJava).build())
 
-      if (position.closedAt.isDefined) {
-        val closedAt = position.closedAt.get
+      if (position.closedAt().isDefined) {
+        val closedAt = position.closedAt().get
         builder = builder.set(
           "closedAt",
           TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(closedAt.getEpochSecond, closedAt.getNano))
@@ -257,7 +256,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
 
-    (for {
+    for {
       id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
              .flatMap(rawIdStr =>
                refined
@@ -282,10 +281,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
                     .toList,
                   InvalidRepresentation("Invalid entries representation")
                 )
-    } yield Position(currency, openedAt, None, entries, None, Some(id))).map { position =>
-      tryOrLeft(Instant.ofEpochSecond(entity.getTimestamp("closedAt").getSeconds), "")
-        .fold(_ => position, closedAt => position.copy(closedAt = Some(closedAt)))
-    }
+    } yield Position(currency, openedAt, entries, None, Some(id))
   }
 
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {

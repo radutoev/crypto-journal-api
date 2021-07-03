@@ -32,7 +32,6 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
         Position(
           refined.refineV[CurrencyPredicate].unsafeFrom(parts(0)),
           Instant.parse(parts(2)),
-          Try(Instant.parse(parts(3))).toOption,
           List.empty
         )
       }

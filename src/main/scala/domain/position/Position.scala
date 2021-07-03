@@ -15,7 +15,6 @@ import java.time.{Duration, Instant}
 final case class Position(
    currency: Currency,
    openedAt: Instant,
-   closedAt: Option[Instant],
    entries: List[PositionEntry],
    priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
    id: Option[PositionId] = None
@@ -115,6 +114,10 @@ final case class Position(
   def isClosed(): Boolean = state == Closed
 
   def isOpen(): Boolean = state == Open
+
+  def closedAt(): Option[Instant] = entries.lastOption.collect {
+    case entry if entry.`type` == Sell => entry.timestamp
+  }
 }
 
 object Position {

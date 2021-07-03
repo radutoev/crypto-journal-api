@@ -231,12 +231,11 @@ object LivePositionService {
 
         grouped.toList.map { txList =>
           txList.last.transactionType match {
-            case Buy => Position(currency, txList.head.instant, None, transactionsToPositionEntries(txList))
+            case Buy => Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
             case Sell =>
               Position(
                 currency,
                 txList.head.instant,
-                Some(txList.last.instant),
                 transactionsToPositionEntries(txList)
               )
           }
