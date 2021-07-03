@@ -1,20 +1,20 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{EthBlockchainRepo, Transaction}
+import domain.blockchain.{ EthBlockchainRepo, Transaction }
 import domain.blockchain.error._
 import domain.model._
 import domain.position.error._
 import domain.position.Position._
 import domain.position.LivePositionService.findPositions
-import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
-import vo.{JournalPosition, TimeInterval}
+import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import vo.{ JournalPosition, TimeInterval }
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -146,18 +146,19 @@ final case class LivePositionService(
     val noPositionsEffect = logger.debug(s"No positions to import for ${userWallet.address}")
 
     @inline
-    def handlePositionsImport(positions: List[Position]): IO[PositionImportError, Unit] = {
-      positionRepo
-        .save(userWallet.address, positions)
-        .mapError(throwable => PositionImportError(userWallet.address, throwable)) *>
-        logger.info(s"Demo data import complete for ${userWallet.address.value}")
-    }
+    def handlePositionsImport(positions: List[Position]): IO[PositionError, Unit] =
+      for {
+        //Get open positions that might become closed with the new data coming in
+        openPositions <- positionRepo.getPositions(userWallet.address, Open).map(Positions(_))
+        merged        = openPositions.merge(Positions(positions))
+        _ <- positionRepo
+              .save(userWallet.address, merged.items)
+              .mapError(throwable => PositionImportError(userWallet.address, throwable))
+        _ <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
+      } yield ()
 
     for {
       _ <- logger.info(s"Importing data for ${userWallet.address.value}...")
-
-      //Get open positions that might become closed with the new data coming in
-      existentPositions <- positionRepo.getPositions(userWallet.address, Open)
 
       positions <- txStream.runCollect
                     .bimap(
@@ -200,7 +201,7 @@ object LivePositionService {
 
     val positions = transactionsByCoin.flatMap {
       case (rawCurrency, txList) =>
-        val currency = refined.refineV[NonEmpty].unsafeFrom(rawCurrency)
+        val currency                                = refined.refineV[NonEmpty].unsafeFrom(rawCurrency)
         val grouped: ArrayBuffer[List[Transaction]] = ArrayBuffer.empty
 
         val acc: ArrayBuffer[Transaction] = ArrayBuffer.empty
