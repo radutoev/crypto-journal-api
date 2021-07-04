@@ -1,7 +1,7 @@
 val firestoreVersion  = "1.107.0"
 val jwtVersion        = "8.0.2"
 val refinedVersion    = "0.9.18"
-val sttpClientVersion = "3.3.6" //Used until zio-http fixes its client
+val sttpClientVersion = "3.3.9" //Used until zio-http fixes its client
 val zioVersion        = "1.0.9"
 val zioConfigVersion  = "1.0.6"
 val zioHttpVersion    = "1.0.0.0-RC17+12-2f7aa146-SNAPSHOT"
@@ -35,9 +35,19 @@ val root = (project in file("."))
       "eu.timepit"                    %% "refined"                % refinedVersion,
       "io.d11"                        %% "zhttp"                  % zioHttpVersion,
       "ch.qos.logback"                % "logback-classic"         % "1.2.3",
+      "org.reactivestreams"           % "reactive-streams"        % "1.0.3",
       "dev.zio"                       %% "zio-test"               % zioVersion % Test,
       "dev.zio"                       %% "zio-test-sbt"           % zioVersion % Test
     ),
+    assemblyMergeStrategy := {
+      case "application.conf"                                            => MergeStrategy.concat
+      case "module-info.class"                                           => MergeStrategy.discard
+      case PathList("reactive-streams-flow-adapters-1.0.2.jar", xs @ _*) => MergeStrategy.discard
+      case PathList("org", "reactivestreams", ps @ _*)                   => MergeStrategy.last
+      case x =>
+        val oldStrategy = assemblyMergeStrategy.value
+        oldStrategy(x)
+    },
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
   )
 
