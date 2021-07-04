@@ -3,3 +3,6 @@ addSbtPlugin("org.jetbrains" % "sbt-ide-settings" % "1.1.0")
 
 /** Scalafmt - Code formatter for Scala **/
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.3.2")
+
+/** Assembly - Create a fat JAR of your project with all of its dependencies **/
+addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "1.0.0")
