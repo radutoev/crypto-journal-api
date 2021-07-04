@@ -39,6 +39,7 @@ val root = (project in file("."))
       "dev.zio"                       %% "zio-test"               % zioVersion % Test,
       "dev.zio"                       %% "zio-test-sbt"           % zioVersion % Test
     ),
+    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     assemblyMergeStrategy := {
       case "application.conf"                                            => MergeStrategy.concat
       case "module-info.class"                                           => MergeStrategy.discard
@@ -48,7 +49,9 @@ val root = (project in file("."))
         val oldStrategy = assemblyMergeStrategy.value
         oldStrategy(x)
     },
-    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
+    dockerBaseImage := "openjdk:17-jdk-alpine3.14",
+    dockerExposedPorts := Seq(8080)
   )
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
 
 addCommandAlias("fmt", ";scalafmtAll;scalafmtSbt")
