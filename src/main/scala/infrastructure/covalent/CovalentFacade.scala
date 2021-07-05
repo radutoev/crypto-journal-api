@@ -37,7 +37,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                            .fromEither(response.body)
                            .tapError(s => logger.warn(s))
                            .map(_.fromJson[TransactionQueryResponse])
-                           .map(_.fold[List[Transaction]](_ => List.empty, response => response.data.items))
+                           .map(_.fold[List[Transaction]](_ => List.empty, response => response.data.items.map(_.toDomain())))
                            .mapError(err => new RuntimeException("booboo"))
       transactions <- ZIO.foreach(slimTransactions.map(_.hash))(fetchTransaction)
     } yield transactions
@@ -60,7 +60,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
               .tapError(err => logger.warn("Covalent request failed: " + err.message))
               .mapError(Some(_))
               .flatMap(txResponse => {
-                val items = txResponse.items.filter(predicate)
+                val items = txResponse.items.map(_.toDomain()).filter(predicate)
                 if(txResponse.pagination.hasMore && items.nonEmpty) {
                   stateRef.set(pageNumber + 1) *> UIO(Chunk.fromIterable(items))
                 } else {
@@ -109,7 +109,9 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                .fromEither(response.body)
                .map(_.fromJson[TransactionQueryResponse])
                .mapError(err => new RuntimeException("noo"))
-      transaction <- ZIO.fromEither(body).mapError(err => new RuntimeException("noo")).map(_.data.items.head)
+      transaction <- ZIO.fromEither(body)
+        .mapError(err => new RuntimeException("noo"))
+        .map(_.data.items.head.toDomain())
     } yield transaction
 }
 

@@ -117,7 +117,17 @@ object Routes {
                              Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
                            }
                          } else {
-                           Response.status(Status.NO_CONTENT)
+                           if (positions.lastSync.isDefined) {
+                             Response.http(
+                               status = Status.NO_CONTENT,
+                               headers = List(
+                                 Header("X-CoinLogger-LatestSync", positions.lastSync.get.toString),
+                                 Header("Content-Type", "application/json")
+                               )
+                             )
+                           } else {
+                             Response.status(Status.NO_CONTENT)
+                           }
                          }
                      )
       } yield response
@@ -151,6 +161,17 @@ object Routes {
                   )
               }
             } else {
+              positions.lastSync match {
+                case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
+                case Some(timestamp) =>
+                  Response.http(
+                    status = Status.NO_CONTENT,
+                    headers = List(
+                      Header("X-CoinLogger-LatestSync", timestamp.toString),
+                      Header("Content-Type", "application/json")
+                    )
+                  )
+              }
               Response.status(Status.NO_CONTENT)
             }
           )

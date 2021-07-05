@@ -1,8 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.Transaction
 import domain.model._
+
+import infrastructure.covalent.dto._
 
 import LivePositionService.findPositions
 import eu.timepit.refined
@@ -17,7 +18,7 @@ import scala.util.Try
 object PositionGeneratorSpec extends DefaultRunnableSpec {
   override def spec = suite("PositionGeneratorSpec")(
     test("No position if insufficient tranactions") {
-      assert(findPositions(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get)))(
+      assert(findPositions(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get.toDomain)))(
         equalTo(List.empty)
       )
     },
@@ -25,7 +26,7 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
       val file         = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]
       val transactions = file.right.get
 
-      val positions = findPositions(transactions)
+      val positions = findPositions(transactions.map(_.toDomain()))
 
       val expected = ExpectedData.map { row =>
         val parts = row.split("[;]")
