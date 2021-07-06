@@ -18,7 +18,7 @@ import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
-import vo.TimeInterval
+import vo.{PositionFilter, TimeInterval}
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
@@ -26,6 +26,7 @@ import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio._
 import zio.json._
+import zio.prelude.Validation
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -88,11 +89,13 @@ object Routes {
   }
 
   private def positions(userId: UserId) = HttpApp.collectM {
-    case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" =>
+    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "positions" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
                     .orElseFail(BadRequest("Invalid address"))
+
+        filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
                      .getPositions(address)
@@ -239,6 +242,21 @@ object Routes {
         .orElse(req.getHeader(EspForwardedHeaderName.toLowerCase))
         .flatMap(header => AuthHeaderData(header.value.toString).toOption.map(_.id).map(NonEmptyString.unsafeFrom))
         .fold[HttpApp[R, E]](fail)(success)
+    }
+  }
+
+  implicit class PositionsQParamsOps(url: URL) {
+    def positionFilter(): Validation[String, PositionFilter] = {
+      val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
+      getInt("count", 30)(qParams).flatMap(count => PositionFilter(count))
+    }
+
+    private def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] = {
+      if(qParams.contains(key)) {
+        Validation.fromOption(qParams(key).toIntOption).mapError(_ => "Query param has to be an integer")
+      } else {
+        Validation.succeed(default)
+      }
     }
   }
 }

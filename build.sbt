@@ -7,6 +7,7 @@ val zioConfigVersion  = "1.0.6"
 val zioHttpVersion    = "1.0.0.0-RC17+12-2f7aa146-SNAPSHOT"
 val zioJsonVersion    = "0.1.5"
 val zioLoggingVersion = "0.5.8"
+val zioPreludeVersion = "1.0.0-RC5"
 
 val root = (project in file("."))
   .settings(
@@ -32,6 +33,7 @@ val root = (project in file("."))
       "dev.zio"                       %% "zio-json"               % zioJsonVersion,
       "dev.zio"                       %% "zio-logging"            % zioLoggingVersion,
       "dev.zio"                       %% "zio-logging-slf4j"      % zioLoggingVersion,
+      "dev.zio"                       %% "zio-prelude"            % zioPreludeVersion,
       "eu.timepit"                    %% "refined"                % refinedVersion,
       "io.d11"                        %% "zhttp"                  % zioHttpVersion,
       "ch.qos.logback"                % "logback-classic"         % "1.2.3",

@@ -34,8 +34,6 @@ object TransactionSpec extends DefaultRunnableSpec {
 
       val transaction = rawJsonString.fromJson[Transaction].right.get.toDomain()
 
-      println(transaction.value.map(_.amount))
-
       assert(transaction.hash)(equalTo("0x28c21d9ebd61aa4532e0b1097342e413a33512206d04ae42f31b2f863445660a")) &&
       assert(transaction.transactionType)(equalTo(Sell)) &&
       assert(transaction.fee)(equalTo(FungibleData(BigDecimal(0.00103099), refineV[CurrencyPredicate].unsafeFrom("WBNB")))) &&
