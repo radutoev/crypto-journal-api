@@ -2,11 +2,11 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{UserId, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.error._
 import domain.position.Position.PositionIdPredicate
-import domain.position.{JournalingService, PositionService}
+import domain.position.{ JournalingService, PositionService }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.PortfolioKpi
@@ -18,7 +18,7 @@ import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
-import vo.{PositionFilter, TimeInterval}
+import vo.{ PositionFilter, TimeInterval }
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
@@ -101,7 +101,7 @@ object Routes {
                      .getPositions(address, filter)
                      .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
                      .fold(
-                       _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+                       positionErrorToHttpResponse,
                        positions =>
                          if (positions.items.nonEmpty) {
                            if (positions.lastSync.isDefined) {
@@ -135,49 +135,51 @@ object Routes {
                      )
       } yield response
 
-    case Method.GET ->  Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
+    case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
       for {
         address <- ZIO
-          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-          .orElseFail(BadRequest("Invalid address"))
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
 
         response <- CryptoJournalApi
-          .diff(address)
-          .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
-          .fold(
-            {
-              case _: CheckpointNotFound => Response.status(Status.NOT_FOUND)
-            },
-            positions => if(positions.items.nonEmpty) {
-              positions.lastSync match {
-                case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
-                case Some(timestamp) =>
-                  Response.http(
-                    status = Status.OK,
-                    headers = List(
-                      Header("X-CoinLogger-LatestSync", timestamp.toString),
-                      Header("Content-Type", "application/json")
-                    ),
-                    content = HttpData.CompleteData(
-                      Chunk.fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
-                    )
-                  )
-              }
-            } else {
-              positions.lastSync match {
-                case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
-                case Some(timestamp) =>
-                  Response.http(
-                    status = Status.NO_CONTENT,
-                    headers = List(
-                      Header("X-CoinLogger-LatestSync", timestamp.toString),
-                      Header("Content-Type", "application/json")
-                    )
-                  )
-              }
-              Response.status(Status.NO_CONTENT)
-            }
-          )
+                     .diff(address)
+                     .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
+                     .fold(
+                       {
+                         case _: CheckpointNotFound => Response.status(Status.NOT_FOUND)
+                       },
+                       positions =>
+                         if (positions.items.nonEmpty) {
+                           positions.lastSync match {
+                             case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
+                             case Some(timestamp) =>
+                               Response.http(
+                                 status = Status.OK,
+                                 headers = List(
+                                   Header("X-CoinLogger-LatestSync", timestamp.toString),
+                                   Header("Content-Type", "application/json")
+                                 ),
+                                 content = HttpData.CompleteData(
+                                   Chunk
+                                     .fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
+                                 )
+                               )
+                           }
+                         } else {
+                           positions.lastSync match {
+                             case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
+                             case Some(timestamp) =>
+                               Response.http(
+                                 status = Status.NO_CONTENT,
+                                 headers = List(
+                                   Header("X-CoinLogger-LatestSync", timestamp.toString),
+                                   Header("Content-Type", "application/json")
+                                 )
+                               )
+                           }
+                           Response.status(Status.NO_CONTENT)
+                         }
+                     )
       } yield response
 
     case Method.GET -> Root / "positions" / rawPositionId =>
@@ -199,19 +201,21 @@ object Routes {
                      )
       } yield response
 
-    case req@Method.PUT -> Root / "positions" / rawPositionId / "journal" =>
+    case req @ Method.PUT -> Root / "positions" / rawPositionId / "journal" =>
       for {
         positionId <- ZIO
-          .fromEither(refineV[PositionIdPredicate](rawPositionId))
-          .orElseFail(BadRequest("Invalid positionId"))
+                       .fromEither(refineV[PositionIdPredicate](rawPositionId))
+                       .orElseFail(BadRequest("Invalid positionId"))
 
-        journalEntry <- ZIO.fromOption(req.getBodyAsString)
-          .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[JournalEntry]))
-          .orElseFail(BadRequest("Invalid request"))
+        journalEntry <- ZIO
+                         .fromOption(req.getBodyAsString)
+                         .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[JournalEntry]))
+                         .orElseFail(BadRequest("Invalid request"))
 
-        response <- CryptoJournalApi.saveJournalEntry(positionId, journalEntry.toDomainModel)
-          .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
-          .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), _ => Response.status(Status.OK))
+        response <- CryptoJournalApi
+                     .saveJournalEntry(positionId, journalEntry.toDomainModel)
+                     .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
+                     .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), _ => Response.status(Status.OK))
       } yield response
   }
 
@@ -251,12 +255,95 @@ object Routes {
       getInt("count", 3)(qParams).flatMap(count => PositionFilter(count))
     }
 
-    private def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] = {
-      if(qParams.contains(key)) {
+    private def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] =
+      if (qParams.contains(key)) {
         Validation.fromOption(qParams(key).toIntOption).mapError(_ => "Query param has to be an integer")
       } else {
         Validation.succeed(default)
       }
+  }
+
+  val positionErrorToHttpResponse: PositionError => UResponse = {
+    case InvalidRepresentation(message) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "InvalidRepresentation", message).toResponsePayload()
+      )
+    case PositionsFetchError(address)              =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "PositionsFetchError", s"Error retrieving positions for address: $address").toResponsePayload()
+      )
+    case PositionNotFound(_)              =>
+      Response.http(
+        status = Status.NOT_FOUND,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "PositionNotFound").toResponsePayload()
+      )
+    case PositionFetchError(positionId, throwable) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "PositionFetchError", s"Error retrieving position $positionId").toResponsePayload()
+      )
+    case PriceQuotesError(throwable)               =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "PriceQuotesError", s"Failure applying price quotes onp positions").toResponsePayload()
+      )
+    case CheckpointFetchError(address, throwable)  =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "CheckpointFetchError").toResponsePayload()
+      )
+    case CheckpointNotFound(address)               =>
+      Response.http(
+        status = Status.NOT_FOUND,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = s"No checkpoint for address ${address}").toResponsePayload()
+      )
+    case JournalSaveError(throwable)               =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "JournalSaveError").toResponsePayload()
+      )
+    case JournalFetchError(throwable)              =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "JournalFetchError").toResponsePayload()
+      )
+    case JournalNotFound(userId, positionId)       =>
+      Response.http(
+        status = Status.NOT_FOUND,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "JournalNotFound").toResponsePayload()
+      )
+    case PositionImportError(address, throwable)   =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "PositionImportError").toResponsePayload()
+      )
+  }
+
+  //TODO Maybe add a throwable for easier debugging.
+  final case class ApiError(`type`: String, details: Option[String])
+
+  object ApiError {
+    implicit val apiErrorCodec: JsonCodec[ApiError] = DeriveJsonCodec.gen[ApiError]
+
+    def apply(`type`: String, details: String) = new ApiError(`type`, Some(details))
+
+    def apply(`type`: String) = new ApiError(`type`, None)
+
+    implicit class ApiErrorOps(apiError: ApiError) {
+      def toResponsePayload() = HttpData.CompleteData(Chunk.fromArray(apiError.toJson.getBytes(HTTP_CHARSET)))
     }
   }
 }
