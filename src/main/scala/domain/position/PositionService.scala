@@ -154,7 +154,7 @@ final case class LivePositionService(
         _ <- positionRepo
               .save(userWallet.address, merged.items)
               .mapError(throwable => PositionImportError(userWallet.address, throwable))
-        _ <- logger.info(s"Demo data import complete for ${userWallet.address.value}")
+        _ <- logger.info(s"Data import complete for ${userWallet.address.value}")
       } yield ()
 
     for {
