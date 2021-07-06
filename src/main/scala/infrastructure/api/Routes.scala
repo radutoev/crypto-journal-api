@@ -246,7 +246,7 @@ object Routes {
   implicit class PositionsQParamsOps(url: URL) {
     def positionFilter(): Validation[String, PositionFilter] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
-      getInt("count", 3)(qParams).flatMap(count => PositionFilter(count))
+      getInt("count", 30)(qParams).flatMap(count => PositionFilter(count))
     }
 
     private def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] =
