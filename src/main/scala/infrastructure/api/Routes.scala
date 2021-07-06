@@ -145,9 +145,7 @@ object Routes {
                      .diff(address)
                      .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
                      .fold(
-                       {
-                         case _: CheckpointNotFound => Response.status(Status.NOT_FOUND)
-                       },
+                       positionErrorToHttpResponse,
                        positions =>
                          if (positions.items.nonEmpty) {
                            positions.lastSync match {
@@ -192,11 +190,7 @@ object Routes {
                      .getPosition(positionId)
                      .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
                      .fold(
-                       {
-                         case PositionNotFound(_) =>
-                           Response.status(Status.NOT_FOUND)
-                         case _ => Response.status(Status.INTERNAL_SERVER_ERROR)
-                       },
+                       positionErrorToHttpResponse,
                        position => Response.jsonString(fromJournalPosition(position).toJson)
                      )
       } yield response
@@ -215,7 +209,7 @@ object Routes {
         response <- CryptoJournalApi
                      .saveJournalEntry(positionId, journalEntry.toDomainModel)
                      .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
-                     .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), _ => Response.status(Status.OK))
+                     .fold(positionErrorToHttpResponse, _ => Response.status(Status.OK))
       } yield response
   }
 
