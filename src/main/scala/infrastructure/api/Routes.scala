@@ -98,7 +98,7 @@ object Routes {
         filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPositions(address)
+                     .getPositions(address, filter)
                      .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
@@ -248,7 +248,7 @@ object Routes {
   implicit class PositionsQParamsOps(url: URL) {
     def positionFilter(): Validation[String, PositionFilter] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
-      getInt("count", 30)(qParams).flatMap(count => PositionFilter(count))
+      getInt("count", 3)(qParams).flatMap(count => PositionFilter(count))
     }
 
     private def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] = {

@@ -2,11 +2,10 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model.{State, WalletAddress}
-import domain.position.Position.{PositionId}
+import domain.position.Position.PositionId
 import domain.position.error._
-import vo.TimeInterval
+import vo.{PositionFilter, TimeInterval}
 
-import eu.timepit.refined.types.numeric.PosInt
 import zio.{Has, IO, Task, ZIO}
 
 import java.time.Instant
@@ -14,7 +13,7 @@ import java.time.Instant
 trait PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): Task[Unit]
 
-  def getPositions(address: WalletAddress)(implicit count: PosInt): IO[PositionError, List[Position]]
+  def getPositions(address: WalletAddress)(filter: PositionFilter): IO[PositionError, List[Position]]
 
   def getPositions(address: WalletAddress, timeInterval: TimeInterval): IO[PositionError, List[Position]]
 
@@ -38,7 +37,4 @@ trait PositionRepo {
 object PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): ZIO[Has[PositionRepo], Throwable, Unit] =
     ZIO.serviceWith[PositionRepo](_.save(address, positions))
-
-  def getPositions(wallet: WalletAddress)(implicit count: PosInt): ZIO[Has[PositionRepo], PositionError, List[Position]] =
-    ZIO.serviceWith[PositionRepo](_.getPositions(wallet))
 }

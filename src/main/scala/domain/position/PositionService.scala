@@ -1,26 +1,26 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ EthBlockchainRepo, Transaction }
+import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.blockchain.error._
 import domain.model._
 import domain.position.error._
 import domain.position.Position._
 import domain.position.LivePositionService.findPositions
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
-import vo.{ JournalPosition, TimeInterval }
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import vo.{PositionFilter, JournalPosition, TimeInterval}
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 
 trait PositionService {
-  def getPositions(userWallet: UserWallet): IO[PositionError, Positions]
+  def getPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, Positions]
 
   def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, List[Position]]
 
@@ -53,8 +53,8 @@ trait PositionService {
 }
 
 object PositionService {
-  def getPositions(userWallet: UserWallet): ZIO[Has[PositionService], PositionError, Positions] =
-    ZIO.serviceWith[PositionService](_.getPositions(userWallet))
+  def getPositions(userWallet: UserWallet)(filter: PositionFilter): ZIO[Has[PositionService], PositionError, Positions] =
+    ZIO.serviceWith[PositionService](_.getPositions(userWallet)(filter))
 }
 
 final case class LivePositionService(
@@ -65,10 +65,10 @@ final case class LivePositionService(
   demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: UserWallet): IO[PositionError, Positions] =
+  override def getPositions(userWallet: UserWallet)(positionFilter: PositionFilter): IO[PositionError, Positions] =
     for {
       positions <- positionRepo
-                    .getPositions(userWallet.address)(demoAccountConfig.maxPositions)
+                    .getPositions(userWallet.address)(positionFilter)
                     .flatMap(enrichPositions)
                     .orElseFail(PositionsFetchError(userWallet.address))
       checkpoint <- positionRepo.getCheckpoint(userWallet.address)

@@ -7,14 +7,13 @@ import domain.position.error._
 import domain.position.{Checkpoint, Position, PositionEntry, PositionRepo}
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
-import vo.TimeInterval
+import vo.{PositionFilter, TimeInterval}
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
-import eu.timepit.refined.types.numeric.PosInt
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, UIO, URLayer, ZIO}
@@ -61,13 +60,13 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     }
   }
 
-  override def getPositions(address: WalletAddress)(implicit count: PosInt): IO[PositionError, List[Position]] = {
+  override def getPositions(address: WalletAddress)(positionFilter: PositionFilter): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
       .setKind(Positions)
       .setFilter(PropertyFilter.eq("address", address.value))
       .addOrderBy(OrderBy.asc("openedAt"))
-      .setLimit(count.value)
+      .setLimit(positionFilter.count)
       .build()
     doFetchPositions(address, query)
   }
