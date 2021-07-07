@@ -1,0 +1,67 @@
+swagger: '2.0'
+info:
+  title: Replace with APP_ID
+  description: Crypto Journal API Spec
+  version: 0.1.0
+schemes:
+  - https
+produces:
+  - application/json
+x-google-backend:
+  address: APP_URL
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      response:
+        '200':
+          description: If service is running
+          schema:
+            type: string
+  /addresses/:address/positions:
+    get:
+      summary: Get positions for given address
+      operationId: getPositions
+      response:
+        '200':
+          description: Positions for address
+        '204':
+          description: Address has no positions
+  /addresses/:address/positions/:positionId:
+    get:
+      summary: Get position by id
+      operationId: getPosition
+      response:
+        '200':
+          description: Position for given id
+  /wallets:
+    get:
+      summary: Get addresses attached to the account
+      operationId: getWallets
+      response:
+        '200':
+          desription: Accounts wallets
+        '204':
+          description: Account has no wallets
+        '500':
+          description: Operation error
+  /wallets/:address:
+    post:
+      summary: Attach a new wallet address with the user's account
+      operationId: createWallet
+      response:
+        '201':
+          description: Wallet has been attached to the user account
+        '409':
+          description: If the wallet address is already attached to the account
+        '500':
+          description: Operation failure
+    delete:
+      summary: Remove the given wallet address from the user's account
+      operationId: deleteWallet
+      response:
+        '200':
+          description: Wallet removed
+        '500':
+          description: Operation failure
