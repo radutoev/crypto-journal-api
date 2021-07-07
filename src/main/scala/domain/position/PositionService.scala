@@ -65,14 +65,19 @@ final case class LivePositionService(
   demoAccountConfig: DemoAccountConfig,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: UserWallet)(positionFilter: PositionFilter): IO[PositionError, Positions] =
+  override def getPositions(userWallet: UserWallet)(positionFilter: PositionFilter): IO[PositionError, Positions] = {
     for {
       positions <- positionRepo
                     .getPositions(userWallet.address)(positionFilter)
                     .flatMap(enrichPositions)
                     .orElseFail(PositionsFetchError(userWallet.address))
-      checkpoint <- positionRepo.getCheckpoint(userWallet.address)
-    } yield Positions(positions, checkpoint.latestTxTimestamp)
+      result <- positionRepo.getCheckpoint(userWallet.address)
+        .map(checkpoint => Positions(positions, checkpoint.latestTxTimestamp))
+        .catchSome {
+          case CheckpointNotFound(_) => UIO(Positions.empty())
+        }
+    } yield result
+  }
 
   override def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, List[Position]] =
     positionRepo
