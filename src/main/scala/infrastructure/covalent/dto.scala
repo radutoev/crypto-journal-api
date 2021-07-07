@@ -1,7 +1,12 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.blockchain.{ Transaction => DomainTransaction, LogEvent => DomainLogEvent, Decoded => DomainDecoded, Param => DomainParam }
+import domain.blockchain.{
+  Transaction => DomainTransaction,
+  LogEvent => DomainLogEvent,
+  Decoded => DomainDecoded,
+  Param => DomainParam
+}
 
 import zio.json.{ jsonField, DeriveJsonCodec, DeriveJsonDecoder, JsonCodec, JsonDecoder }
 
@@ -97,9 +102,8 @@ object dto {
     implicit val encoder: JsonCodec[Decoded] = DeriveJsonCodec.gen[Decoded]
 
     implicit class DecodedOps(decoded: Decoded) {
-      def toDomain() = {
+      def toDomain() =
         DomainDecoded(name = decoded.name, signature = decoded.signature, params = decoded.params.map(_.toDomain()))
-      }
     }
   }
 
@@ -109,9 +113,14 @@ object dto {
     implicit val encoder: JsonCodec[Param] = DeriveJsonCodec.gen[Param]
 
     implicit class ParamOps(param: Param) {
-      def toDomain() = {
-        DomainParam(name = param.name, `type` = param.`type`, indexed = param.indexed, decoded = param.decoded, value = param.value)
-      }
+      def toDomain() =
+        DomainParam(
+          name = param.name,
+          `type` = param.`type`,
+          indexed = param.indexed,
+          decoded = param.decoded,
+          value = param.value
+        )
     }
   }
 

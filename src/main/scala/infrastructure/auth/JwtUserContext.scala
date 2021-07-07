@@ -4,7 +4,7 @@ package infrastructure.auth
 import domain.account.UserContext
 import domain.model.UserId
 
-import zio.{Has, UIO, ULayer, ZLayer}
+import zio.{ Has, UIO, ULayer, ZLayer }
 
 final case class JwtUserContext(id: UserId) extends UserContext {
   override def userId: UIO[UserId] = UIO(id)

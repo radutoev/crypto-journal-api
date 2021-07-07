@@ -3,7 +3,7 @@ package domain
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.{NonEmpty, Size}
+import eu.timepit.refined.collection.{ NonEmpty, Size }
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
@@ -12,7 +12,7 @@ import eu.timepit.refined.types.string.NonEmptyString
 
 object model {
   type CurrencyPredicate = NonEmpty
-  type Currency = String Refined CurrencyPredicate
+  type Currency          = String Refined CurrencyPredicate
 
   sealed trait State
   final case object Open   extends State
@@ -48,12 +48,11 @@ object model {
   type Fee = FungibleData
 
   type TransactionHashPredicate = NonEmpty
-  type TransactionHash = String Refined TransactionHashPredicate
+  type TransactionHash          = String Refined TransactionHashPredicate
 
   object TransactionHash {
-    def apply(value: String): Either[String, TransactionHash] = {
+    def apply(value: String): Either[String, TransactionHash] =
       refineV[NonEmpty](value)
-    }
   }
 
   type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-zA-Z0-9]{40}"]]
@@ -62,14 +61,15 @@ object model {
   type UserId = NonEmptyString
 
   type TradeCountPredicate = NonNegative
-  type TradeCount = Int Refined TradeCountPredicate
+  type TradeCount          = Int Refined TradeCountPredicate
 
   final case class UserWallet(userId: UserId, address: WalletAddress)
 
   implicit class FungibleDataOps(list: List[FungibleData]) {
-    def sumFungibleData(): FungibleData = list.foldLeft(FungibleData(BigDecimal(0), refineV[NonEmpty]("USD").right.get)) { (acc, value) =>
-      acc.add(value.amount)
-    }
+    def sumFungibleData(): FungibleData =
+      list.foldLeft(FungibleData(BigDecimal(0), refineV[NonEmpty]("USD").right.get)) { (acc, value) =>
+        acc.add(value.amount)
+      }
   }
 
   implicit class OptionalFungibleDataOps(list: List[Option[FungibleData]]) {

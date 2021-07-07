@@ -17,30 +17,29 @@ object RouteOpsSpec extends DefaultRunnableSpec {
       assert(URL(Path("test")).positionFilter())(equalTo(PositionFilter(30)))
     },
     test("map first encountered param value") {
-      assert(URL(Path("test"), queryParams = Map("count" -> List("7", "4"))).positionFilter())(equalTo(PositionFilter(7)))
+      assert(URL(Path("test"), queryParams = Map("count" -> List("7", "4"))).positionFilter())(
+        equalTo(PositionFilter(7))
+      )
     },
     testM("fail if negative value provided") {
-      check(Gen.int(Int.MinValue, -1)) {
-        paramValue =>
-          assert(URL(Path("test"), queryParams = Map("count" -> List(paramValue.toString))).positionFilter().toEither)(
-            isLeft
-          )
+      check(Gen.int(Int.MinValue, -1)) { paramValue =>
+        assert(URL(Path("test"), queryParams = Map("count" -> List(paramValue.toString))).positionFilter().toEither)(
+          isLeft
+        )
       }
     },
     testM("fail if alphanumeric") {
-      check(Gen.anyString) {
-        paramValue =>
-          assert(URL(Path("test"), queryParams = Map("count" -> List(paramValue))).positionFilter().toEither)(
-            isLeft
-          )
+      check(Gen.anyString) { paramValue =>
+        assert(URL(Path("test"), queryParams = Map("count" -> List(paramValue))).positionFilter().toEither)(
+          isLeft
+        )
       }
     },
     testM("fail if float") {
-      check(Gen.anyFloat) {
-        paramValue =>
-          assert(URL(Path("test"), queryParams = Map("count" -> List(paramValue.toString))).positionFilter().toEither)(
-            isLeft
-          )
+      check(Gen.anyFloat) { paramValue =>
+        assert(URL(Path("test"), queryParams = Map("count" -> List(paramValue.toString))).positionFilter().toEither)(
+          isLeft
+        )
       }
     }
   )

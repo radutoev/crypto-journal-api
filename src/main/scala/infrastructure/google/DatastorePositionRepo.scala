@@ -2,21 +2,21 @@ package io.softwarechain.cryptojournal
 package infrastructure.google
 
 import domain.model._
-import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
+import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
 import domain.position.error._
-import domain.position.{Checkpoint, Position, PositionEntry, PositionRepo}
+import domain.position.{ Checkpoint, Position, PositionEntry, PositionRepo }
 import infrastructure.google.DatastorePositionRepo._
 import util.tryOrLeft
-import vo.{PositionFilter, TimeInterval}
+import vo.{ PositionFilter, TimeInterval }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -60,7 +60,9 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     }
   }
 
-  override def getPositions(address: WalletAddress)(positionFilter: PositionFilter): IO[PositionError, List[Position]] = {
+  override def getPositions(
+    address: WalletAddress
+  )(positionFilter: PositionFilter): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
       .setKind(Positions)
@@ -123,12 +125,11 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     doFetchPositions(address, query)
   }
 
-  private def doFetchPositions(address: WalletAddress, query: EntityQuery): IO[PositionsFetchError, List[Position]] = {
+  private def doFetchPositions(address: WalletAddress, query: EntityQuery): IO[PositionsFetchError, List[Position]] =
     executeQuery(query).bimap(
       _ => PositionsFetchError(address),
       results => results.asScala.toList.map(entityToPosition).collect { case Right(position) => position }
     )
-  }
 
   override def getPosition(positionId: PositionId): IO[PositionError, Position] = {
     val key   = datastore.newKeyFactory().setKind(Positions).newKey(positionId.value)
@@ -287,12 +288,12 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     val entity = e.get()
     for {
       id <- tryOrLeft(entity.getKey().asInstanceOf[Key].getName, InvalidRepresentation("Entry has no key name"))
-        .flatMap(rawIdStr =>
-          refined
-            .refineV[PositionEntryIdPredicate](rawIdStr)
-            .left
-            .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
-        )
+             .flatMap(rawIdStr =>
+               refined
+                 .refineV[PositionEntryIdPredicate](rawIdStr)
+                 .left
+                 .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
+             )
       entryType <- tryOrLeft(
                     TransactionType(entity.getString("type")),
                     InvalidRepresentation("Invalid type representation")

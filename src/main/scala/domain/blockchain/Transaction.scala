@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Buy, CurrencyPredicate, Fee, FungibleData, Sell, TransactionType, Unknown}
+import domain.model.{ Buy, CurrencyPredicate, Fee, FungibleData, Sell, TransactionType, Unknown }
 
 import eu.timepit.refined
 
@@ -30,9 +30,9 @@ final case class Transaction(
 
   lazy val transactionType: TransactionType = logEvents.headOption.fold[TransactionType](Unknown)(event =>
     event.decoded.name match {
-      case "Swap" => Buy
+      case "Swap"       => Buy
       case "Withdrawal" => Sell
-      case _ => Unknown
+      case _            => Unknown
     }
   )
 
@@ -53,24 +53,27 @@ final case class Transaction(
   }
 
   //Atm we work only with WBNB so we assume it as the coin used in buy/sell operations.
-  lazy val fee: Fee = FungibleData(gasSpent * gasPrice * Math.pow(10, -18), refined.refineV[CurrencyPredicate].unsafeFrom("WBNB"))
+  lazy val fee: Fee =
+    FungibleData(gasSpent * gasPrice * Math.pow(10, -18), refined.refineV[CurrencyPredicate].unsafeFrom("WBNB"))
 
   lazy val value: Either[String, FungibleData] = transactionType match {
     case Unknown => Left("Unknown transaction type")
     case Buy =>
       (for {
         wadValue <- logEvents.last.decoded.params
-          .find(_.name == "wad")
-          .map(_.value)
-          .map(BigDecimal(_))
+                     .find(_.name == "wad")
+                     .map(_.value)
+                     .map(BigDecimal(_))
         decimals <- logEvents.last.senderContractDecimals
-        amount = wadValue * Math.pow(10, -decimals)
-      } yield FungibleData(amount, refined.refineV[CurrencyPredicate].unsafeFrom("WBNB"))).toRight("Unable to determine value of transaction")
+        amount   = wadValue * Math.pow(10, -decimals)
+      } yield FungibleData(amount, refined.refineV[CurrencyPredicate].unsafeFrom("WBNB")))
+        .toRight("Unable to determine value of transaction")
     case Sell =>
       (for {
         wadValue <- logEvents.head.decoded.params.find(_.name == "wad").map(_.value).map(BigDecimal(_))
         decimals <- logEvents.head.senderContractDecimals
-        amount = wadValue * Math.pow(10, -decimals)
-      } yield FungibleData(amount, refined.refineV[CurrencyPredicate].unsafeFrom("WBNB"))).toRight("Unable to determine value of transaction")
+        amount   = wadValue * Math.pow(10, -decimals)
+      } yield FungibleData(amount, refined.refineV[CurrencyPredicate].unsafeFrom("WBNB")))
+        .toRight("Unable to determine value of transaction")
   }
 }

@@ -5,7 +5,7 @@ import domain.blockchain.error.TransactionsGetError
 import domain.model.WalletAddress
 
 import zio.stream.ZStream
-import zio.{Has, Task, ZIO}
+import zio.{ Has, Task, ZIO }
 
 import java.time.Instant
 

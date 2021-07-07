@@ -1,23 +1,23 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import Position.{PositionEntryId, PositionId}
+import Position.{ PositionEntryId, PositionId }
 import domain.model._
-import domain.pricequote.{PriceQuote, PriceQuotes}
+import domain.pricequote.{ PriceQuote, PriceQuotes }
 import vo.TimeInterval
 
 import eu.timepit.refined
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 final case class Position(
-   currency: Currency,
-   openedAt: Instant,
-   entries: List[PositionEntry],
-   priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
-   id: Option[PositionId] = None
+  currency: Currency,
+  openedAt: Instant,
+  entries: List[PositionEntry],
+  priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
+  id: Option[PositionId] = None
 ) {
   def timeInterval(): TimeInterval = TimeInterval(openedAt, closedAt)
 
@@ -26,22 +26,18 @@ final case class Position(
    * It is an absolute value.
    * @return
    */
-  def totalCost(): Option[FungibleData] = {
+  def totalCost(): Option[FungibleData] =
     priceQuotes.map { implicit quotes =>
-      val buyCost = entries.filter(_.isBuy()).map(_.fiatTotalValue()).sumFungibleData()
+      val buyCost  = entries.filter(_.isBuy()).map(_.fiatTotalValue()).sumFungibleData()
       val sellCost = entries.filter(_.isSell()).map(_.fiatFee()).sumFungibleData()
       FungibleData(buyCost.add(sellCost.amount).amount.abs, refined.refineV[NonEmpty].unsafeFrom("USD"))
     }
-  }
 
   /**
    * @return Fiat sum of all fees for all entries in this position
    */
-  def totalFees(): Option[FungibleData] = {
-    priceQuotes.map { implicit quotes =>
-      entries.map(_.fiatFee()).sumFungibleData()
-    }
-  }
+  def totalFees(): Option[FungibleData] =
+    priceQuotes.map(implicit quotes => entries.map(_.fiatFee()).sumFungibleData())
 
   /**
    * Position return derived from all position entries associated with this position.
@@ -49,8 +45,8 @@ final case class Position(
    * None if position is not closed or no price quotes are given for the position interval.
    * FungibleData for a closed position.
    */
-  def fiatReturn(): Option[FungibleData] = {
-    if(state == Open) {
+  def fiatReturn(): Option[FungibleData] =
+    if (state == Open) {
       None
     } else {
       priceQuotes.map { implicit quotes =>
@@ -59,39 +55,31 @@ final case class Position(
           .sumFungibleData()
       }
     }
-  }
 
   /**
    * @return Total number of coins that were bought within this position
    */
-  def totalCoins(): FungibleData = {
+  def totalCoins(): FungibleData =
     FungibleData(
       entries.filter(_.isBuy()).map(_.value.amount).sum,
       currency
     )
-  }
 
   /**
    * @return Entry coin fiat price
    */
-  def entryPrice(): Option[PriceQuote] = {
-    priceQuotes.flatMap { implicit quotes =>
-      quotes.findPrice(entries.head.timestamp)
-    }
-  }
+  def entryPrice(): Option[PriceQuote] =
+    priceQuotes.flatMap(implicit quotes => quotes.findPrice(entries.head.timestamp))
 
   /**
    * @return Exit coin fiat price
    */
-  def exitPrice(): Option[PriceQuote] = {
-    if(closedAt.isDefined) {
-      priceQuotes.flatMap { implicit quotes =>
-        quotes.findPrice(entries.last.timestamp)
-      }
+  def exitPrice(): Option[PriceQuote] =
+    if (closedAt.isDefined) {
+      priceQuotes.flatMap(implicit quotes => quotes.findPrice(entries.last.timestamp))
     } else {
       None
     }
-  }
 
   def numberOfExecutions(): Int = entries.size
 
@@ -109,7 +97,7 @@ final case class Position(
 
   def win(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 
-  def state: State = entries.lastOption.fold[State](Open)(last => if(last.isSell()) Closed else Open)
+  def state: State = entries.lastOption.fold[State](Open)(last => if (last.isSell()) Closed else Open)
 
   def isClosed(): Boolean = state == Closed
 
@@ -122,13 +110,20 @@ final case class Position(
 
 object Position {
   type PositionIdPredicate = NonEmpty
-  type PositionId = String Refined PositionIdPredicate
+  type PositionId          = String Refined PositionIdPredicate
 
   type PositionEntryIdPredicate = NonEmpty
-  type PositionEntryId = String Refined PositionEntryIdPredicate
+  type PositionEntryId          = String Refined PositionEntryIdPredicate
 }
 
-final case class PositionEntry(`type`: TransactionType, value: FungibleData, fee: Fee, timestamp: Instant, txHash: TransactionHash, id: Option[PositionEntryId] = None) {
+final case class PositionEntry(
+  `type`: TransactionType,
+  value: FungibleData,
+  fee: Fee,
+  timestamp: Instant,
+  txHash: TransactionHash,
+  id: Option[PositionEntryId] = None
+) {
   def isBuy(): Boolean = `type` == Buy
 
   def isSell(): Boolean = `type` == Sell

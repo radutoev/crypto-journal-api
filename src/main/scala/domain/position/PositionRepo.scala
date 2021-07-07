@@ -1,12 +1,12 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{State, WalletAddress}
+import domain.model.{ State, WalletAddress }
 import domain.position.Position.PositionId
 import domain.position.error._
-import vo.{PositionFilter, TimeInterval}
+import vo.{ PositionFilter, TimeInterval }
 
-import zio.{Has, IO, Task, ZIO}
+import zio.{ Has, IO, Task, ZIO }
 
 import java.time.Instant
 

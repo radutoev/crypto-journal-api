@@ -264,13 +264,14 @@ object Routes {
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "InvalidRepresentation", message).toResponsePayload()
       )
-    case PositionsFetchError(address)              =>
+    case PositionsFetchError(address) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
-        content = ApiError(`type` = "PositionsFetchError", s"Error retrieving positions for address: $address").toResponsePayload()
+        content = ApiError(`type` = "PositionsFetchError", s"Error retrieving positions for address: $address")
+          .toResponsePayload()
       )
-    case PositionNotFound(_)              =>
+    case PositionNotFound(_) =>
       Response.http(
         status = Status.NOT_FOUND,
         headers = List(Header("Content-Type", "application/json")),
@@ -282,43 +283,44 @@ object Routes {
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "PositionFetchError", s"Error retrieving position $positionId").toResponsePayload()
       )
-    case PriceQuotesError(throwable)               =>
+    case PriceQuotesError(throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
-        content = ApiError(`type` = "PriceQuotesError", s"Failure applying price quotes onp positions").toResponsePayload()
+        content =
+          ApiError(`type` = "PriceQuotesError", s"Failure applying price quotes onp positions").toResponsePayload()
       )
-    case CheckpointFetchError(address, throwable)  =>
+    case CheckpointFetchError(address, throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "CheckpointFetchError").toResponsePayload()
       )
-    case CheckpointNotFound(address)               =>
+    case CheckpointNotFound(address) =>
       Response.http(
         status = Status.NOT_FOUND,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = s"No checkpoint for address ${address}").toResponsePayload()
       )
-    case JournalSaveError(throwable)               =>
+    case JournalSaveError(throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "JournalSaveError").toResponsePayload()
       )
-    case JournalFetchError(throwable)              =>
+    case JournalFetchError(throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "JournalFetchError").toResponsePayload()
       )
-    case JournalNotFound(userId, positionId)       =>
+    case JournalNotFound(userId, positionId) =>
       Response.http(
         status = Status.NOT_FOUND,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "JournalNotFound").toResponsePayload()
       )
-    case PositionImportError(address, throwable)   =>
+    case PositionImportError(address, throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),

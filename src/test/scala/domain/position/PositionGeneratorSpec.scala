@@ -8,8 +8,8 @@ import infrastructure.covalent.dto._
 import LivePositionService.findPositions
 import eu.timepit.refined
 import zio.json._
-import zio.test.Assertion.{equalTo, hasSameElementsDistinct}
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test.Assertion.{ equalTo, hasSameElementsDistinct }
+import zio.test.{ assert, DefaultRunnableSpec }
 
 import java.time.Instant
 import scala.io.Source

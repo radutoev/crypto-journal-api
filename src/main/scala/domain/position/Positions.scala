@@ -10,19 +10,19 @@ import scala.collection.mutable.ArrayBuffer
 final case class Positions(items: List[Position], lastSync: Option[Instant]) {
   def merge(other: Positions): Positions = {
     var currencyPositionMap = Map.empty[Currency, Position]
-    val otherItems = ArrayBuffer.empty[Position]
+    val otherItems          = ArrayBuffer.empty[Position]
 
-    other.items.foreach(position => {
-      if(currencyPositionMap.contains(position.currency)) {
+    other.items.foreach { position =>
+      if (currencyPositionMap.contains(position.currency)) {
         otherItems.addOne(position)
       } else {
         currencyPositionMap += position.currency -> position
       }
-    })
+    }
 
     //oldest first
-    val merged = items.reverse.map(position => {
-      if(currencyPositionMap.contains(position.currency)) {
+    val merged = items.reverse.map { position =>
+      if (currencyPositionMap.contains(position.currency)) {
         val oldPosition = currencyPositionMap(position.currency)
         oldPosition.copy(
           entries = oldPosition.entries ::: position.entries
@@ -32,7 +32,7 @@ final case class Positions(items: List[Position], lastSync: Option[Instant]) {
       } else {
         position
       }
-    })
+    }
 
     val notCorrelated = currencyPositionMap.values.toList
 
