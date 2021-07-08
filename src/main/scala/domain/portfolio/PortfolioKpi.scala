@@ -8,7 +8,7 @@ final class PortfolioKpi(positions: List[Position]) {
   private lazy val closedPositions = positions.filter(_.isClosed())
   private lazy val openPositions   = positions.filter(_.isOpen())
 
-  lazy val tradeCount = closedPositions.size
+  lazy val tradeCount: Int = closedPositions.size
 
   lazy val winRate: Float = {
     winRate(closedPositions)
