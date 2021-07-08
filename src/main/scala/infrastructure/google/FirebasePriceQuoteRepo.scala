@@ -18,7 +18,7 @@ final case class FirebasePriceQuoteRepo(datastore: Datastore) extends PriceQuote
     for {
       results <- Task {
                   val start    = interval.start.resetHourAndMinute()
-                  val maybeEnd = interval.end.map(_.resetHourAndMinute())
+                  val maybeEnd = interval.end.resetHourAndMinute()
                   val filter =
                     PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano))
 //                  val filter: StructuredQuery.Filter = if (maybeEnd.isDefined) {

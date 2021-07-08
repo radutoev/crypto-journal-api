@@ -19,7 +19,7 @@ final case class Position(
   priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
   id: Option[PositionId] = None
 ) {
-  def timeInterval(): TimeInterval = TimeInterval(openedAt, closedAt)
+  def timeInterval(): TimeInterval = closedAt().fold(TimeInterval(openedAt))(closed => TimeInterval(openedAt, closed))
 
   /**
    * Total cost is calculated from all BUY entries and all fees within in the position.

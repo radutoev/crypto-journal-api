@@ -35,8 +35,8 @@ trait PositionService {
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp)
     timestamps match {
-      case head :: Nil  => Some(TimeInterval(head, None))
-      case head :: tail => Some(TimeInterval(head, Some(tail.last)))
+      case head :: Nil  => Some(TimeInterval(head))
+      case head :: tail => Some(TimeInterval(head, tail.last))
       case Nil          => None
     }
   }

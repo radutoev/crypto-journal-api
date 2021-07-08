@@ -12,15 +12,10 @@ final case class PriceQuotes(quotes: List[PriceQuote]) extends AnyVal {
 
   def subset(interval: TimeInterval): PriceQuotes = PriceQuotes {
     val startInstant = interval.start.resetHourAndMinute()
-    val endInstant   = interval.end.map(_.resetHourAndMinute())
+    val endInstant   = interval.end.resetHourAndMinute()
 
     quotes.filter(quote => quote.timestamp.isAfter(startInstant) || quote.timestamp == startInstant).filter { quote =>
-      if (endInstant.isDefined) {
-        val end = endInstant.get
-        quote.timestamp.isBefore(end) || quote.timestamp == end
-      } else {
-        true
-      }
+      quote.timestamp.isBefore(endInstant) || quote.timestamp == endInstant
     }
   }
 }

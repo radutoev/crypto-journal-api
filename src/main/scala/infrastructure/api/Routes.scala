@@ -223,7 +223,7 @@ object Routes {
         response <- CryptoJournalApi
                      .getPortfolioKpis(
                        address,
-                       TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Some(Instant.now()))
+                       TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Instant.now())
                      )
                      .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
                      .fold(
