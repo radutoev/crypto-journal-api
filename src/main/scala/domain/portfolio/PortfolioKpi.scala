@@ -2,7 +2,9 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.FungibleData
-import domain.position.{ Position, Positions }
+import domain.position.{Position, Positions}
+import vo.TimeInterval
+import util.InstantOps
 
 final class PortfolioKpi(positions: Positions) {
   lazy val tradeCount: Int = positions.closedPositions.size
@@ -17,18 +19,22 @@ final class PortfolioKpi(positions: Positions) {
 
   /**
    * Account balance derived from provided positions.
-   * It takes into account open positions, and uses the total number of coins that were
-   *
-   * TODO I think I also need to check positive balanced closed positions because I could still have coins for that position.
-   *  Same for the trend series as well
    */
   lazy val balance: FungibleData = {
-    positions.openPositions.map(_.fiatValue()).sumFungibleData()
+    positions.items.map(_.fiatValue()).sumFungibleData()
   }
 
-//  lazy val balanceTrend: List[FungibleData] = {
-//
-//  }
+  lazy val balanceTrend: List[FungibleData] = {
+    positions.timeInterval.fold[List[FungibleData]](List.empty) { interval =>
+      val start = interval.start.atBeginningOfDay()
+      //for every day, generate Positions with entries matching the (start -> day) time interval
+      interval.days().map { day =>
+        val p = positions.filter(TimeInterval(start, day))
+        val result = p.items.map(_.fiatValue()).sumFungibleData()
+        result
+      }
+    }
+  }
 
   private def winRate(reference: List[Position]): Float = {
     val totalCount = reference.size

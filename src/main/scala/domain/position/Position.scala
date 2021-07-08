@@ -28,7 +28,7 @@ final case class Position(
    */
   def totalCost(): Option[FungibleData] =
     priceQuotes.map { implicit quotes =>
-      val buyCost  = entries.filter(_.isBuy()).map(_.fiatTotal()).sumFungibleData()
+      val buyCost  = entries.filter(_.isBuy()).map(_.fiatReturnTotal()).sumFungibleData()
       val sellCost = entries.filter(_.isSell()).map(_.fiatFee()).sumFungibleData()
       FungibleData(buyCost.add(sellCost.amount).amount.abs, refined.refineV[NonEmpty].unsafeFrom("USD"))
     }
@@ -46,12 +46,16 @@ final case class Position(
   def fiatValue(): Option[FungibleData] =
     priceQuotes.map { implicit quotes =>
       entries.collect {
-        case e: PositionEntry if e.fiatValue().isDefined => {
-          if (e.isBuy()) e.fiatValue().get
-          else e.fiatValue().get.negate()
-        }
+        case e: PositionEntry if e.fiatTotal().isDefined => e.fiatValue().get
       }.sumFungibleData()
     }
+//      entries.collect {
+//        case e: PositionEntry if e.fiatValue().isDefined => {
+//          if (e.isBuy()) e.fiatValue().get
+//          else e.fiatValue().get.negate()
+//        }
+//      }.sumFungibleData()
+//    }
 
   /**
    * Position return derived from all position entries associated with this position.
@@ -65,7 +69,7 @@ final case class Position(
     } else {
       priceQuotes.map { implicit quotes =>
         entries
-          .map(_.fiatTotal())
+          .map(_.fiatReturnTotal())
           .sumFungibleData()
       }
     }
@@ -89,7 +93,7 @@ final case class Position(
    * @return Exit coin fiat price
    */
   def exitPrice(): Option[PriceQuote] =
-    if (closedAt.isDefined) {
+    if (closedAt().isDefined) {
       priceQuotes.flatMap(implicit quotes => quotes.findPrice(entries.last.timestamp))
     } else {
       None
@@ -109,6 +113,11 @@ final case class Position(
 
   def closedAt(): Option[Instant] = entries.lastOption.collect {
     case entry if entry.`type` == Sell => entry.timestamp
+  }
+
+  def inInterval(interval: TimeInterval): Boolean = {
+    val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
+    closedAt().fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
   }
 }
 
@@ -149,7 +158,7 @@ final case class PositionEntry(
    * If entry is of type BUY, then it will return the negative absolute number of the fiatValue and fiatFee values.
    * If entry is of type SELL, then it will subtract the fiatFee from the fiatValue.
    */
-  def fiatTotal()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
+  def fiatReturnTotal()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
     for {
       fiatValue <- fiatValue()
       fiatFee   <- fiatFee()
@@ -158,5 +167,20 @@ final case class PositionEntry(
                      case Sell => fiatValue.amount - fiatFee.amount
                      case _    => 0
                    })
+    } yield FungibleData(fiatReturn, refined.refineV[NonEmpty].unsafeFrom("USD"))
+
+  /**
+   * Contribution of this entry to the balance of the account.
+   * Idea is that when you buy coins, then those have an attached fiat value to it.
+   */
+  def fiatTotal()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
+    for {
+      fiatValue <- fiatValue()
+      fiatFee   <- fiatFee()
+      fiatReturn <- Some[BigDecimal](`type` match {
+        case Buy  => fiatValue.amount - fiatFee.amount
+        case Sell => -fiatValue.amount - fiatFee.amount
+        case _    => 0
+      })
     } yield FungibleData(fiatReturn, refined.refineV[NonEmpty].unsafeFrom("USD"))
 }

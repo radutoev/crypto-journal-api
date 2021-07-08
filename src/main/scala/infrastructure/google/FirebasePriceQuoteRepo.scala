@@ -17,8 +17,8 @@ final case class FirebasePriceQuoteRepo(datastore: Datastore) extends PriceQuote
   override def getQuotes(interval: TimeInterval): Task[List[PriceQuote]] =
     for {
       results <- Task {
-                  val start    = interval.start.resetHourAndMinute()
-                  val maybeEnd = interval.end.resetHourAndMinute()
+                  val start    = interval.start.atBeginningOfDay()
+                  val maybeEnd = interval.end.atBeginningOfDay()
                   val filter =
                     PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano))
 //                  val filter: StructuredQuery.Filter = if (maybeEnd.isDefined) {

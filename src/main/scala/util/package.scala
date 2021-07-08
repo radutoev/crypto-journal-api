@@ -5,7 +5,7 @@ import scala.util.Try
 
 package object util {
   implicit class InstantOps(instant: Instant) {
-    def resetHourAndMinute(): Instant =
+    def atBeginningOfDay(): Instant =
       instant
         .atZone(ZoneId.of(ZoneOffset.UTC.getId))
         .toLocalDateTime

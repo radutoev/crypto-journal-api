@@ -2,6 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model.Currency
+import vo.TimeInterval
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -10,6 +11,13 @@ import scala.collection.mutable.ArrayBuffer
 final case class Positions(items: List[Position], lastSync: Option[Instant]) {
   lazy val closedPositions: List[Position] = items.filter(_.isClosed())
   lazy val openPositions: List[Position]   = items.filter(_.isOpen())
+
+  lazy val timeInterval: Option[TimeInterval] = items match {
+    case Nil => None
+    case head :: Nil => Some(head.timeInterval())
+      //TODO Calculate time interval
+    case head :: tail => Some(TimeInterval(Instant.parse("2021-05-21T15:28:32Z"), Instant.parse("2021-07-04T10:27:47Z")))
+  }
 
   def merge(other: Positions): Positions = {
     var currencyPositionMap = Map.empty[Currency, Position]
@@ -40,6 +48,11 @@ final case class Positions(items: List[Position], lastSync: Option[Instant]) {
     val notCorrelated = currencyPositionMap.values.toList
 
     Positions((otherItems.toList ::: notCorrelated ::: merged).sortBy(_.openedAt)(Ordering[Instant]), lastSync)
+  }
+
+  def filter(interval: TimeInterval): Positions = {
+    val f = items.filter(_.inInterval(interval))
+    Positions(f)
   }
 }
 
