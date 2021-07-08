@@ -15,8 +15,7 @@ final case class Positions(items: List[Position], lastSync: Option[Instant]) {
   lazy val timeInterval: Option[TimeInterval] = items match {
     case Nil => None
     case head :: Nil => Some(head.timeInterval())
-      //TODO Calculate time interval
-    case head :: tail => Some(TimeInterval(Instant.parse("2021-05-21T15:28:32Z"), Instant.parse("2021-07-04T10:27:47Z")))
+    case head :: tail => Some(TimeInterval(head.openedAt, tail.last.openedAt))
   }
 
   def merge(other: Positions): Positions = {
@@ -51,8 +50,7 @@ final case class Positions(items: List[Position], lastSync: Option[Instant]) {
   }
 
   def filter(interval: TimeInterval): Positions = {
-    val f = items.filter(_.inInterval(interval))
-    Positions(f)
+    Positions(items.filter(_.inInterval(interval)))
   }
 }
 
