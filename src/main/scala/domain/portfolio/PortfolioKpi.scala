@@ -6,6 +6,8 @@ import domain.position.{Position, Positions}
 import vo.TimeInterval
 import util.InstantOps
 
+import java.time.Instant
+
 final class PortfolioKpi(positions: Positions) {
   lazy val tradeCount: Int = positions.closedPositions.size
 
@@ -25,13 +27,10 @@ final class PortfolioKpi(positions: Positions) {
   }
 
   lazy val balanceTrend: List[FungibleData] = {
-    positions.timeInterval.fold[List[FungibleData]](List.empty) { interval =>
-      val start = interval.start.atBeginningOfDay()
-      //for every day, generate Positions with entries matching the (start -> day) time interval
+    positions.items.headOption.map(_.openedAt).fold[List[FungibleData]](List.empty) { openedAt =>
+      val interval = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
       interval.days().map { day =>
-        val p = positions.filter(TimeInterval(start, day))
-        val result = p.items.map(_.fiatValue()).sumFungibleData()
-        result
+        positions.filter(TimeInterval(interval.start, day)).items.map(_.fiatValue()).sumFungibleData()
       }
     }
   }

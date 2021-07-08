@@ -12,11 +12,11 @@ final case class Positions(items: List[Position], lastSync: Option[Instant]) {
   lazy val closedPositions: List[Position] = items.filter(_.isClosed())
   lazy val openPositions: List[Position]   = items.filter(_.isOpen())
 
-  lazy val timeInterval: Option[TimeInterval] = items match {
-    case Nil => None
-    case head :: Nil => Some(head.timeInterval())
-    case head :: tail => Some(TimeInterval(head.openedAt, tail.last.openedAt))
-  }
+//  lazy val timeInterval: Option[TimeInterval] = items match {
+//    case Nil => None
+//    case head :: Nil => Some(head.timeInterval())
+//    case head :: tail => Some(TimeInterval(head.openedAt, tail.last.openedAt))
+//  }
 
   def merge(other: Positions): Positions = {
     var currencyPositionMap = Map.empty[Currency, Position]
