@@ -22,7 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 trait PositionService {
   def getPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, Positions]
 
-  def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, List[Position]]
+  def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, Positions]
 
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition]
 
@@ -81,10 +81,19 @@ final case class LivePositionService(
                  }
     } yield result
 
-  override def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, List[Position]] =
-    positionRepo
-      .getPositions(userWallet.address, interval)
-      .flatMap(enrichPositions)
+  override def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, Positions] =
+    for {
+      positions <- positionRepo
+                    .getPositions(userWallet.address, interval)
+                    .flatMap(enrichPositions)
+                    .orElseFail(PositionsFetchError(userWallet.address))
+      result <- positionRepo
+                 .getCheckpoint(userWallet.address)
+                 .map(checkpoint => Positions(positions, checkpoint.latestTxTimestamp))
+                 .catchSome {
+                   case CheckpointNotFound(_) => UIO(Positions.empty())
+                 }
+    } yield result
 
   private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
     positionRepo

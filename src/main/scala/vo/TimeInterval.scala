@@ -7,13 +7,11 @@ import java.time.Instant
 
 //TODO Add tests to check for interval validity.
 final case class TimeInterval(start: Instant, end: Instant) {
-  def days(): Set[Instant] = {
+  def days(): Set[Instant] =
     days(start.resetHourAndMinute()).takeWhile(_.isBefore(end)).toSet
-  }
 
-  private def days(from: Instant): LazyList[Instant] = {
+  private def days(from: Instant): LazyList[Instant] =
     from #:: days(from.plusSeconds(86400))
-  }
 }
 
 object TimeInterval {

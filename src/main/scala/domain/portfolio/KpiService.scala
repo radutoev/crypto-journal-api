@@ -3,7 +3,6 @@ package domain.portfolio
 
 import domain.model.UserWallet
 import domain.position.PositionService
-
 import vo.TimeInterval
 
 import zio.clock.Clock
@@ -16,9 +15,7 @@ trait KpiService {
 final case class LiveKpiService(positionService: PositionService, clock: Clock.Service) extends KpiService {
   //TODO Add error domain, and handle empty positions case with NoData error or something.
   override def portfolioKpi(userWallet: UserWallet, interval: TimeInterval): Task[PortfolioKpi] =
-    for {
-      positions <- positionService.getPositions(userWallet, interval).orElseFail(new RuntimeException("failed"))
-    } yield new PortfolioKpi(positions)
+    positionService.getPositions(userWallet, interval).bimap(_ => new RuntimeException("failed"), new PortfolioKpi(_))
 }
 
 object LiveKpiService {

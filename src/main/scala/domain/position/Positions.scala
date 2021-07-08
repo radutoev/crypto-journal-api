@@ -8,6 +8,9 @@ import scala.collection.mutable.ArrayBuffer
 
 //most recent items first.
 final case class Positions(items: List[Position], lastSync: Option[Instant]) {
+  lazy val closedPositions: List[Position] = items.filter(_.isClosed())
+  lazy val openPositions: List[Position]   = items.filter(_.isOpen())
+
   def merge(other: Positions): Positions = {
     var currencyPositionMap = Map.empty[Currency, Position]
     val otherItems          = ArrayBuffer.empty[Position]

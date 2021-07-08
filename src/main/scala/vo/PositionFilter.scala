@@ -14,8 +14,4 @@ object PositionFilter {
 
   def apply(count: Int): Validation[String, PositionFilter] =
     PositionCount.make(count).map(posCount => new PositionFilter(posCount))
-
-//    Validation.validateWidth(validatePosition) { (posCount) =>
-//      new PositionFilter(posCount)
-//    }
 }

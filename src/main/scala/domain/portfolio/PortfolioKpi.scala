@@ -2,29 +2,33 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.FungibleData
-import domain.position.Position
+import domain.position.{ Position, Positions }
 
-final class PortfolioKpi(positions: List[Position]) {
-  private lazy val closedPositions = positions.filter(_.isClosed())
-  private lazy val openPositions   = positions.filter(_.isOpen())
-
-  lazy val tradeCount: Int = closedPositions.size
+final class PortfolioKpi(positions: Positions) {
+  lazy val tradeCount: Int = positions.closedPositions.size
 
   lazy val winRate: Float = {
-    winRate(closedPositions)
+    winRate(positions.closedPositions)
   }
 
   lazy val netReturn: FungibleData = {
-    closedPositions.map(_.fiatReturn()).sumFungibleData()
+    positions.closedPositions.map(_.fiatReturn()).sumFungibleData()
   }
 
   /**
    * Account balance derived from provided positions.
    * It takes into account open positions, and uses the total number of coins that were
+   *
+   * TODO I think I also need to check positive balanced closed positions because I could still have coins for that position.
+   *  Same for the trend series as well
    */
   lazy val balance: FungibleData = {
-    openPositions.map(_.fiatValue()).sumFungibleData()
+    positions.openPositions.map(_.fiatValue()).sumFungibleData()
   }
+
+//  lazy val balanceTrend: List[FungibleData] = {
+//
+//  }
 
   private def winRate(reference: List[Position]): Float = {
     val totalCount = reference.size
