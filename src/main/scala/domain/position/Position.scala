@@ -28,7 +28,7 @@ final case class Position(
    */
   def totalCost(): Option[FungibleData] =
     priceQuotes.map { implicit quotes =>
-      val buyCost  = entries.filter(_.isBuy()).map(_.fiatReturn()).sumFungibleData()
+      val buyCost  = entries.filter(_.isBuy()).map(_.fiatTotal()).sumFungibleData()
       val sellCost = entries.filter(_.isSell()).map(_.fiatFee()).sumFungibleData()
       FungibleData(buyCost.add(sellCost.amount).amount.abs, refined.refineV[NonEmpty].unsafeFrom("USD"))
     }
@@ -65,7 +65,7 @@ final case class Position(
     } else {
       priceQuotes.map { implicit quotes =>
         entries
-          .map(_.fiatReturn())
+          .map(_.fiatTotal())
           .sumFungibleData()
       }
     }
@@ -99,7 +99,14 @@ final case class Position(
 
   def holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
-//  def fiatReturnPercentage(): Option[FungibleData] = {
+  def fiatReturnPercentage(): Option[FungibleData] = {
+    state match {
+//      case Open => None
+//      case Closed =>
+        //separate buys from sells
+        //value of buys
+    }
+
 //    if(state == Open) {
 //      None
 //    } else {
@@ -107,7 +114,7 @@ final case class Position(
 //
 //      }
 //    }
-//  }
+  }
 
   def win(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 
@@ -159,7 +166,7 @@ final case class PositionEntry(
    * If entry is of type BUY, then it will return the negative absolute number of the fiatValue and fiatFee values.
    * If entry is of type SELL, then it will subtract the fiatFee from the fiatValue.
    */
-  def fiatReturn()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
+  def fiatTotal()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
     for {
       fiatValue <- fiatValue()
       fiatFee   <- fiatFee()
