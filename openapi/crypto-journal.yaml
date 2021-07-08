@@ -1,6 +1,6 @@
 swagger: '2.0'
 info:
-  title: Replace with APP_ID
+  title: crypto-journal
   description: Crypto Journal API Spec
   version: 0.1.0
 schemes:
@@ -8,49 +8,76 @@ schemes:
 produces:
   - application/json
 x-google-backend:
-  address: APP_URL
+  address: https://crypto-journal-api-uveoggdjfa-nw.a.run.app
 paths:
   /health:
     get:
       summary: Health check
       operationId: health
-      response:
+      responses:
         '200':
           description: If service is running
           schema:
             type: string
-  /addresses/:address/positions:
+  /addresses/{address}/positions:
     get:
       summary: Get positions for given address
       operationId: getPositions
-      response:
+      security:
+        - auth0_jwk: []
+      parameters:
+        - in: 'path'
+          name: 'address'
+          type: 'string'
+          required: true
+      responses:
         '200':
           description: Positions for address
         '204':
           description: Address has no positions
-  /addresses/:address/positions/:positionId:
+  /addresses/{address}/positions/{positionId}:
     get:
       summary: Get position by id
       operationId: getPosition
-      response:
+      security:
+        - auth0_jwk: []
+      parameters:
+        - in: 'path'
+          name: 'address'
+          type: 'string'
+          required: true
+        - in: 'path'
+          name: 'positionId'
+          type: 'string'
+          required: true
+      responses:
         '200':
           description: Position for given id
   /wallets:
     get:
       summary: Get addresses attached to the account
       operationId: getWallets
-      response:
+      security:
+        - auth0_jwk: []
+      responses:
         '200':
-          desription: Accounts wallets
+          description: Accounts wallets
         '204':
           description: Account has no wallets
         '500':
           description: Operation error
-  /wallets/:address:
+  /wallets/{address}:
+    parameters:
+      - in: 'path'
+        name: 'address'
+        type: 'string'
+        required: true
     post:
       summary: Attach a new wallet address with the user's account
       operationId: createWallet
-      response:
+      security:
+        - auth0_jwk: []
+      responses:
         '201':
           description: Wallet has been attached to the user account
         '409':
@@ -60,8 +87,18 @@ paths:
     delete:
       summary: Remove the given wallet address from the user's account
       operationId: deleteWallet
-      response:
+      security:
+        - auth0_jwk: []
+      responses:
         '200':
           description: Wallet removed
         '500':
           description: Operation failure
+securityDefinitions:
+  auth0_jwk:
+    authorizationUrl: ""
+    flow: "implicit"
+    type: "oauth2"
+    x-google-issuer: "https://dev-13qiy-8m.eu.auth0.com/"
+    x-google-jwks_uri: "https://dev-13qiy-8m.eu.auth0.com/.well-known/jwks.json"
+    x-google-audiences: "pfSyUzklddCdTRtPqB2otLaBKhkgGkDj"

@@ -1,3 +1,5 @@
+import com.typesafe.sbt.packager.docker._
+
 val firestoreVersion  = "1.107.0"
 val jwtVersion        = "8.0.2"
 val refinedVersion    = "0.9.18"
@@ -51,8 +53,12 @@ val root = (project in file("."))
         val oldStrategy = assemblyMergeStrategy.value
         oldStrategy(x)
     },
-    dockerBaseImage := "openjdk:17-jdk-alpine3.14",
-    dockerExposedPorts := Seq(8080)
+    dockerBaseImage := "openjdk:18-slim",
+    dockerExposedPorts := Seq(8080),
+//    dockerCommands := dockerCommands.value.flatMap{
+//      case cmd@Cmd("FROM", _) => List(cmd, Cmd("RUN", "apk update && apk add bash"))
+//      case other => List(other)
+//    }
   )
   .enablePlugins(JavaAppPackaging, DockerPlugin)
 
