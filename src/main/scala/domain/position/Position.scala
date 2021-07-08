@@ -99,13 +99,13 @@ final case class Position(
 
   def holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
-  def fiatReturnPercentage(): Option[FungibleData] = {
-    state match {
+//  def fiatReturnPercentage(): Option[FungibleData] = {
+//    state match {
 //      case Open => None
 //      case Closed =>
         //separate buys from sells
         //value of buys
-    }
+//    }
 
 //    if(state == Open) {
 //      None
@@ -114,7 +114,7 @@ final case class Position(
 //
 //      }
 //    }
-  }
+//  }
 
   def win(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 
