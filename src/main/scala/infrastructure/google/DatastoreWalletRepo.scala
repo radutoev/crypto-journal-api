@@ -34,7 +34,7 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
     val query =
       Query.newEntityQueryBuilder().setKind(WalletKind).setFilter(PropertyFilter.eq("userId", userId.value)).build()
     Task(datastore.run(query, Seq.empty[ReadOption]: _*)).mapError {
-      case t: Throwable => WalletsFetchError(userId, t)
+      case t: Throwable                                                                      => WalletsFetchError(userId, t)
     }.map(results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet })
   }
 

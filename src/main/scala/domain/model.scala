@@ -43,6 +43,16 @@ object model {
 
   final case class FungibleData(amount: BigDecimal, currency: Currency) {
     def add(value: BigDecimal): FungibleData = copy(amount = amount + value)
+
+    def subtract(value: BigDecimal): FungibleData = copy(amount = amount - value)
+
+    def negate(): FungibleData = copy(amount = -amount)
+  }
+
+  object FungibleData {
+    def zero(currency: Currency): FungibleData = new FungibleData(0, currency)
+
+    def apply(amount: BigDecimal, currency: Currency): FungibleData = new FungibleData(amount, currency)
   }
 
   type Fee = FungibleData

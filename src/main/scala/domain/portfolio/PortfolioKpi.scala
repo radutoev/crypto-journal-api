@@ -6,6 +6,7 @@ import domain.position.Position
 
 final class PortfolioKpi(positions: List[Position]) {
   private lazy val closedPositions = positions.filter(_.isClosed())
+  private lazy val openPositions   = positions.filter(_.isOpen())
 
   lazy val tradeCount = closedPositions.size
 
@@ -14,9 +15,15 @@ final class PortfolioKpi(positions: List[Position]) {
   }
 
   lazy val netReturn: FungibleData = {
-    val currency = closedPositions.head.currency
-    val amount   = closedPositions.map(_.fiatReturn().get.amount).sum
-    FungibleData(amount, currency)
+    closedPositions.map(_.fiatReturn()).sumFungibleData()
+  }
+
+  /**
+   * Account balance derived from provided positions.
+   * It takes into account open positions, and uses the total number of coins that were
+   */
+  lazy val balance: FungibleData = {
+    openPositions.map(_.fiatValue()).sumFungibleData()
   }
 
   private def winRate(reference: List[Position]): Float = {

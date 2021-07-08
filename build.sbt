@@ -54,7 +54,7 @@ val root = (project in file("."))
         oldStrategy(x)
     },
     dockerBaseImage := "openjdk:18-slim",
-    dockerExposedPorts := Seq(8080),
+    dockerExposedPorts := Seq(8080)
 //    dockerCommands := dockerCommands.value.flatMap{
 //      case cmd@Cmd("FROM", _) => List(cmd, Cmd("RUN", "apk update && apk add bash"))
 //      case other => List(other)
