@@ -138,18 +138,23 @@ object dto {
       )
   }
 
-  final case class JournalEntry(notes: Option[String])
+  final case class JournalEntry(notes: Option[String], setups: List[String], mistakes: List[String])
 
   object JournalEntry {
     implicit val journalEntryCodec: JsonCodec[JournalEntry] = DeriveJsonCodec.gen[JournalEntry]
 
     implicit class JournalEntryOps(entry: JournalEntry) {
       def toDomainModel: CJJournalEntry =
-        CJJournalEntry(entry.notes.map(NonEmptyString.unsafeFrom))
+        CJJournalEntry(
+          entry.notes.map(NonEmptyString.unsafeFrom),
+          setups = entry.setups.map(NonEmptyString.unsafeFrom),
+          mistakes = entry.mistakes.map(NonEmptyString.unsafeFrom)
+        )
     }
   }
 
   implicit class DomainJournalEntryOps(entry: CJJournalEntry) {
-    def toDto: JournalEntry = JournalEntry(entry.notes.map(_.value))
+    def toDto: JournalEntry =
+      JournalEntry(entry.notes.map(_.value), entry.setups.map(_.value), entry.mistakes.map(_.value))
   }
 }

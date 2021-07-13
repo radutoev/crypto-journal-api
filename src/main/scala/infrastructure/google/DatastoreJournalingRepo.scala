@@ -15,9 +15,10 @@ import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, jou
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
-import com.google.cloud.datastore.{ Datastore, Entity, Query, QueryResults, ReadOption }
+import com.google.cloud.datastore.{ Datastore, Entity, Query, QueryResults, ReadOption, StringValue }
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
+import eu.timepit.refined.types.string.NonEmptyString
 import zio.logging.{ Logger, Logging }
 import zio.{ Has, IO, Task, URLayer, ZIO }
 
@@ -49,6 +50,8 @@ final case class DatastoreJournalingRepo(datastore: Datastore, logger: Logger[St
     Entity
       .newBuilder(datastore.newKeyFactory().setKind(Journal).newKey(journalEntryKey(userId, positionId)))
       .set("notes", entry.notes.map(_.value).getOrElse(""))
+      .set("setups", entry.setups.map(_.value).map(StringValue.of).asJava)
+      .set("mistakes", entry.mistakes.map(_.value).map(StringValue.of).asJava)
       .build()
   }
 
@@ -70,6 +73,14 @@ object DatastoreJournalingRepo {
     for {
       notes <- tryOrLeft(entity.getString("notes"), InvalidRepresentation("Entry has no key notes"))
                 .map(rawNotesStr => refined.refineV[NonEmpty](rawNotesStr).map(Some(_)).getOrElse(None))
-    } yield JournalEntry(notes)
+      setups <- tryOrLeft(
+                 if (entity.contains("setups")) entity.getList[StringValue]("setups") else List.empty.asJava,
+                 InvalidRepresentation("Invalid setups representation")
+               ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
+      mistakes <- tryOrLeft(
+                   if (entity.contains("mistakes")) entity.getList[StringValue]("mistakes") else List.empty.asJava,
+                   InvalidRepresentation("Invalid mistakes representation")
+                 ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
+    } yield JournalEntry(notes, setups, mistakes)
   }
 }
