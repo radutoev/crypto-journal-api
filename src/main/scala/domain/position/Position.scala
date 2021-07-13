@@ -49,13 +49,6 @@ final case class Position(
         case e: PositionEntry if e.fiatTotal().isDefined => e.fiatValue().get
       }.sumFungibleData()
     }
-//      entries.collect {
-//        case e: PositionEntry if e.fiatValue().isDefined => {
-//          if (e.isBuy()) e.fiatValue().get
-//          else e.fiatValue().get.negate()
-//        }
-//      }.sumFungibleData()
-//    }
 
   /**
    * Position return derived from all position entries associated with this position.
