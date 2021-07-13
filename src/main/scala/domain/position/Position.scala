@@ -171,9 +171,9 @@ final case class PositionEntry(
       fiatValue <- fiatValue()
       fiatFee   <- fiatFee()
       value <- Some[BigDecimal](`type` match {
-        case Buy  => fiatValue.amount - fiatFee.amount
-        case Sell => -fiatValue.amount - fiatFee.amount
-        case _    => 0
-      })
+                case Buy  => fiatValue.amount - fiatFee.amount
+                case Sell => -fiatValue.amount - fiatFee.amount
+                case _    => 0
+              })
     } yield FungibleData(value, refined.refineV[NonEmpty].unsafeFrom("USD"))
 }

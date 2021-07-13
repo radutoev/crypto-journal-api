@@ -32,11 +32,21 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 object Routes {
+  private val forbidden = HttpApp.response(
+    Response.http(
+      status = Status.FORBIDDEN,
+      headers = List(Header("Content-Type", "application/json")),
+      content = ApiError(`type` = "Forbidden").toResponsePayload()
+    )
+  )
+
   val api = CORS(
     health +++
-      authenticate(HttpApp.forbidden("Not allowed!"), wallets) +++
-      authenticate(HttpApp.forbidden("Not allowed!"), positions) +++
-      authenticate(HttpApp.forbidden("Not allowed!"), portfolio),
+      authenticate(forbidden, wallets) +++
+      authenticate(forbidden, positions) +++
+      authenticate(forbidden, portfolio) +++
+      authenticate(forbidden, setups) +++
+      authenticate(forbidden, mistakes),
     config = CORSConfig(anyOrigin = true)
   )
 
@@ -231,6 +241,14 @@ object Routes {
                        portfolioKpi => Response.jsonString(PortfolioKpi(portfolioKpi).toJson)
                      )
       } yield response
+  }
+
+  private def setups(userId: UserId) = HttpApp.collect {
+    case Method.GET -> Root / "setups" => Response.jsonString(List("Presale", "Fair Launch").toJson)
+  }
+
+  private def mistakes(userId: UserId) = HttpApp.collect {
+    case Method.GET -> Root / "mistakes" => Response.jsonString(List("Honeypot", "Sold to early").toJson)
   }
 
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {

@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.FungibleData
-import domain.position.{Position, Positions}
+import domain.position.{ Position, Positions }
 import vo.TimeInterval
 import util.InstantOps
 

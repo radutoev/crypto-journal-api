@@ -49,9 +49,8 @@ final case class Positions(items: List[Position], lastSync: Option[Instant]) {
     Positions((otherItems.toList ::: notCorrelated ::: merged).sortBy(_.openedAt)(Ordering[Instant]), lastSync)
   }
 
-  def filter(interval: TimeInterval): Positions = {
+  def filter(interval: TimeInterval): Positions =
     Positions(items.filter(_.inInterval(interval)))
-  }
 }
 
 object Positions {

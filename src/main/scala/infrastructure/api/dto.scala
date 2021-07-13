@@ -128,7 +128,14 @@ object dto {
     implicit val portfolioCodec: JsonCodec[PortfolioKpi] = DeriveJsonCodec.gen[PortfolioKpi]
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi =
-      new PortfolioKpi(kpi.balance.amount, kpi.tradeCount, kpi.winRate, 1 - kpi.winRate, kpi.netReturn.amount, kpi.balanceTrend.map(_.amount))
+      new PortfolioKpi(
+        kpi.balance.amount,
+        kpi.tradeCount,
+        kpi.winRate,
+        1 - kpi.winRate,
+        kpi.netReturn.amount,
+        kpi.balanceTrend.map(_.amount)
+      )
   }
 
   final case class JournalEntry(notes: Option[String])
