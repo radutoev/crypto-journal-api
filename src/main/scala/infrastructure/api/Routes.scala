@@ -2,15 +2,17 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ UserId, WalletAddressPredicate }
+import domain.model.{UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.error._
 import domain.position.Position.PositionIdPredicate
-import domain.position.{ JournalingService, PositionService }
+import domain.position.{JournalingService, PositionService}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.PortfolioKpi
 import infrastructure.api.dto.PortfolioKpi._
+import infrastructure.api.dto.KpiDistinctValues
+import infrastructure.api.dto.KpiDistinctValues._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
 import infrastructure.api.dto.JournalEntry
@@ -18,7 +20,7 @@ import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
-import vo.{ PositionFilter, TimeInterval }
+import vo.{PositionFilter, TimeInterval}
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
@@ -240,6 +242,24 @@ object Routes {
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        portfolioKpi => Response.jsonString(PortfolioKpi(portfolioKpi).toJson)
                      )
+      } yield response
+
+    case Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" / "distinct-values" =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+
+        response <- CryptoJournalApi
+          .getPortfolioKpis(
+            address,
+            TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Instant.now())
+          )
+          .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
+          .fold(
+            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+            portfolioKpi => Response.jsonString(KpiDistinctValues(portfolioKpi).toJson)
+          )
       } yield response
   }
 

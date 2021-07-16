@@ -138,6 +138,21 @@ object dto {
       )
   }
 
+  final case class KpiDistinctValues(tradeCount: Int,
+                                     openTradesCount: Int,
+                                     totalFees: BigDecimal)
+
+  object KpiDistinctValues {
+    implicit val kpiDistinctCodec: JsonCodec[KpiDistinctValues] = DeriveJsonCodec.gen[KpiDistinctValues]
+
+    def apply(portfolio: CJPortfolioKpi): KpiDistinctValues =
+      new KpiDistinctValues(
+        portfolio.tradeCount,
+        portfolio.openTradesCount,
+        portfolio.totalFees.amount
+      )
+  }
+
   final case class JournalEntry(notes: Option[String], setups: List[String], mistakes: List[String])
 
   object JournalEntry {

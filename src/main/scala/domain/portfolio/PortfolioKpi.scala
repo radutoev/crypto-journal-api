@@ -11,6 +11,8 @@ import java.time.Instant
 final class PortfolioKpi(positions: Positions) {
   lazy val tradeCount: Int = positions.closedPositions.size
 
+  lazy val openTradesCount: Int = positions.openPositions.size
+
   lazy val winRate: Float = {
     winRate(positions.closedPositions)
   }
@@ -33,6 +35,12 @@ final class PortfolioKpi(positions: Positions) {
         positions.filter(TimeInterval(interval.start, day)).items.map(_.fiatValue()).sumFungibleData()
       }
     }
+  }
+
+  lazy val totalFees: FungibleData = {
+    positions.items.map(_.totalFees()).collect {
+      case Some(fee) => fee
+    }.sumFungibleData()
   }
 
   private def winRate(reference: List[Position]): Float = {
