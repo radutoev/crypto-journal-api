@@ -2,13 +2,17 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.FungibleData
-import domain.position.{ Position, Positions }
-import vo.TimeInterval
+import domain.position.{Position, Positions}
 import util.InstantOps
+import vo.TimeInterval
 
 import java.time.Instant
 
-final class PortfolioKpi(positions: Positions) {
+/**
+ * @param positions used as data source for KPI calculations
+ * @param interval given time interval for KPI calculations.
+ */
+final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
   lazy val tradeCount: Int = positions.closedPositions.size
 
   lazy val openTradesCount: Int = positions.openPositions.size
@@ -37,10 +41,20 @@ final class PortfolioKpi(positions: Positions) {
     }
   }
 
+  /**
+   * Sum all fees of positions
+   */
   lazy val totalFees: FungibleData = {
     positions.items.map(_.totalFees()).collect {
       case Some(fee) => fee
     }.sumFungibleData()
+  }
+
+  /**
+   * Uses the given time interval to derive the average trade count.
+   */
+  lazy val avgDailyTradeCount: Float = {
+    positions.closedPositions.size.toFloat / interval.dayCount.value
   }
 
   private def winRate(reference: List[Position]): Float = {

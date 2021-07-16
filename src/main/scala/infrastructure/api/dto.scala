@@ -140,6 +140,14 @@ object dto {
 
   final case class KpiDistinctValues(tradeCount: Int,
                                      openTradesCount: Int,
+                                     avgDailyTradeCount: Float,
+//                                     totalWinners: Int,
+//                                     totalLosers: Int,
+//                                     maxConsecutiveWins: Int,
+//                                     maxConsecutiveLoses: Int,
+//                                     totalCoinsTrades: BigDecimal,
+//                                     avgWinnerHoldTime: Int,
+//                                     avgLoserHoldTime: Int,
                                      totalFees: BigDecimal)
 
   object KpiDistinctValues {
@@ -149,6 +157,7 @@ object dto {
       new KpiDistinctValues(
         portfolio.tradeCount,
         portfolio.openTradesCount,
+        portfolio.avgDailyTradeCount,
         portfolio.totalFees.amount
       )
   }
