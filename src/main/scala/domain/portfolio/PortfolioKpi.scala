@@ -6,6 +6,10 @@ import domain.position.{Position, Positions}
 import util.InstantOps
 import vo.TimeInterval
 
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.numeric.NonNegative
+import eu.timepit.refined.refineV
+
 import java.time.Instant
 
 /**
@@ -55,6 +59,14 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
    */
   lazy val avgDailyTradeCount: Float = {
     positions.closedPositions.size.toFloat / interval.dayCount.value
+  }
+
+  lazy val totalWins: Int Refined NonNegative = {
+    refineV.unsafeFrom(positions.closedPositions.count(_.win().get))
+  }
+
+  lazy val totalLoses: Int Refined NonNegative = {
+    refineV.unsafeFrom(positions.closedPositions.size - totalWins.value)
   }
 
   private def winRate(reference: List[Position]): Float = {
