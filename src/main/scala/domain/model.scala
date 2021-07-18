@@ -56,6 +56,10 @@ object model {
     def zero(currency: Currency): FungibleData = new FungibleData(0, currency)
 
     def apply(amount: BigDecimal, currency: Currency): FungibleData = new FungibleData(amount, currency)
+
+    //`Ordering[A]` is not contravariant => the declaration
+    // must be type-parametrized for implicit ordering of subclasses of `FungibleData`.
+    implicit def orderingByAmount[A <: FungibleData]: Ordering[A] = Ordering.by(_.amount)
   }
 
   type Fee = FungibleData
