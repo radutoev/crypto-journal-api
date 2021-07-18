@@ -100,6 +100,8 @@ final case class Position(
 
   def isWin(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 
+  def isLoss(): Option[Boolean] = isWin().map(b => !b)
+
   def state: State = entries.lastOption.fold[State](Open)(last => if (last.isSell()) Closed else Open)
 
   def isClosed(): Boolean = state == Closed

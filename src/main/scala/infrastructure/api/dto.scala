@@ -1,17 +1,17 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{ FungibleData => CJFungibleData }
-import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
-import domain.position.{ JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry }
-import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
-import domain.wallet.{ Wallet => CJWallet }
+import domain.model.{FungibleData => CJFungibleData}
+import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
+import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry}
+import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
+import domain.wallet.{Wallet => CJWallet}
 import vo.JournalPosition
 
 import eu.timepit.refined.types.string.NonEmptyString
-import zio.json.{ DeriveJsonCodec, JsonCodec }
+import zio.json.{DeriveJsonCodec, JsonCodec}
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 object dto {
   final case class Positions(positions: List[Position], lastSync: Option[Instant])
@@ -146,12 +146,16 @@ object dto {
                                      maxConsecutiveWins: Int,
                                      maxConsecutiveLoses: Int,
                                      totalTradedCoins: BigDecimal,
-//                                     avgWinnerHoldTime: Int,
-//                                     avgLoserHoldTime: Int,
+                                     avgWinnerHoldTime: String,
+                                     avgLoserHoldTime: String,
                                      totalFees: BigDecimal)
 
   object KpiDistinctValues {
     implicit val kpiDistinctCodec: JsonCodec[KpiDistinctValues] = DeriveJsonCodec.gen[KpiDistinctValues]
+
+    def asHumanReadableForm(d: Duration): String = {
+      d.toString.substring(2).replaceAll("(\\d[HMS])(?!$)", "$1 ").toLowerCase()
+    }
 
     def apply(portfolio: CJPortfolioKpi): KpiDistinctValues =
       new KpiDistinctValues(
@@ -163,6 +167,8 @@ object dto {
         portfolio.maxConsecutiveWins.value,
         portfolio.maxConsecutiveLoses.value,
         portfolio.totalCoins,
+        asHumanReadableForm(portfolio.avgWinningHoldTime),
+        asHumanReadableForm(portfolio.avgLosingHoldTime),
         portfolio.totalFees.amount
       )
   }

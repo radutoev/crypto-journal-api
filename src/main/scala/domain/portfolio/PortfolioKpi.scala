@@ -10,7 +10,7 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 /**
  * @param positions used as data source for KPI calculations
@@ -119,6 +119,21 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
 
   lazy val totalCoins: BigDecimal = {
     positions.items.map(_.numberOfCoins()).sum
+  }
+
+  lazy val avgWinningHoldTime: Duration = {
+    Duration.ofSeconds(avgHoldTime(positions.items.filter(p => p.isWin().isDefined && p.isWin().get)))
+  }
+
+  lazy val avgLosingHoldTime: Duration = {
+    Duration.ofSeconds(avgHoldTime(positions.items.filter(p => p.isLoss().isDefined && p.isLoss().get)))
+  }
+
+  def avgHoldTime(items: List[Position]): Long = {
+    val list = items.map(_.holdTime()).collect {
+      case Some(value) => value
+    }
+    list.sum / list.size
   }
 
   private def winRate(reference: List[Position]): Float = {
