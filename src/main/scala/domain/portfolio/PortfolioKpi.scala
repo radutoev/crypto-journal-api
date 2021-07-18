@@ -117,6 +117,10 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     refineV.unsafeFrom(max)
   }
 
+  lazy val totalCoins: BigDecimal = {
+    positions.items.map(_.numberOfCoins()).sum
+  }
+
   private def winRate(reference: List[Position]): Float = {
     val totalCount = reference.size
     val winCount = reference.count { position =>

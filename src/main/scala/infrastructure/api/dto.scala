@@ -145,7 +145,7 @@ object dto {
                                      totalLoses: Int,
                                      maxConsecutiveWins: Int,
                                      maxConsecutiveLoses: Int,
-//                                     totalCoinsTrades: BigDecimal,
+                                     totalTradedCoins: BigDecimal,
 //                                     avgWinnerHoldTime: Int,
 //                                     avgLoserHoldTime: Int,
                                      totalFees: BigDecimal)
@@ -162,6 +162,7 @@ object dto {
         portfolio.totalLoses.value,
         portfolio.maxConsecutiveWins.value,
         portfolio.maxConsecutiveLoses.value,
+        portfolio.totalCoins,
         portfolio.totalFees.amount
       )
   }

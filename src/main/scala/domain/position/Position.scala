@@ -94,7 +94,9 @@ final case class Position(
 
   def numberOfExecutions(): Int = entries.size
 
-  def holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
+  def numberOfCoins(): BigDecimal = entries.filter(_.isBuy()).map(_.value.amount).sum
+
+  def holdTime(): Option[Long] = closedAt().map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
   def isWin(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 
