@@ -96,7 +96,7 @@ final case class Position(
 
   def holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
-  def win(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
+  def isWin(): Option[Boolean] = fiatReturn().map(_.amount.compareTo(BigDecimal(0)) > 0)
 
   def state: State = entries.lastOption.fold[State](Open)(last => if (last.isSell()) Closed else Open)
 

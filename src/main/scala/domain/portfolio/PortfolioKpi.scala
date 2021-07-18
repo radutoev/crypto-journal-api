@@ -62,18 +62,66 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
   }
 
   lazy val totalWins: Int Refined NonNegative = {
-    refineV.unsafeFrom(positions.closedPositions.count(_.win().get))
+    refineV.unsafeFrom(positions.closedPositions.count(_.isWin().get))
   }
 
   lazy val totalLoses: Int Refined NonNegative = {
     refineV.unsafeFrom(positions.closedPositions.size - totalWins.value)
   }
 
+  lazy val maxConsecutiveWins: Int Refined NonNegative = {
+    var max = 1
+    var streak = 0
+
+    def onReset(): Unit = {
+      max = Math.max(streak, max)
+      streak = 0
+    }
+
+    positions.closedPositions.foreach { p =>
+      p.isWin() match {
+        case Some(value) =>
+          if(value) {
+            streak = streak + 1
+          } else {
+            onReset()
+          }
+        case None =>
+      }
+    }
+
+    refineV.unsafeFrom(max)
+  }
+
+  lazy val maxConsecutiveLoses: Int Refined NonNegative = {
+    var max = 1
+    var streak = 0
+
+    def onReset(): Unit = {
+      max = Math.max(streak, max)
+      streak = 0
+    }
+
+    positions.closedPositions.foreach { p =>
+      p.isWin() match {
+        case Some(value) =>
+          if(value) {
+            onReset()
+          } else {
+            streak = streak + 1
+          }
+        case None =>
+      }
+    }
+
+    refineV.unsafeFrom(max)
+  }
+
   private def winRate(reference: List[Position]): Float = {
     val totalCount = reference.size
     val winCount = reference.count { position =>
       //.get is safe because win will be present on all closed positions.
-      position.win().get
+      position.isWin().get
     }
     winCount / totalCount.toFloat
   }

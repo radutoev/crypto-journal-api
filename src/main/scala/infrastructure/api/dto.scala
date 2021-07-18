@@ -72,7 +72,7 @@ object dto {
         position.exitPrice().asJson,
         position.numberOfExecutions(),
         position.holdTime,
-        position.win().map(isWin => if (isWin) true else false),
+        position.isWin().map(isWin => if (isWin) true else false),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
         position.id.map(_.value),
         None
@@ -143,8 +143,8 @@ object dto {
                                      avgDailyTradeCount: Float,
                                      totalWins: Int,
                                      totalLoses: Int,
-//                                     maxConsecutiveWins: Int,
-//                                     maxConsecutiveLoses: Int,
+                                     maxConsecutiveWins: Int,
+                                     maxConsecutiveLoses: Int,
 //                                     totalCoinsTrades: BigDecimal,
 //                                     avgWinnerHoldTime: Int,
 //                                     avgLoserHoldTime: Int,
@@ -160,6 +160,8 @@ object dto {
         portfolio.avgDailyTradeCount,
         portfolio.totalWins.value,
         portfolio.totalLoses.value,
+        portfolio.maxConsecutiveWins.value,
+        portfolio.maxConsecutiveLoses.value,
         portfolio.totalFees.amount
       )
   }
