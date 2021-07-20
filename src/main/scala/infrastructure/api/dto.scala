@@ -8,6 +8,8 @@ import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
 import vo.JournalPosition
 
+import dto.Position._
+
 import eu.timepit.refined.types.string.NonEmptyString
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
@@ -138,13 +140,13 @@ object dto {
       )
   }
 
-  final case class PortfolioStats(distinctValues: KpiDistinctValues)
+  final case class PortfolioStats(distinctValues: KpiDistinctValues, tradeSummary: TradeSummary)
 
   object PortfolioStats {
     implicit val portfolioStatsCodec: JsonCodec[PortfolioStats] = DeriveJsonCodec.gen[PortfolioStats]
 
     def apply(portfolioKpi: CJPortfolioKpi): PortfolioStats = {
-      new PortfolioStats(distinctValues = KpiDistinctValues(portfolioKpi))
+      new PortfolioStats(distinctValues = KpiDistinctValues(portfolioKpi), TradeSummary(portfolioKpi))
     }
   }
 
@@ -191,6 +193,16 @@ object dto {
         asHumanReadableForm(portfolio.avgLosingHoldTime),
         portfolio.totalFees.amount
       )
+  }
+
+  final case class TradeSummary(wins: List[FungibleData], loses: List[FungibleData])
+
+  object TradeSummary {
+    implicit val tradeSummaryCodec: JsonCodec[TradeSummary] = DeriveJsonCodec.gen[TradeSummary]
+
+    def apply(portfolio: CJPortfolioKpi): TradeSummary = {
+      new TradeSummary(wins = portfolio.coinWins().map(_.asJson), loses = portfolio.coinLoses().map(_.asJson))
+    }
   }
 
   final case class JournalEntry(notes: Option[String], setups: List[String], mistakes: List[String])
