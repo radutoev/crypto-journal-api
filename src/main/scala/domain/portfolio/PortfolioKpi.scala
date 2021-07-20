@@ -194,10 +194,11 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     val returnByMonth = returnByDate.map(t => t._1.getMonth     -> t._2).sumByKey()
     val returnByYear  = returnByDate.map(t => t._1.getYear      -> t._2).sumByKey()
 
+    //TODO Maybe change here and return a map??
     PeriodDistribution(
       weekly = DayOfWeek.values().map(day => returnByDay.getOrElse(day, FungibleData.zero(USDCurrency))).toList,
       monthly = Month.values().map(month => returnByMonth.getOrElse(month, FungibleData.zero(USDCurrency))).toList,
-      yearly = interval.years().map(year => returnByYear.getOrElse(year, FungibleData.zero(USDCurrency)))
+      yearly = interval.years().map(year => year -> returnByYear.getOrElse(year, FungibleData.zero(USDCurrency))).toMap
     )
   }
 

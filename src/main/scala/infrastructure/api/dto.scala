@@ -215,7 +215,7 @@ object dto {
   final case class PeriodDistribution(
     weekly: List[FungibleData],
     monthly: List[FungibleData],
-    yearly: List[FungibleData]
+    yearly: Map[Int, FungibleData]
   )
 
   object PeriodDistribution {
@@ -225,7 +225,7 @@ object dto {
       new PeriodDistribution(
         distribution.weekly.map(_.asJson),
         distribution.monthly.map(_.asJson),
-        distribution.yearly.map(_.asJson)
+        distribution.yearly.view.mapValues(_.asJson).toMap
       )
   }
 
