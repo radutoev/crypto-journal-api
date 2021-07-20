@@ -219,7 +219,7 @@ object dto {
   )
 
   object PeriodDistribution {
-    implicit val periodDistributionyCodec: JsonCodec[PeriodDistribution] = DeriveJsonCodec.gen[PeriodDistribution]
+    implicit val periodDistributionCodec: JsonCodec[PeriodDistribution] = DeriveJsonCodec.gen[PeriodDistribution]
 
     def apply(distribution: CJPeriodDistribution): PeriodDistribution =
       new PeriodDistribution(
