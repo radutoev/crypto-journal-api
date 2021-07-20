@@ -1,19 +1,19 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{FungibleData => CJFungibleData}
-import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry}
-import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
-import domain.wallet.{Wallet => CJWallet}
-import vo.JournalPosition
+import domain.model.{ FungibleData => CJFungibleData }
+import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
+import domain.position.{ JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry }
+import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
+import domain.wallet.{ Wallet => CJWallet }
+import vo.{ PeriodDistribution => CJPeriodDistribution, JournalPosition }
 
 import dto.Position._
 
 import eu.timepit.refined.types.string.NonEmptyString
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 object dto {
   final case class Positions(positions: List[Position], lastSync: Option[Instant])
@@ -65,7 +65,7 @@ object dto {
         position.currency.value,
         position.state.toString,
         position.openedAt,
-        position.closedAt,
+        position.closedAt(),
         position.totalCost().asJson,
         position.totalFees().asJson,
         position.fiatReturn().asJson,
@@ -73,7 +73,7 @@ object dto {
         position.entryPrice().asJson,
         position.exitPrice().asJson,
         position.numberOfExecutions(),
-        position.holdTime,
+        position.holdTime(),
         position.isWin().map(isWin => if (isWin) true else false),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
         position.id.map(_.value),
@@ -140,39 +140,47 @@ object dto {
       )
   }
 
-  final case class PortfolioStats(distinctValues: KpiDistinctValues, tradeSummary: TradeSummary)
+  final case class PortfolioStats(
+    distinctValues: KpiDistinctValues,
+    tradeSummary: TradeSummary,
+    periodDistribution: PeriodDistribution
+  )
 
   object PortfolioStats {
     implicit val portfolioStatsCodec: JsonCodec[PortfolioStats] = DeriveJsonCodec.gen[PortfolioStats]
 
-    def apply(portfolioKpi: CJPortfolioKpi): PortfolioStats = {
-      new PortfolioStats(distinctValues = KpiDistinctValues(portfolioKpi), TradeSummary(portfolioKpi))
-    }
+    def apply(portfolioKpi: CJPortfolioKpi): PortfolioStats =
+      new PortfolioStats(
+        distinctValues = KpiDistinctValues(portfolioKpi),
+        TradeSummary(portfolioKpi),
+        PeriodDistribution(portfolioKpi.periodReturn())
+      )
   }
 
-  final case class KpiDistinctValues(netReturn: BigDecimal,
-                                     biggestWin: Option[BigDecimal],
-                                     biggestLoss: Option[BigDecimal],
-                                     winRate: Float,
-                                     loseRate: Float,
-                                     tradeCount: Int,
-                                     openTradesCount: Int,
-                                     avgDailyTradeCount: Float,
-                                     totalWins: Int,
-                                     totalLoses: Int,
-                                     maxConsecutiveWins: Int,
-                                     maxConsecutiveLoses: Int,
-                                     totalTradedCoins: BigDecimal,
-                                     avgWinnerHoldTime: String,
-                                     avgLoserHoldTime: String,
-                                     totalFees: BigDecimal)
+  final case class KpiDistinctValues(
+    netReturn: BigDecimal,
+    biggestWin: Option[BigDecimal],
+    biggestLoss: Option[BigDecimal],
+    winRate: Float,
+    loseRate: Float,
+    tradeCount: Int,
+    openTradesCount: Int,
+    avgDailyTradeCount: Float,
+    totalWins: Int,
+    totalLoses: Int,
+    maxConsecutiveWins: Int,
+    maxConsecutiveLoses: Int,
+    totalTradedCoins: BigDecimal,
+    avgWinnerHoldTime: String,
+    avgLoserHoldTime: String,
+    totalFees: BigDecimal
+  )
 
   object KpiDistinctValues {
     implicit val kpiDistinctCodec: JsonCodec[KpiDistinctValues] = DeriveJsonCodec.gen[KpiDistinctValues]
 
-    def asHumanReadableForm(d: Duration): String = {
+    def asHumanReadableForm(d: Duration): String =
       d.toString.substring(2).replaceAll("(\\d[HMS])(?!$)", "$1 ").toLowerCase()
-    }
 
     def apply(portfolio: CJPortfolioKpi): KpiDistinctValues =
       new KpiDistinctValues(
@@ -200,9 +208,25 @@ object dto {
   object TradeSummary {
     implicit val tradeSummaryCodec: JsonCodec[TradeSummary] = DeriveJsonCodec.gen[TradeSummary]
 
-    def apply(portfolio: CJPortfolioKpi): TradeSummary = {
+    def apply(portfolio: CJPortfolioKpi): TradeSummary =
       new TradeSummary(wins = portfolio.coinWins().map(_.asJson), loses = portfolio.coinLoses().map(_.asJson))
-    }
+  }
+
+  final case class PeriodDistribution(
+    weekly: List[FungibleData],
+    monthly: List[FungibleData],
+    yearly: List[FungibleData]
+  )
+
+  object PeriodDistribution {
+    implicit val periodDistributionyCodec: JsonCodec[PeriodDistribution] = DeriveJsonCodec.gen[PeriodDistribution]
+
+    def apply(distribution: CJPeriodDistribution): PeriodDistribution =
+      new PeriodDistribution(
+        distribution.weekly.map(_.asJson),
+        distribution.monthly.map(_.asJson),
+        distribution.yearly.map(_.asJson)
+      )
   }
 
   final case class JournalEntry(notes: Option[String], setups: List[String], mistakes: List[String])

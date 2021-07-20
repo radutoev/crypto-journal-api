@@ -15,7 +15,7 @@ object model {
   type Currency          = String Refined CurrencyPredicate
 
   type NumberOfDaysPredicate = NonNegative
-  type NumberOfDays = Int Refined NumberOfDaysPredicate
+  type NumberOfDays          = Int Refined NumberOfDaysPredicate
 
   sealed trait State
   final case object Open   extends State

@@ -1,6 +1,6 @@
 package io.softwarechain.cryptojournal
 
-import java.time.{ Instant, ZoneId, ZoneOffset }
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 import scala.util.Try
 
 package object util {
@@ -13,6 +13,9 @@ package object util {
         .withMinute(0)
         .withSecond(0)
         .toInstant(ZoneOffset.UTC)
+
+    def toLocalDate(): LocalDate =
+      LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))
   }
 
   implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {

@@ -7,6 +7,7 @@ import util.InstantOps
 import eu.timepit.refined.refineV
 
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 //TODO Add tests to check for interval validity.
 final case class TimeInterval(start: Instant, end: Instant) {
@@ -15,8 +16,17 @@ final case class TimeInterval(start: Instant, end: Instant) {
 
   def dayCount: NumberOfDays = refineV.unsafeFrom(days().size)
 
+  def years(): List[Int] = {
+    val startYear = start.toLocalDate().getYear
+    val endYear   = end.toLocalDate().getYear
+    years(startYear).takeWhile(y => y <= endYear).toList
+  }
+
   private def days(from: Instant): LazyList[Instant] =
-    from #:: days(from.plusSeconds(86400))
+    from #:: days(from.plus(1, ChronoUnit.DAYS))
+
+  private def years(from: Int): LazyList[Int] =
+    from #:: years(from + 1)
 }
 
 object TimeInterval {
