@@ -156,4 +156,22 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
       case p: Position if p.fiatReturn().isDefined => p.fiatReturn().get
     }.minOption
   }
+
+  def coinWins(): List[FungibleData] = {
+    coinContributions.slice(0, Math.min(8, coinContributions.size))
+  }
+
+  def coinLoses(): List[FungibleData] = {
+    coinContributions.slice(Math.max(0, coinContributions.size - 8), coinContributions.size).reverse
+  }
+
+  lazy val coinContributions: List[FungibleData] = {
+    positions.closedPositions.groupBy(_.currency)
+      .map { case (currency, listOfPositions) =>
+        currency -> FungibleData(listOfPositions.map(_.fiatReturn().getOrElse(FungibleData(BigDecimal(0), refineV.unsafeFrom("USD")))).map(_.amount).sum, currency)
+      }
+      .values
+      .toList
+      .sorted(Ordering[FungibleData].reverse)
+  }
 }

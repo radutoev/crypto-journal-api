@@ -11,8 +11,8 @@ import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.PortfolioKpi
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.KpiDistinctValues
-import infrastructure.api.dto.KpiDistinctValues._
+import infrastructure.api.dto.PortfolioStats
+import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
 import infrastructure.api.dto.JournalEntry
@@ -244,7 +244,7 @@ object Routes {
                      )
       } yield response
 
-    case Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" / "distinct-values" =>
+    case Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" =>
       for {
         address <- ZIO
           .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
@@ -258,7 +258,7 @@ object Routes {
           .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
           .fold(
             _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-            portfolioKpi => Response.jsonString(KpiDistinctValues(portfolioKpi).toJson)
+            portfolioKpi => Response.jsonString(PortfolioStats(portfolioKpi).toJson)
           )
       } yield response
   }

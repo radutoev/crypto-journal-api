@@ -138,6 +138,16 @@ object dto {
       )
   }
 
+  final case class PortfolioStats(distinctValues: KpiDistinctValues)
+
+  object PortfolioStats {
+    implicit val portfolioStatsCodec: JsonCodec[PortfolioStats] = DeriveJsonCodec.gen[PortfolioStats]
+
+    def apply(portfolioKpi: CJPortfolioKpi): PortfolioStats = {
+      new PortfolioStats(distinctValues = KpiDistinctValues(portfolioKpi))
+    }
+  }
+
   final case class KpiDistinctValues(netReturn: BigDecimal,
                                      biggestWin: Option[BigDecimal],
                                      biggestLoss: Option[BigDecimal],
