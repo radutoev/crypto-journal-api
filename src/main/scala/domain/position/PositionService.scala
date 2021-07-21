@@ -22,8 +22,6 @@ import scala.collection.mutable.ArrayBuffer
 trait PositionService {
   def getPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, Positions]
 
-  def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, Positions]
-
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition]
 
   def diff(userWallet: UserWallet): IO[PositionError, Positions]
@@ -81,20 +79,6 @@ final case class LivePositionService(
                  }
     } yield result
 
-  override def getPositions(userWallet: UserWallet, interval: TimeInterval): IO[PositionError, Positions] =
-    for {
-      positions <- positionRepo
-                    .getPositions(userWallet.address, interval)
-                    .flatMap(enrichPositions)
-                    .orElseFail(PositionsFetchError(userWallet.address))
-      result <- positionRepo
-                 .getCheckpoint(userWallet.address)
-                 .map(checkpoint => Positions(positions, checkpoint.latestTxTimestamp))
-                 .catchSome {
-                   case CheckpointNotFound(_) => UIO(Positions.empty())
-                 }
-    } yield result
-
   private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
     positionRepo
       .getPositions(userWallet.address, startFrom)
@@ -105,9 +89,7 @@ final case class LivePositionService(
     val interval = extractTimeInterval(positions)
     if (positions.nonEmpty) {
       priceQuoteRepo
-        .getQuotes(interval.get)
-        .mapError(PriceQuotesError)
-        .map(PriceQuotes.apply)
+        .getQuotes(interval.get).bimap(PriceQuotesError, PriceQuotes.apply)
         .map(priceQuotes =>
           positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
         )
@@ -122,11 +104,9 @@ final case class LivePositionService(
       .flatMap(enrichPosition)
       .zipPar(journalingRepo.getEntry(userId, positionId).map(Some(_)).catchSome {
         case _: JournalNotFound => UIO.none
-      })
-      .map {
-        case (position, entry) => JournalPosition(position, entry)
-      }
-      .orElseFail(PositionFetchError(positionId, new RuntimeException("Unable to enrich position")))
+      }).bimap(_ => PositionFetchError(positionId, new RuntimeException("Unable to enrich position")), {
+      case (position, entry) => JournalPosition(position, entry)
+    })
 
   private def enrichPosition(position: Position): Task[Position] = {
     val interval = position.timeInterval()

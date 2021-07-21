@@ -20,7 +20,7 @@ import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
-import vo.{PositionFilter, TimeInterval}
+import vo.{KpiFilter, PositionFilter, TimeInterval}
 import vo.PositionFilter.PositionCount
 
 import eu.timepit.refined.refineV
@@ -227,17 +227,16 @@ object Routes {
   }
 
   private def portfolio(userId: UserId) = HttpApp.collectM {
-    case Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
+    case req@Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
                     .orElseFail(BadRequest("Invalid address"))
 
+        kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
+
         response <- CryptoJournalApi
-                     .getPortfolioKpis(
-                       address,
-                       TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Instant.now())
-                     )
+                     .getPortfolioKpis(address)(kpiFilter)
                      .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
@@ -245,17 +244,16 @@ object Routes {
                      )
       } yield response
 
-    case Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" =>
+    case req@Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
                     .orElseFail(BadRequest("Invalid address"))
 
+        kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
+
         response <- CryptoJournalApi
-                     .getPortfolioKpis(
-                       address,
-                       TimeInterval(Instant.now().minus(365, ChronoUnit.DAYS), Instant.now())
-                     )
+                     .getPortfolioKpis(address)(kpiFilter)
                      .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
@@ -297,6 +295,12 @@ object Routes {
       } else {
         Validation.succeed(default)
       }
+  }
+
+  implicit class KpiQParamsOps(url: URL) {
+    def kpiFilter(): Validation[String, KpiFilter] = {
+      url.intervalFilter().map(KpiFilter)
+    }
   }
 
   implicit class IntervalQParamsOps(url: URL) {

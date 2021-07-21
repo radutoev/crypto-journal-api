@@ -3,15 +3,15 @@ package application
 
 import domain.account.UserContext
 import domain.model._
-import domain.portfolio.{ KpiService, PortfolioKpi }
+import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
-import domain.position.{ JournalEntry, JournalingService, PositionService, Positions }
+import domain.position.{JournalEntry, JournalingService, PositionService, Positions}
 import domain.wallet.error.WalletError
-import domain.wallet.{ Wallet, WalletService }
-import vo.{ JournalPosition, PositionFilter, TimeInterval }
+import domain.wallet.{Wallet, WalletService}
+import vo.{JournalPosition, PositionFilter, KpiFilter}
 
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object CryptoJournalApi {
   def getPositions(
@@ -38,12 +38,11 @@ object CryptoJournalApi {
     } yield position
 
   def getPortfolioKpis(
-    address: WalletAddress,
-    interval: TimeInterval
-  ): ZIO[Has[KpiService] with Has[UserContext], Throwable, PortfolioKpi] =
+    address: WalletAddress
+  )(kpiFilter: KpiFilter): ZIO[Has[KpiService] with Has[UserContext], Throwable, PortfolioKpi] =
     for {
       userId       <- UserContext.userId
-      portfolioKpi <- ZIO.serviceWith[KpiService](_.portfolioKpi(UserWallet(userId, address), interval))
+      portfolioKpi <- ZIO.serviceWith[KpiService](_.portfolioKpi(UserWallet(userId, address))(kpiFilter))
     } yield portfolioKpi
 
   def addWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[UserContext], WalletError, Unit] =
