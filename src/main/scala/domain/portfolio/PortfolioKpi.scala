@@ -26,13 +26,25 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     winRate(positions.closedPositions)
   }
 
-  private def winRate(reference: List[Position]): Float = {
-    val totalCount = reference.size
-    val winCount = reference.count { position =>
-      //.get is safe because win will be present on all closed positions.
-      position.isWin().get
+  lazy val loseRate: Float = {
+    if(positions.closedPositions.nonEmpty) {
+      1 - winRate
+    } else {
+      0F
     }
-    winCount / totalCount.toFloat
+  }
+
+  private def winRate(reference: List[Position]): Float = {
+    if(reference.nonEmpty) {
+      val totalCount = reference.size
+      val winCount = reference.count { position =>
+        //.get is safe because win will be present on all closed positions.
+        position.isWin().get
+      }
+      winCount / totalCount.toFloat
+    } else {
+      0F
+    }
   }
 
   lazy val netReturn: FungibleData = {
@@ -83,7 +95,7 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
   }
 
   lazy val maxConsecutiveWins: Int Refined NonNegative = {
-    var max    = 1
+    var max    = 0
     var streak = 0
 
     def onReset(): Unit = {
@@ -107,7 +119,7 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
   }
 
   lazy val maxConsecutiveLoses: Int Refined NonNegative = {
-    var max    = 1
+    var max    = 0
     var streak = 0
 
     def onReset(): Unit = {
@@ -146,7 +158,11 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     val list = items.map(_.holdTime()).collect {
       case Some(value) => value
     }
-    list.sum / list.size
+    if(list.nonEmpty) {
+      list.sum / list.size
+    } else {
+      0L
+    }
   }
 
   lazy val biggestWin: Option[FungibleData] = {

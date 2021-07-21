@@ -134,7 +134,7 @@ object dto {
         kpi.balance.amount,
         kpi.tradeCount,
         kpi.winRate,
-        1 - kpi.winRate,
+        kpi.loseRate,
         kpi.netReturn.amount,
         kpi.balanceTrend.map(_.amount)
       )
@@ -188,7 +188,7 @@ object dto {
         portfolio.biggestWin.map(_.amount),
         portfolio.biggestLoss.map(_.amount),
         portfolio.winRate,
-        loseRate = 1 - portfolio.winRate,
+        portfolio.loseRate,
         portfolio.tradeCount,
         portfolio.openTradesCount,
         portfolio.avgDailyTradeCount,
