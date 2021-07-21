@@ -2,11 +2,11 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ UserId, WalletAddressPredicate }
+import domain.model.{UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.error._
 import domain.position.Position.PositionIdPredicate
-import domain.position.{ JournalingService, PositionService }
+import domain.position.{JournalingService, PositionService}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.PortfolioKpi
@@ -20,7 +20,8 @@ import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
-import vo.{ PositionFilter, TimeInterval }
+import vo.{PositionFilter, TimeInterval}
+import vo.PositionFilter.PositionCount
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
@@ -28,9 +29,9 @@ import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio._
 import zio.json._
-import zio.prelude.Validation
+import zio.prelude._
 
-import java.time.Instant
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 import java.time.temporal.ChronoUnit
 
 object Routes {
@@ -284,7 +285,10 @@ object Routes {
   implicit class PositionsQParamsOps(url: URL) {
     def positionFilter(): Validation[String, PositionFilter] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
-      getInt("count", 30)(qParams).flatMap(count => PositionFilter(count))
+
+      Validation.validateWith(getInt("count", 30)(qParams).flatMap(cnt => PositionCount.make(cnt)), url.intervalFilter()) { case (count, interval) =>
+        new PositionFilter(count, interval)
+      }
     }
 
     private def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] =
@@ -293,6 +297,22 @@ object Routes {
       } else {
         Validation.succeed(default)
       }
+  }
+
+  implicit class IntervalQParamsOps(url: URL) {
+    def intervalFilter(): Validation[String, TimeInterval] = {
+      val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
+      val rawStartDate = qParams.getOrElse("startdate", "")
+      val rawEndDate = qParams.getOrElse("enddate", "")
+
+      try {
+        val start = LocalDate.parse(rawStartDate).atStartOfDay(ZoneId.of(ZoneOffset.UTC.getId)).toInstant
+        val end = LocalDate.parse(rawEndDate).atStartOfDay(ZoneId.of(ZoneOffset.UTC.getId)).toInstant
+        Validation.succeed(TimeInterval(start, end))
+      }  catch {
+        case _: Exception => Validation.fail("Invalid time interval")
+      }
+    }
   }
 
   val positionErrorToHttpResponse: PositionError => UResponse = {
