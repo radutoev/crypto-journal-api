@@ -2,37 +2,34 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ UserId, WalletAddressPredicate }
+import domain.model.{UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
-import domain.position.error._
 import domain.position.Position.PositionIdPredicate
-import domain.position.{ JournalingService, PositionService }
+import domain.position.error._
+import domain.position.{JournalingService, PositionService, Positions}
 import domain.wallet.WalletService
 import domain.wallet.error._
-import infrastructure.api.dto.PortfolioKpi
+import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.PortfolioStats
+import infrastructure.api.dto.{JournalEntry, PortfolioKpi, PortfolioStats}
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.JournalEntry
-import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
+import vo.filter.{KpiFilter, PositionCount, PositionFilter}
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
 import zhttp.http.HttpError.BadRequest
-import zhttp.http._
+import zhttp.http.{Header, _}
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
-import java.time.temporal.ChronoUnit
+import java.time.{LocalDate, ZoneId, ZoneOffset}
 
 object Routes {
   private val forbidden = HttpApp.response(
@@ -113,49 +110,7 @@ object Routes {
         response <- CryptoJournalApi
                      .getPositions(address, filter)
                      .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
-                     .fold(
-                       positionErrorToHttpResponse,
-                       positions =>
-                         if (positions.items.nonEmpty) {
-                           if (positions.lastSync.isDefined) {
-                             Response.http(
-                               status = Status.OK,
-                               headers = List(
-                                 Header("X-CoinLogger-LatestSync", positions.lastSync.get.toString),
-                                 Header("Content-Type", "application/json")
-                               ),
-                               content = HttpData.CompleteData(
-                                 Chunk
-                                   .fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
-                               )
-                             )
-                           } else {
-                             Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
-                           }
-                         } else {
-                           if (positions.lastSync.isDefined) {
-                             Response.http(
-                               status = Status.NO_CONTENT,
-                               headers = List(
-                                 Header("X-CoinLogger-LatestSync", positions.lastSync.get.toString),
-                                 Header("Content-Type", "application/json")
-                               )
-                             )
-                           } else {
-                             Response.status(Status.NO_CONTENT)
-                           }
-                         }
-                     )
-      } yield response
-
-    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "latest" =>
-      for {
-        address <- ZIO
-                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-                    .orElseFail(BadRequest("Invalid address"))
-
-        count    = req.url.queryParams.getOrElse("count", "30")
-        response = Response.status(Status.NOT_IMPLEMENTED)
+                     .fold(positionErrorToHttpResponse, _.asResponse())
       } yield response
 
     case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
@@ -167,40 +122,7 @@ object Routes {
         response <- CryptoJournalApi
                      .diff(address)
                      .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
-                     .fold(
-                       positionErrorToHttpResponse,
-                       positions =>
-                         if (positions.items.nonEmpty) {
-                           positions.lastSync match {
-                             case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
-                             case Some(timestamp) =>
-                               Response.http(
-                                 status = Status.OK,
-                                 headers = List(
-                                   Header("X-CoinLogger-LatestSync", timestamp.toString),
-                                   Header("Content-Type", "application/json")
-                                 ),
-                                 content = HttpData.CompleteData(
-                                   Chunk
-                                     .fromArray(positions.items.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
-                                 )
-                               )
-                           }
-                         } else {
-                           positions.lastSync match {
-                             case None => Response.jsonString(positions.items.map(fromPosition).reverse.toJson)
-                             case Some(timestamp) =>
-                               Response.http(
-                                 status = Status.NO_CONTENT,
-                                 headers = List(
-                                   Header("X-CoinLogger-LatestSync", timestamp.toString),
-                                   Header("Content-Type", "application/json")
-                                 )
-                               )
-                           }
-                           Response.status(Status.NO_CONTENT)
-                         }
-                     )
+                     .fold(positionErrorToHttpResponse, _.asResponse())
       } yield response
 
     case Method.GET -> Root / "positions" / rawPositionId =>
@@ -290,7 +212,16 @@ object Routes {
     }
   }
 
-  implicit class PositionsQParamsOps(url: URL) {
+  trait QParamsOps {
+    def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] =
+      if (qParams.contains(key)) {
+        Validation.fromOption(qParams(key).toIntOption).mapError(_ => "Query param has to be an integer")
+      } else {
+        Validation.succeed(default)
+      }
+  }
+
+  implicit class PositionsQParamsOps(url: URL) extends QParamsOps {
     def positionFilter(): Validation[String, PositionFilter] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
 
@@ -302,13 +233,6 @@ object Routes {
           new PositionFilter(count, interval)
       }
     }
-
-    private def getInt(key: String, default: Int)(qParams: Map[String, String]): Validation[String, Int] =
-      if (qParams.contains(key)) {
-        Validation.fromOption(qParams(key).toIntOption).mapError(_ => "Query param has to be an integer")
-      } else {
-        Validation.succeed(default)
-      }
   }
 
   implicit class KpiQParamsOps(url: URL) {
@@ -328,6 +252,23 @@ object Routes {
         Validation.succeed(TimeInterval(start, end))
       } catch {
         case _: Exception => Validation.fail("Invalid time interval")
+      }
+    }
+  }
+
+  implicit class PositionsResponseOps(positions: Positions) {
+    def asResponse(): UResponse = {
+      val resultHeaders: List[Header] = positions.lastSync match {
+        case Some(value) => List(Header("X-CoinLogger-LatestSync", value.toString))
+        case None => Nil
+      }
+      val headers = Header("Content-Type", "application/json") :: resultHeaders
+
+      positions.items match {
+        case list => Response.http(status = Status.OK, headers = headers, content = HttpData.CompleteData(
+          Chunk.fromArray(list.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
+        ))
+        case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)
       }
     }
   }

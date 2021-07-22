@@ -8,13 +8,6 @@ object filter {
   object PositionCount extends SubtypeSmart[Int](isPositive)
   type PositionCount = PositionCount.Type
 
-  final case class LatestPositionFilter(count: PositionCount)
-
-  object LatestPositionFilter {
-    def apply(count: Int): Validation[String, PositionCount] =
-      PositionCount.make(count)
-  }
-
   final case class PositionFilter(count: PositionCount, interval: TimeInterval)
 
   object PositionFilter {

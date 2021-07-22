@@ -1,21 +1,21 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ EthBlockchainRepo, Transaction }
+import domain.blockchain.{EthBlockchainRepo, Transaction}
 import domain.blockchain.error._
 import domain.model._
 import domain.position.error._
 import domain.position.Position._
 import domain.position.LivePositionService.findPositions
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
-import vo.{ JournalPosition, TimeInterval }
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import vo.{JournalPosition, TimeInterval}
 import vo.filter.PositionFilter
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -63,8 +63,7 @@ final case class LivePositionService(
   priceQuoteRepo: PriceQuoteRepo,
   blockchainRepo: EthBlockchainRepo,
   journalingRepo: JournalingRepo,
-  demoAccountConfig: DemoAccountConfig,
-  logger: Logger[String]
+  logger: Logger[String],
 ) extends PositionService {
   override def getPositions(userWallet: UserWallet)(positionFilter: PositionFilter): IO[PositionError, Positions] =
     for {
@@ -181,12 +180,10 @@ final case class LivePositionService(
 
 object LivePositionService {
   lazy val layer
-    : URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[JournalingRepo] with Has[
-      DemoAccountConfig
-    ] with Logging, Has[
+    : URLayer[Has[PositionRepo] with Has[PriceQuoteRepo] with Has[EthBlockchainRepo] with Has[JournalingRepo] with Logging, Has[
       PositionService
     ]] =
-    (LivePositionService(_, _, _, _, _, _)).toLayer
+    (LivePositionService(_, _, _, _, _)).toLayer
 
   val TransactionTypes = Vector(Buy, Sell)
 
