@@ -37,7 +37,7 @@ object CryptoJournal extends App {
     val configLayer = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
 
     val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
-    val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastoreConfig))
+    val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
 //    val demoAccountConfigLayer = configLayer.map(c => Has(c.get.demoAccount))
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
