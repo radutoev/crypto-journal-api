@@ -28,10 +28,10 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
     extends JournalingRepo {
 
   override def getEntry(userId: UserId, positionId: PositionId): IO[PositionError, JournalEntry] = {
-    val key = datastore.newKeyFactory().setKind(datastoreConfig.journalKind).newKey(journalEntryKey(userId, positionId))
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, positionId))
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(datastoreConfig.journalKind)
+      .setKind(datastoreConfig.journal)
       .setFilter(PropertyFilter.eq("__key__", key))
       .build()
     executeQuery(query)
@@ -55,7 +55,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
   val journalEntryToEntity: (UserId, PositionId, JournalEntry) => Entity = (userId, positionId, entry) => {
     Entity
       .newBuilder(
-        datastore.newKeyFactory().setKind(datastoreConfig.journalKind).newKey(journalEntryKey(userId, positionId))
+        datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, positionId))
       )
       .set("notes", entry.notes.map(_.value).getOrElse(""))
       .set("setups", entry.setups.map(_.value).map(StringValue.of).asJava)

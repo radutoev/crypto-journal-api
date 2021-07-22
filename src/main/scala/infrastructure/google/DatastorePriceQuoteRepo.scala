@@ -38,7 +38,7 @@ final case class DatastorePriceQuoteRepo(datastore: Datastore, datastoreConfig: 
 //                  }
                   val query: Query[Entity] = Query
                     .newEntityQueryBuilder()
-                    .setKind(datastoreConfig.priceQuoteKind)
+                    .setKind(datastoreConfig.priceQuote)
                     .setFilter(filter)
                     .addOrderBy(OrderBy.desc("timestamp"))
                     .build()

@@ -37,7 +37,7 @@ final case class DatastoreWalletRepo(
     val query =
       Query
         .newEntityQueryBuilder()
-        .setKind(datastoreConfig.walletKind)
+        .setKind(datastoreConfig.wallet)
         .setFilter(PropertyFilter.eq("userId", userId.value))
         .build()
     Task(datastore.run(query, Seq.empty[ReadOption]: _*)).bimap({
@@ -73,7 +73,7 @@ final case class DatastoreWalletRepo(
       .tapError(err => logger.warn(err.toString)) //TODO Maybe show??
 
   private val userWalletPk: (UserId, WalletAddress) => Key = (userId, address) =>
-    datastore.newKeyFactory().setKind(datastoreConfig.walletKind).newKey(s"${userId.value}#${address.value}")
+    datastore.newKeyFactory().setKind(datastoreConfig.wallet).newKey(s"${userId.value}#${address.value}")
 
   private val entityToWallet: Entity => Either[InvalidWallet, Wallet] = entity => {
     for {
