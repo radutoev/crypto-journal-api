@@ -11,7 +11,7 @@ object CryptoJournalConfig {
 final case class CryptoJournalConfig(
   covalent: CovalentConfig,
   demoAccount: DemoAccountConfig,
-  datastoreConfig: DatastoreConfig
+  datastore: DatastoreConfig
 )
 
 final case class CovalentConfig(baseUrl: String, key: String)
