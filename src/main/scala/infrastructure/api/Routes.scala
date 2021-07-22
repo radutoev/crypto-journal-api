@@ -2,11 +2,11 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{UserId, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.error._
 import domain.position.Position.PositionIdPredicate
-import domain.position.{JournalingService, PositionService}
+import domain.position.{ JournalingService, PositionService }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.PortfolioKpi
@@ -20,8 +20,8 @@ import infrastructure.api.dto.JournalEntry._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
-import vo.{KpiFilter, PositionFilter, TimeInterval}
-import vo.PositionFilter.PositionCount
+import vo.TimeInterval
+import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
@@ -31,7 +31,7 @@ import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 import java.time.temporal.ChronoUnit
 
 object Routes {
@@ -148,6 +148,16 @@ object Routes {
                      )
       } yield response
 
+    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "latest" =>
+      for {
+        address <- ZIO
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
+
+        count    = req.url.queryParams.getOrElse("count", "30")
+        response = Response.status(Status.NOT_IMPLEMENTED)
+      } yield response
+
     case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
       for {
         address <- ZIO
@@ -227,7 +237,7 @@ object Routes {
   }
 
   private def portfolio(userId: UserId) = HttpApp.collectM {
-    case req@Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
+    case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
@@ -244,7 +254,7 @@ object Routes {
                      )
       } yield response
 
-    case req@Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" =>
+    case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
@@ -284,8 +294,12 @@ object Routes {
     def positionFilter(): Validation[String, PositionFilter] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
 
-      Validation.validateWith(getInt("count", 30)(qParams).flatMap(cnt => PositionCount.make(cnt)), url.intervalFilter()) { case (count, interval) =>
-        new PositionFilter(count, interval)
+      Validation.validateWith(
+        getInt("count", 30)(qParams).flatMap(cnt => PositionCount.make(cnt)),
+        url.intervalFilter()
+      ) {
+        case (count, interval) =>
+          new PositionFilter(count, interval)
       }
     }
 
@@ -298,22 +312,21 @@ object Routes {
   }
 
   implicit class KpiQParamsOps(url: URL) {
-    def kpiFilter(): Validation[String, KpiFilter] = {
+    def kpiFilter(): Validation[String, KpiFilter] =
       url.intervalFilter().map(KpiFilter)
-    }
   }
 
   implicit class IntervalQParamsOps(url: URL) {
     def intervalFilter(): Validation[String, TimeInterval] = {
-      val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
+      val qParams      = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
       val rawStartDate = qParams.getOrElse("startdate", "")
-      val rawEndDate = qParams.getOrElse("enddate", "")
+      val rawEndDate   = qParams.getOrElse("enddate", "")
 
       try {
         val start = LocalDate.parse(rawStartDate).atStartOfDay(ZoneId.of(ZoneOffset.UTC.getId)).toInstant
-        val end = LocalDate.parse(rawEndDate).atStartOfDay(ZoneId.of(ZoneOffset.UTC.getId)).toInstant
+        val end   = LocalDate.parse(rawEndDate).atStartOfDay(ZoneId.of(ZoneOffset.UTC.getId)).toInstant
         Validation.succeed(TimeInterval(start, end))
-      }  catch {
+      } catch {
         case _: Exception => Validation.fail("Invalid time interval")
       }
     }

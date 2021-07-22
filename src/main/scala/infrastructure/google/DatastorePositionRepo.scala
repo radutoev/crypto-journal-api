@@ -6,8 +6,9 @@ import domain.position.Position.{ PositionEntryIdPredicate, PositionId, Position
 import domain.position.error._
 import domain.position.{ Checkpoint, Position, PositionEntry, PositionRepo }
 import infrastructure.google.DatastorePositionRepo._
-import util.{InstantOps, tryOrLeft}
-import vo.{ PositionFilter, TimeInterval }
+import util.{ tryOrLeft, InstantOps }
+import vo.TimeInterval
+import vo.filter.PositionFilter
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
@@ -66,11 +67,13 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     val query = Query
       .newEntityQueryBuilder()
       .setKind(Positions)
-      .setFilter(CompositeFilter.and(
-        PropertyFilter.eq("address", address.value),
-        PropertyFilter.ge("openedAt", positionFilter.interval.start.toDatastoreTimestamp()),
-        PropertyFilter.le("openedAt", positionFilter.interval.end.toDatastoreTimestamp())
-      ))
+      .setFilter(
+        CompositeFilter.and(
+          PropertyFilter.eq("address", address.value),
+          PropertyFilter.ge("openedAt", positionFilter.interval.start.toDatastoreTimestamp()),
+          PropertyFilter.le("openedAt", positionFilter.interval.end.toDatastoreTimestamp())
+        )
+      )
       .addOrderBy(OrderBy.asc("openedAt"))
       .setLimit(positionFilter.count)
       .build()

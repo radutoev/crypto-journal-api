@@ -8,7 +8,8 @@ import domain.position.error._
 import domain.position.Position._
 import domain.position.LivePositionService.findPositions
 import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
-import vo.{ JournalPosition, PositionFilter, TimeInterval }
+import vo.{ JournalPosition, TimeInterval }
+import vo.filter.PositionFilter
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
@@ -89,7 +90,8 @@ final case class LivePositionService(
     val interval = extractTimeInterval(positions)
     if (positions.nonEmpty) {
       priceQuoteRepo
-        .getQuotes(interval.get).bimap(PriceQuotesError, PriceQuotes.apply)
+        .getQuotes(interval.get)
+        .bimap(PriceQuotesError, PriceQuotes.apply)
         .map(priceQuotes =>
           positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
         )
@@ -104,9 +106,10 @@ final case class LivePositionService(
       .flatMap(enrichPosition)
       .zipPar(journalingRepo.getEntry(userId, positionId).map(Some(_)).catchSome {
         case _: JournalNotFound => UIO.none
-      }).bimap(_ => PositionFetchError(positionId, new RuntimeException("Unable to enrich position")), {
-      case (position, entry) => JournalPosition(position, entry)
-    })
+      })
+      .bimap(_ => PositionFetchError(positionId, new RuntimeException("Unable to enrich position")), {
+        case (position, entry) => JournalPosition(position, entry)
+      })
 
   private def enrichPosition(position: Position): Task[Position] = {
     val interval = position.timeInterval()

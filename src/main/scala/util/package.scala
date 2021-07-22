@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 
 import com.google.cloud.Timestamp
 
-import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 import scala.util.Try
 
 package object util {
@@ -19,9 +19,8 @@ package object util {
     def toLocalDate(): LocalDate =
       LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))
 
-    def toDatastoreTimestamp(): Timestamp = {
+    def toDatastoreTimestamp(): Timestamp =
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)
-    }
   }
 
   implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {

@@ -3,15 +3,16 @@ package application
 
 import domain.account.UserContext
 import domain.model._
-import domain.portfolio.{KpiService, PortfolioKpi}
+import domain.portfolio.{ KpiService, PortfolioKpi }
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
-import domain.position.{JournalEntry, JournalingService, PositionService, Positions}
+import domain.position.{ JournalEntry, JournalingService, PositionService, Positions }
 import domain.wallet.error.WalletError
-import domain.wallet.{Wallet, WalletService}
-import vo.{JournalPosition, PositionFilter, KpiFilter}
+import domain.wallet.{ Wallet, WalletService }
+import vo.JournalPosition
+import vo.filter.{ KpiFilter, PositionFilter }
 
-import zio.{Has, ZIO}
+import zio.{ Has, ZIO }
 
 object CryptoJournalApi {
   def getPositions(

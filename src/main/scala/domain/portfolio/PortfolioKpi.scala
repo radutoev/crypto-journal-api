@@ -27,15 +27,15 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
   }
 
   lazy val loseRate: Float = {
-    if(positions.closedPositions.nonEmpty) {
+    if (positions.closedPositions.nonEmpty) {
       1 - winRate
     } else {
-      0F
+      0f
     }
   }
 
-  private def winRate(reference: List[Position]): Float = {
-    if(reference.nonEmpty) {
+  private def winRate(reference: List[Position]): Float =
+    if (reference.nonEmpty) {
       val totalCount = reference.size
       val winCount = reference.count { position =>
         //.get is safe because win will be present on all closed positions.
@@ -43,9 +43,8 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
       }
       winCount / totalCount.toFloat
     } else {
-      0F
+      0f
     }
-  }
 
   lazy val netReturn: FungibleData = {
     positions.closedPositions.map(_.fiatReturn()).sumFungibleData()
@@ -158,7 +157,7 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     val list = items.map(_.holdTime()).collect {
       case Some(value) => value
     }
-    if(list.nonEmpty) {
+    if (list.nonEmpty) {
       list.sum / list.size
     } else {
       0L

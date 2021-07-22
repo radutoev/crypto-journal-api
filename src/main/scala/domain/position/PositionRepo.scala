@@ -4,7 +4,8 @@ package domain.position
 import domain.model.{ State, WalletAddress }
 import domain.position.Position.PositionId
 import domain.position.error._
-import vo.{ PositionFilter, TimeInterval }
+import vo.TimeInterval
+import vo.filter.PositionFilter
 
 import zio.{ Has, IO, Task, ZIO }
 
