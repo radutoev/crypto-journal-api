@@ -8,8 +8,20 @@ object CryptoJournalConfig {
   val descriptor = DeriveConfigDescriptor.descriptor[CryptoJournalConfig]
 }
 
-final case class CryptoJournalConfig(covalent: CovalentConfig, demoAccount: DemoAccountConfig)
+final case class CryptoJournalConfig(
+  covalent: CovalentConfig,
+  demoAccount: DemoAccountConfig,
+  datastoreConfig: DatastoreConfig
+)
 
 final case class CovalentConfig(baseUrl: String, key: String)
 
 final case class DemoAccountConfig(maxPositions: PosInt)
+
+final case class DatastoreConfig(
+  checkpointKind: String,
+  journalKind: String,
+  positionKind: String,
+  priceQuoteKind: String,
+  walletKind: String
+)

@@ -5,7 +5,6 @@ import domain.model._
 import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
 import domain.position.error._
 import domain.position.{ Checkpoint, Position, PositionEntry, PositionRepo }
-import infrastructure.google.DatastorePositionRepo._
 import util.{ tryOrLeft, InstantOps }
 import vo.TimeInterval
 import vo.filter.PositionFilter
@@ -23,8 +22,12 @@ import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters._
 
-final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[String], clock: Clock.Service)
-    extends PositionRepo {
+final case class DatastorePositionRepo(
+  datastore: Datastore,
+  datastoreConfig: DatastoreConfig,
+  logger: Logger[String],
+  clock: Clock.Service
+) extends PositionRepo {
 
   override def save(address: WalletAddress, positions: List[Position]): Task[Unit] = {
     @inline
@@ -44,7 +47,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
         )
         .ignore //TODO handle transactions response when doing error handling.
 
-    val entities = positions.map(pos => positionToEntity(pos, address, Positions)).grouped(23).toList
+    val entities = positions.map(pos => positionToEntity(pos, address, datastoreConfig.positionKind)).grouped(23).toList
 
     if (positions.isEmpty) {
       logger.debug(s"No positions to import for ${address.value}")
@@ -66,7 +69,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   )(positionFilter: PositionFilter): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(Positions)
+      .setKind(datastoreConfig.positionKind)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -84,7 +87,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   override def getPositions(address: WalletAddress, timeInterval: TimeInterval): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(Positions)
+      .setKind(datastoreConfig.positionKind)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -102,7 +105,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   override def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(Positions)
+      .setKind(datastoreConfig.positionKind)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -120,7 +123,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   override def getPositions(address: WalletAddress, state: State): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(Positions)
+      .setKind(datastoreConfig.positionKind)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -139,8 +142,12 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     )
 
   override def getPosition(positionId: PositionId): IO[PositionError, Position] = {
-    val key   = datastore.newKeyFactory().setKind(Positions).newKey(positionId.value)
-    val query = Query.newEntityQueryBuilder().setKind(Positions).setFilter(PropertyFilter.eq("__key__", key)).build()
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.positionKind).newKey(positionId.value)
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.positionKind)
+      .setFilter(PropertyFilter.eq("__key__", key))
+      .build()
     executeQuery(query)
       .mapError(throwable => PositionFetchError(positionId, throwable))
       .flatMap { queryResult =>
@@ -157,9 +164,10 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     executeQuery(
       Query
         .newKeyQueryBuilder()
-        .setKind(CheckpointTable)
+        .setKind(datastoreConfig.checkpointKind)
         .setFilter(
-          PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+          PropertyFilter
+            .eq("__key__", datastore.newKeyFactory().setKind(datastoreConfig.checkpointKind).newKey(address.value))
         )
         .build()
     ).map(results => results.asScala.nonEmpty)
@@ -168,9 +176,10 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
     executeQuery(
       Query
         .newEntityQueryBuilder()
-        .setKind(CheckpointTable)
+        .setKind(datastoreConfig.checkpointKind)
         .setFilter(
-          PropertyFilter.eq("__key__", datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+          PropertyFilter
+            .eq("__key__", datastore.newKeyFactory().setKind(datastoreConfig.checkpointKind).newKey(address.value))
         )
         .build()
     ).mapError(throwable => CheckpointFetchError(address, throwable)).flatMap { results =>
@@ -194,7 +203,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   private def upsertCheckpoint(address: WalletAddress, latestTxTimestamp: Instant)(implicit instant: Instant) = Task {
     datastore.put(
       Entity
-        .newBuilder(datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+        .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.checkpointKind).newKey(address.value))
         .set("timestamp", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
         .set(
           "latestTxTimestamp",
@@ -207,7 +216,7 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
   private def upsertCheckpoint(address: WalletAddress)(implicit instant: Instant) = Task {
     datastore.put(
       Entity
-        .newBuilder(datastore.newKeyFactory().setKind(CheckpointTable).newKey(address.value))
+        .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.checkpointKind).newKey(address.value))
         .set("timestamp", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
         .build()
     )
@@ -333,14 +342,6 @@ final case class DatastorePositionRepo(datastore: Datastore, logger: Logger[Stri
 }
 
 object DatastorePositionRepo {
-  lazy val layer: URLayer[Has[Datastore] with Logging with Clock, Has[PositionRepo]] =
-    (DatastorePositionRepo(_, _, _)).toLayer
-
-  /* Tables */
-
-  val Positions = "Position"
-
-  //Maintains state of the awareness of the system regarding wallets.
-  // Each wallet has a single entry, and metadata information regarding the latest blockchain sync.
-  val CheckpointTable: String = "Checkpoint"
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[PositionRepo]] =
+    (DatastorePositionRepo(_, _, _, _)).toLayer
 }

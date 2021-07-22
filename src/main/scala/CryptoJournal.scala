@@ -8,8 +8,8 @@ import infrastructure.covalent.CovalentFacade
 import infrastructure.google.{
   DatastoreJournalingRepo,
   DatastorePositionRepo,
-  DatastoreWalletRepo,
-  FirebasePriceQuoteRepo
+  DatastorePriceQuoteRepo,
+  DatastoreWalletRepo
 }
 
 import com.google.cloud.datastore.DatastoreOptions
@@ -36,7 +36,8 @@ object CryptoJournal extends App {
   def prepareEnvironment(config: Config) = {
     val configLayer = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
 
-    val covalentConfigLayer    = configLayer.map(c => Has(c.get.covalent))
+    val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
+    val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastoreConfig))
 //    val demoAccountConfigLayer = configLayer.map(c => Has(c.get.demoAccount))
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
@@ -50,19 +51,20 @@ object CryptoJournal extends App {
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
-    lazy val covalentFacadeLayer = ((httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer)
+    lazy val covalentFacadeLayer = (httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer
 
-    lazy val priceQuoteRepoLayer = datastoreLayer >>> FirebasePriceQuoteRepo.layer
+    lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer >>> DatastorePriceQuoteRepo.layer
 
-    lazy val positionRepoLayer = datastoreLayer ++ loggingLayer ++ Clock.live >>> DatastorePositionRepo.layer
+    lazy val positionRepoLayer =
+      datastoreLayer ++ datastoreConfigLayer ++ loggingLayer ++ Clock.live >>> DatastorePositionRepo.layer
 
-    lazy val journalRepoLayer = datastoreLayer ++ loggingLayer >>> DatastoreJournalingRepo.layer
+    lazy val journalRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreJournalingRepo.layer
 
     lazy val positionServiceLayer =
       positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LivePositionService.layer
 
     lazy val walletServiceLayer =
-      (loggingLayer ++ datastoreLayer ++ Clock.live >>> DatastoreWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
+      (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
 
     lazy val kpiServiceLayer = (positionServiceLayer ++ Clock.live) >>> LiveKpiService.layer
 

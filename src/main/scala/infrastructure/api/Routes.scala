@@ -2,16 +2,16 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{UserId, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{JournalingService, PositionService, Positions}
+import domain.position.{ JournalingService, PositionService, Positions }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.{JournalEntry, PortfolioKpi, PortfolioStats}
+import infrastructure.api.dto.{ JournalEntry, PortfolioKpi, PortfolioStats }
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
@@ -19,17 +19,17 @@ import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
 import vo.TimeInterval
-import vo.filter.{KpiFilter, PositionCount, PositionFilter}
+import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{Header, _}
+import zhttp.http.{ Header, _ }
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{LocalDate, ZoneId, ZoneOffset}
+import java.time.{ LocalDate, ZoneId, ZoneOffset }
 
 object Routes {
   private val forbidden = HttpApp.response(
@@ -260,14 +260,19 @@ object Routes {
     def asResponse(): UResponse = {
       val resultHeaders: List[Header] = positions.lastSync match {
         case Some(value) => List(Header("X-CoinLogger-LatestSync", value.toString))
-        case None => Nil
+        case None        => Nil
       }
       val headers = Header("Content-Type", "application/json") :: resultHeaders
 
       positions.items match {
-        case list => Response.http(status = Status.OK, headers = headers, content = HttpData.CompleteData(
-          Chunk.fromArray(list.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
-        ))
+        case list =>
+          Response.http(
+            status = Status.OK,
+            headers = headers,
+            content = HttpData.CompleteData(
+              Chunk.fromArray(list.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
+            )
+          )
         case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)
       }
     }

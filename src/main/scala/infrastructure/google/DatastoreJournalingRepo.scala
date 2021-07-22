@@ -11,7 +11,7 @@ import domain.position.error.{
 }
 import domain.position.{ JournalEntry, JournalingRepo }
 import domain.model.UserId
-import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey, Journal }
+import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
@@ -24,10 +24,16 @@ import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import scala.jdk.CollectionConverters._
 
-final case class DatastoreJournalingRepo(datastore: Datastore, logger: Logger[String]) extends JournalingRepo {
+final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: DatastoreConfig, logger: Logger[String])
+    extends JournalingRepo {
+
   override def getEntry(userId: UserId, positionId: PositionId): IO[PositionError, JournalEntry] = {
-    val key   = datastore.newKeyFactory().setKind(Journal).newKey(journalEntryKey(userId, positionId))
-    val query = Query.newEntityQueryBuilder().setKind(Journal).setFilter(PropertyFilter.eq("__key__", key)).build()
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.journalKind).newKey(journalEntryKey(userId, positionId))
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.journalKind)
+      .setFilter(PropertyFilter.eq("__key__", key))
+      .build()
     executeQuery(query)
       .mapError(throwable => JournalFetchError(throwable))
       .flatMap { queryResult =>
@@ -48,7 +54,9 @@ final case class DatastoreJournalingRepo(datastore: Datastore, logger: Logger[St
 
   val journalEntryToEntity: (UserId, PositionId, JournalEntry) => Entity = (userId, positionId, entry) => {
     Entity
-      .newBuilder(datastore.newKeyFactory().setKind(Journal).newKey(journalEntryKey(userId, positionId)))
+      .newBuilder(
+        datastore.newKeyFactory().setKind(datastoreConfig.journalKind).newKey(journalEntryKey(userId, positionId))
+      )
       .set("notes", entry.notes.map(_.value).getOrElse(""))
       .set("setups", entry.setups.map(_.value).map(StringValue.of).asJava)
       .set("mistakes", entry.mistakes.map(_.value).map(StringValue.of).asJava)
@@ -61,9 +69,8 @@ final case class DatastoreJournalingRepo(datastore: Datastore, logger: Logger[St
 }
 
 object DatastoreJournalingRepo {
-  lazy val layer: URLayer[Has[Datastore] with Logging, Has[JournalingRepo]] = (DatastoreJournalingRepo(_, _)).toLayer
-
-  val Journal = "Journal"
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging, Has[JournalingRepo]] =
+    (DatastoreJournalingRepo(_, _, _)).toLayer
 
   val KeyDelimiter = "#"
 

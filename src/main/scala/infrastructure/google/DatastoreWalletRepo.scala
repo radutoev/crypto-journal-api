@@ -4,7 +4,6 @@ package infrastructure.google
 import domain.model.{ UserId, WalletAddress, WalletAddressPredicate }
 import domain.wallet.{ Wallet, WalletRepo }
 import domain.wallet.error._
-import infrastructure.google.DatastoreWalletRepo.WalletKind
 import util.{ tryOrLeft, EitherOps }
 
 import com.google.cloud.Timestamp
@@ -19,8 +18,12 @@ import zio.{ Has, IO, Task, URLayer, ZIO }
 import java.time.Instant
 import scala.jdk.CollectionConverters._
 
-final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String], clock: Clock.Service)
-    extends WalletRepo {
+final case class DatastoreWalletRepo(
+  datastore: Datastore,
+  datastoreConfig: DatastoreConfig,
+  logger: Logger[String],
+  clock: Clock.Service
+) extends WalletRepo {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
     clock.instant.flatMap(instant =>
       getWallet(userId, address)
@@ -32,10 +35,14 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
 
   override def getWallets(userId: UserId): IO[WalletError, List[Wallet]] = {
     val query =
-      Query.newEntityQueryBuilder().setKind(WalletKind).setFilter(PropertyFilter.eq("userId", userId.value)).build()
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*)).mapError {
-      case t: Throwable                                                                      => WalletsFetchError(userId, t)
-    }.map(results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet })
+      Query
+        .newEntityQueryBuilder()
+        .setKind(datastoreConfig.walletKind)
+        .setFilter(PropertyFilter.eq("userId", userId.value))
+        .build()
+    Task(datastore.run(query, Seq.empty[ReadOption]: _*)).bimap({
+      case t: Throwable => WalletsFetchError(userId, t)
+    }, results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet })
   }
 
   override def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
@@ -66,7 +73,7 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
       .tapError(err => logger.warn(err.toString)) //TODO Maybe show??
 
   private val userWalletPk: (UserId, WalletAddress) => Key = (userId, address) =>
-    datastore.newKeyFactory().setKind(WalletKind).newKey(s"${userId.value}#${address.value}")
+    datastore.newKeyFactory().setKind(datastoreConfig.walletKind).newKey(s"${userId.value}#${address.value}")
 
   private val entityToWallet: Entity => Either[InvalidWallet, Wallet] = entity => {
     for {
@@ -79,10 +86,6 @@ final case class DatastoreWalletRepo(datastore: Datastore, logger: Logger[String
 }
 
 object DatastoreWalletRepo {
-  lazy val layer: URLayer[Has[Datastore] with Logging with Clock, Has[WalletRepo]] =
-    (DatastoreWalletRepo(_, _, _)).toLayer
-
-  /* Tables */
-  //Holds the user-wallet mapping
-  val WalletKind: String = "Wallet"
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[WalletRepo]] =
+    (DatastoreWalletRepo(_, _, _, _)).toLayer
 }

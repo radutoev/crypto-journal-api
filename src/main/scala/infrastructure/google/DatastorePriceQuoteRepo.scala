@@ -8,12 +8,13 @@ import vo.TimeInterval
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
-import zio.{ Function1ToLayerSyntax, Has, Task, UIO, URLayer }
+import zio.{ Function2ToLayerSyntax, Has, Task, UIO, URLayer }
 
 import java.time.Instant
 import scala.jdk.CollectionConverters._
 
-final case class FirebasePriceQuoteRepo(datastore: Datastore) extends PriceQuoteRepo {
+final case class DatastorePriceQuoteRepo(datastore: Datastore, datastoreConfig: DatastoreConfig)
+    extends PriceQuoteRepo {
   override def getQuotes(interval: TimeInterval): Task[List[PriceQuote]] =
     for {
       results <- Task {
@@ -37,7 +38,7 @@ final case class FirebasePriceQuoteRepo(datastore: Datastore) extends PriceQuote
 //                  }
                   val query: Query[Entity] = Query
                     .newEntityQueryBuilder()
-                    .setKind("PriceQuotes")
+                    .setKind(datastoreConfig.priceQuoteKind)
                     .setFilter(filter)
                     .addOrderBy(OrderBy.desc("timestamp"))
                     .build()
@@ -52,6 +53,7 @@ final case class FirebasePriceQuoteRepo(datastore: Datastore) extends PriceQuote
   }
 }
 
-object FirebasePriceQuoteRepo {
-  lazy val layer: URLayer[Has[Datastore], Has[PriceQuoteRepo]] = (FirebasePriceQuoteRepo(_)).toLayer
+object DatastorePriceQuoteRepo {
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig], Has[PriceQuoteRepo]] =
+    (DatastorePriceQuoteRepo(_, _)).toLayer
 }
