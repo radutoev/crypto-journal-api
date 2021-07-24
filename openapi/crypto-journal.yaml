@@ -8,7 +8,7 @@ schemes:
 produces:
   - application/json
 x-google-backend:
-  address: https://crypto-journal-api-uveoggdjfa-nw.a.run.app
+  address: https://crypto-journal-api-bsia4lvk6q-nw.a.run.app
 paths:
   /health:
     get:
@@ -20,40 +20,137 @@ paths:
           schema:
             type: string
   /addresses/{address}/positions:
+    parameters:
+      - in: 'path'
+        name: 'address'
+        type: 'string'
+        required: true
+    options:
+      operationId: positionsOptions
+      security:
+        - auth0_jwk: [ ]
+      responses:
+        '200':
+          description: Allow cors request
     get:
       summary: Get positions for given address
       operationId: getPositions
       security:
         - auth0_jwk: []
-      parameters:
-        - in: 'path'
-          name: 'address'
-          type: 'string'
-          required: true
       responses:
         '200':
           description: Positions for address
         '204':
           description: Address has no positions
   /addresses/{address}/positions/{positionId}:
+    parameters:
+      - in: 'path'
+        name: 'address'
+        type: 'string'
+        required: true
+      - in: 'path'
+        name: 'positionId'
+        type: 'string'
+        required: true
+    options:
+      operationId: positionOptions
+      security:
+        - auth0_jwk: [ ]
+      responses:
+        '200':
+          description: Allow cors request
     get:
       summary: Get position by id
       operationId: getPosition
       security:
         - auth0_jwk: []
-      parameters:
-        - in: 'path'
-          name: 'address'
-          type: 'string'
-          required: true
-        - in: 'path'
-          name: 'positionId'
-          type: 'string'
-          required: true
       responses:
         '200':
           description: Position for given id
+  /positions/{positionId}/journal:
+    parameters:
+      - in: 'path'
+        name: 'positionId'
+        type: 'string'
+        required: true
+    options:
+      operationId: journalOptions
+      security:
+        - auth0_jwk: [ ]
+      responses:
+        '200':
+          description: Allow cors request
+    put:
+      summary: Upsert journal for positition
+      operationId: upsertJournal
+      security:
+        - auth0_jwk: []
+      parameters:
+        - in: 'body'
+          name: journalEntry
+          required: true
+          schema:
+            type: object
+            properties:
+              notes:
+                type: string
+              setups:
+                type: array
+                items:
+                  type: string
+              mistakes:
+                type: array
+                items:
+                  type: string
+      responses:
+        '200':
+          description: Upsert success
+  /portfolio/{address}/kpi:
+    parameters:
+      - in: 'path'
+        name: 'address'
+        type: 'string'
+        required: true
+    options:
+      operationId: kpiOptions
+      security:
+        - auth0_jwk: [ ]
+      responses:
+        '200':
+          description: Allow cors request
+    get:
+      summary: Get KPIs for given address
+      operationId: getKpis
+      responses:
+        '200':
+          description: KPIs for given address
+  /portfolio/{address}/stats:
+    parameters:
+      - in: 'path'
+        name: 'address'
+        type: 'string'
+        required: true
+    options:
+      operationId: statsOptions
+      security:
+        - auth0_jwk: [ ]
+      responses:
+        '200':
+          description: Allow cors request
+    get:
+      summary: Get stats for given address
+      operationId: getStats
+      responses:
+        '200':
+          description: Stats for given address
   /wallets:
+    options:
+      operationId: walletsOptions
+      security:
+        - auth0_jwk: [ ]
+      responses:
+        '200':
+          description: Allow cors request
     get:
       summary: Get addresses attached to the account
       operationId: getWallets
@@ -72,6 +169,13 @@ paths:
         name: 'address'
         type: 'string'
         required: true
+    options:
+      operationId: walletOptions
+      security:
+        - auth0_jwk: [ ]
+      responses:
+        '200':
+          description: Allow cors request
     post:
       summary: Attach a new wallet address with the user's account
       operationId: createWallet
