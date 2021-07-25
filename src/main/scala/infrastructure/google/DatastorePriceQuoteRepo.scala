@@ -1,17 +1,18 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.pricequote.{ PriceQuote, PriceQuoteRepo }
+import domain.pricequote.{PriceQuote, PriceQuoteRepo}
 import util.InstantOps
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
-import zio.{ Function2ToLayerSyntax, Has, Task, UIO, URLayer }
+import zio.{Function2ToLayerSyntax, Has, Task, UIO, URLayer}
 
 import java.time.Instant
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 final case class DatastorePriceQuoteRepo(datastore: Datastore, datastoreConfig: DatastoreConfig)
     extends PriceQuoteRepo {
@@ -49,7 +50,10 @@ final case class DatastorePriceQuoteRepo(datastore: Datastore, datastoreConfig: 
     } yield priceQuotes
 
   private val entityToPriceQuote: Entity => PriceQuote = entity => {
-    PriceQuote(entity.getDouble("price").toFloat, Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds))
+    PriceQuote(
+      Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
+      Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
+    )
   }
 }
 
