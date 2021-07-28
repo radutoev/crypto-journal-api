@@ -19,6 +19,7 @@ final case class CovalentConfig(baseUrl: String, key: String)
 final case class DemoAccountConfig(maxPositions: PosInt)
 
 final case class DatastoreConfig(
+  address: String,
   checkpoint: String,
   journal: String,
   position: String,

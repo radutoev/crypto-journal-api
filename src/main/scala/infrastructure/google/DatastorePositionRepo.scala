@@ -35,7 +35,7 @@ final case class DatastorePositionRepo(
       Task(datastore.newTransaction())
         .bracket(txn => Task(txn.rollback()).when(txn.isActive).ignore) { txn =>
           Task {
-            val addressLockKey = datastore.newKeyFactory().setKind("AddressImport").newKey(address.value)
+            val addressLockKey = datastore.newKeyFactory().setKind(datastoreConfig.address).newKey(address.value)
             txn.put(Entity.newBuilder(addressLockKey).build())
             txn.put(list: _*)
             txn.delete(addressLockKey)
