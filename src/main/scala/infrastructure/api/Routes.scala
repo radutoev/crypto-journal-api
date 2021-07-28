@@ -2,16 +2,16 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ UserId, WalletAddressPredicate }
+import domain.model.{UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{ JournalingService, PositionService, Positions }
+import domain.position.{JournalingService, PositionService, Positions}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.{ JournalEntry, PortfolioKpi, PortfolioStats }
+import infrastructure.api.dto.{JournalEntry, PortfolioKpi, PortfolioStats}
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.Wallet._
@@ -19,17 +19,20 @@ import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
+import vo.filter.{KpiFilter, PositionCount, PositionFilter}
 
+import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{ Header, _ }
+import zhttp.http.{Header, _}
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{ LocalDate, ZoneId, ZoneOffset }
+import java.time.{LocalDate, ZoneId, ZoneOffset}
+import scala.util.Try
 
 object Routes {
   private val forbidden = HttpApp.response(
@@ -202,14 +205,50 @@ object Routes {
     case Method.GET -> Root / "mistakes" => Response.jsonString(List("Honeypot", "Sold to early").toJson)
   }
 
+  private def corsSupport() = HttpApp.collect {
+    case Method.OPTIONS -> Root / "wallets"                                             => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "wallets" / rawWalletAddress                          => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "addresses" / rawWalletAddress / "positions"          => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "addresses" / rawWalletAddress / "positions" / "diff" => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "positions" / rawPositionId / "journal"               => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "positions" / rawPositionId                           => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "portfolio" / rawWalletAddress / "kpi"                => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "portfolio" / rawWalletAddress / "stats"              => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "mistakes"                                            => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "setups"                                              => allowCorsRequestsResponse
+  }
+
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {
+//    HttpApp.fromFunction { req =>
+//      req
+//        .getHeader(EspForwardedHeaderName)
+//        .orElse(req.getHeader(EspForwardedHeaderName.toLowerCase))
+//        .flatMap(header => AuthHeaderData(header.value.toString).toOption.map(_.id).map(NonEmptyString.unsafeFrom))
+//        .fold[HttpApp[R, E]](fail)(success)
+//    }
     HttpApp.fromFunction { req =>
-      req
-        .getHeader(EspForwardedHeaderName)
-        .orElse(req.getHeader(EspForwardedHeaderName.toLowerCase))
-        .flatMap(header => AuthHeaderData(header.value.toString).toOption.map(_.id).map(NonEmptyString.unsafeFrom))
+      req.getHeader("Authorization").orElse(req.getHeader("authorization"))
+        .flatMap(header => jwtDecode(header.value.toString.split("[ ]").last.trim).map(NonEmptyString.unsafeFrom))
         .fold[HttpApp[R, E]](fail)(success)
     }
+  }
+
+  private val domain = "dev-13qiy-8m.eu.auth0.com"
+  private val audience = "crypto-journal-api"
+
+  // Helper to decode the JWT token
+  def jwtDecode(token: String): Option[String] = {
+    Try(new UrlJwkProvider(s"https://$domain").get("whMXIhXP2wW3FeqmS8QX7"))
+      .flatMap(jwk => Jwt.decode(token, jwk.getPublicKey, Seq(JwtAlgorithm.RS256)))
+      .toOption
+      .flatMap(_.content.fromJson[DecodedJwtClaims].toOption)
+      .map(_.sub)
+  }
+
+  final case class DecodedJwtClaims(given_name: String, family_name: String, nickname: String, name: String, picture: String, locale: String, updated_at: String, email: String, email_verified: Boolean, iss: String, sub: String, aud: String, nonce: String)
+  import zio.json.{ DeriveJsonCodec, JsonCodec }
+  object DecodedJwtClaims {
+    implicit val jwtClaimsCodec: JsonCodec[DecodedJwtClaims]       = DeriveJsonCodec.gen[DecodedJwtClaims]
   }
 
   trait QParamsOps {
@@ -363,4 +402,14 @@ object Routes {
       def toResponsePayload() = HttpData.CompleteData(Chunk.fromArray(apiError.toJson.getBytes(HTTP_CHARSET)))
     }
   }
+
+  private val allowCorsRequestsResponse = Response.http(
+    status = Status.OK,
+    headers = List(
+      Header("Access-Control-Allow-Origin", "*"),
+      Header("Access-Control-Allow-Methods", "*"),
+      Header("Access-Control-Allow-Headers", "*"),
+      Header("Access-Control-Max-Age", "3600")
+    )
+  )
 }

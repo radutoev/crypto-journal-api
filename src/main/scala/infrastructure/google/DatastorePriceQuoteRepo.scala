@@ -1,14 +1,14 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.pricequote.{PriceQuote, PriceQuoteRepo}
+import domain.pricequote.{ PriceQuote, PriceQuoteRepo }
 import util.InstantOps
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
-import zio.{Function2ToLayerSyntax, Has, Task, UIO, URLayer}
+import zio.{ Function2ToLayerSyntax, Has, Task, UIO, URLayer }
 
 import java.time.Instant
 import scala.jdk.CollectionConverters._

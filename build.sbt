@@ -40,8 +40,10 @@ val root = (project in file("."))
       "io.d11"                        %% "zhttp"                  % zioHttpVersion,
       "ch.qos.logback"                % "logback-classic"         % "1.2.3",
       "org.reactivestreams"           % "reactive-streams"        % "1.0.3",
+      "com.github.jwt-scala"          %% "jwt-core"               % "8.0.2", //Use this until I figure out how to configure API-Gw with CloudRun
+      "com.auth0" % "jwks-rsa" % "0.6.1",
       "dev.zio"                       %% "zio-test"               % zioVersion % Test,
-      "dev.zio"                       %% "zio-test-sbt"           % zioVersion % Test
+      "dev.zio"                       %% "zio-test-sbt"           % zioVersion % Test,
     ),
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
     assemblyMergeStrategy := {

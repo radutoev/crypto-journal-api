@@ -4,7 +4,7 @@ package infrastructure.covalent
 import domain.blockchain.{ EthBlockchainRepo, Transaction }
 import domain.blockchain.error._
 import domain.model.WalletAddress
-import infrastructure.covalent.dto.TransactionQueryResponse
+import dto.TransactionQueryResponse
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.string.Url
@@ -86,7 +86,6 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
       } yield pull
     }
 
-  // Refined Url
   def executeRequest(url: String Refined Url) =
     httpClient
       .send(

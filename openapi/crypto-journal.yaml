@@ -9,11 +9,13 @@ produces:
   - application/json
 x-google-backend:
   address: https://crypto-journal-api-bsia4lvk6q-nw.a.run.app
+  jwt_audience: https://crypto-journal-gw-92zxtz6r.nw.gateway.dev
 paths:
   /health:
     get:
       summary: Health check
       operationId: health
+      security: []
       responses:
         '200':
           description: If service is running
@@ -27,8 +29,7 @@ paths:
         required: true
     options:
       operationId: positionsOptions
-      security:
-        - auth0_jwk: [ ]
+      security: []
       responses:
         '200':
           description: Allow cors request
@@ -54,8 +55,7 @@ paths:
         required: true
     options:
       operationId: positionOptions
-      security:
-        - auth0_jwk: [ ]
+      security: []
       responses:
         '200':
           description: Allow cors request
@@ -75,8 +75,7 @@ paths:
         required: true
     options:
       operationId: journalOptions
-      security:
-        - auth0_jwk: [ ]
+      security: []
       responses:
         '200':
           description: Allow cors request
@@ -113,8 +112,7 @@ paths:
         required: true
     options:
       operationId: kpiOptions
-      security:
-        - auth0_jwk: [ ]
+      security: []
       responses:
         '200':
           description: Allow cors request
@@ -132,8 +130,7 @@ paths:
         required: true
     options:
       operationId: statsOptions
-      security:
-        - auth0_jwk: [ ]
+      security: []
       responses:
         '200':
           description: Allow cors request
@@ -146,8 +143,7 @@ paths:
   /wallets:
     options:
       operationId: walletsOptions
-      security:
-        - auth0_jwk: [ ]
+      security: []
       responses:
         '200':
           description: Allow cors request
@@ -171,8 +167,7 @@ paths:
         required: true
     options:
       operationId: walletOptions
-      security:
-        - auth0_jwk: [ ]
+      security: []
       responses:
         '200':
           description: Allow cors request
@@ -200,9 +195,9 @@ paths:
           description: Operation failure
 securityDefinitions:
   auth0_jwk:
-    authorizationUrl: ""
+    authorizationUrl: "https://dev-13qiy-8m.eu.auth0.com/authorize"
     flow: "implicit"
     type: "oauth2"
     x-google-issuer: "https://dev-13qiy-8m.eu.auth0.com/"
     x-google-jwks_uri: "https://dev-13qiy-8m.eu.auth0.com/.well-known/jwks.json"
-    x-google-audiences: "pfSyUzklddCdTRtPqB2otLaBKhkgGkDj"
+    x-google-audiences: "https://crypto-journal-gw-92zxtz6r.nw.gateway.dev"

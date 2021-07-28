@@ -1,14 +1,11 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.blockchain.{
-  Transaction => DomainTransaction,
-  LogEvent => DomainLogEvent,
-  Decoded => DomainDecoded,
-  Param => DomainParam
-}
+import domain.blockchain.{Decoded => DomainDecoded, LogEvent => DomainLogEvent, Param => DomainParam, Transaction => DomainTransaction}
 
-import zio.json.{ jsonField, DeriveJsonCodec, DeriveJsonDecoder, JsonCodec, JsonDecoder }
+import zio.json.ast.Json
+import zio.json.ast.Json.Obj
+import zio.json.{DeriveJsonDecoder, JsonDecoder, jsonDiscriminator, jsonField, jsonHint}
 
 object dto {
   final case class TransactionQueryResponse(
@@ -46,7 +43,7 @@ object dto {
   )
 
   object Transaction {
-    implicit val encoder: JsonCodec[Transaction] = DeriveJsonCodec.gen[Transaction]
+    implicit val encoder: JsonDecoder[Transaction] = DeriveJsonDecoder.gen[Transaction]
 
     implicit class TransactionOps(transaction: Transaction) {
       def toDomain(): DomainTransaction =
@@ -81,7 +78,7 @@ object dto {
   )
 
   object LogEvent {
-    implicit val encoder: JsonCodec[LogEvent] = DeriveJsonCodec.gen[LogEvent]
+    implicit val encoder: JsonDecoder[LogEvent] = DeriveJsonDecoder.gen[LogEvent]
 
     implicit class LogEventOps(logEvent: LogEvent) {
       def toDomain() =
@@ -99,7 +96,7 @@ object dto {
   final case class Decoded(name: String, signature: String, params: List[Param])
 
   object Decoded {
-    implicit val encoder: JsonCodec[Decoded] = DeriveJsonCodec.gen[Decoded]
+    implicit val encoder: JsonDecoder[Decoded] = DeriveJsonDecoder.gen[Decoded]
 
     implicit class DecodedOps(decoded: Decoded) {
       def toDomain() =
@@ -107,20 +104,32 @@ object dto {
     }
   }
 
-  final case class Param(name: String, `type`: String, indexed: Boolean, decoded: Boolean, value: String)
+  final case class Param(name: String, @jsonField("type") paramType: String, indexed: Boolean, decoded: Boolean, value: String)
 
   object Param {
-    implicit val encoder: JsonCodec[Param] = DeriveJsonCodec.gen[Param]
+    implicit val paramDecoder: JsonDecoder[Param] = Obj.decoder.map { json =>
+      (for {
+        name <- json.fields.find(_._1 == "name").flatMap(_._2.as[String].toOption)
+        paramType <- json.fields.find(_._1 == "type").flatMap(_._2.as[String].toOption)
+        indexed <- json.fields.find(_._1 == "indexed").flatMap(_._2.as[Boolean].toOption)
+        decoded <- json.fields.find(_._1 == "decoded").flatMap(_._2.as[Boolean].toOption)
+        value <- json.fields.find(_._1 == "value").map(_._2).map {
+          case Json.Arr(elements) => elements.headOption.flatMap(_.as[String].toOption).getOrElse("")
+          case Json.Str(value) => value
+        }
+      } yield Param(name, paramType, indexed, decoded, value)).get
+    }
 
     implicit class ParamOps(param: Param) {
-      def toDomain() =
+      def toDomain() = {
         DomainParam(
           name = param.name,
-          `type` = param.`type`,
+          `type` = param.paramType,
           indexed = param.indexed,
           decoded = param.decoded,
           value = param.value
         )
+      }
     }
   }
 
