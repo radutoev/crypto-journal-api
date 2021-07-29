@@ -19,7 +19,6 @@ object TransactionQueryResponseSpec extends DefaultRunnableSpec {
       val transaction = rawJsonString.fromJson[TransactionQueryResponse]
       assert(transaction.isRight)(equalTo(true))
     },
-
     //we fail for now on polymorphic param values.
     test("expecting ', found [") {
       val source        = Source.fromURL(getClass.getResource("/covalent/decoded_value_arr.json"))

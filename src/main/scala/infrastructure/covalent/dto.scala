@@ -1,11 +1,16 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.blockchain.{Decoded => DomainDecoded, LogEvent => DomainLogEvent, Param => DomainParam, Transaction => DomainTransaction}
+import domain.blockchain.{
+  Decoded => DomainDecoded,
+  LogEvent => DomainLogEvent,
+  Param => DomainParam,
+  Transaction => DomainTransaction
+}
 
 import zio.json.ast.Json
 import zio.json.ast.Json.Obj
-import zio.json.{DeriveJsonDecoder, JsonDecoder, jsonDiscriminator, jsonField, jsonHint}
+import zio.json.{ jsonDiscriminator, jsonField, jsonHint, DeriveJsonDecoder, JsonDecoder }
 
 object dto {
   final case class TransactionQueryResponse(
@@ -104,24 +109,30 @@ object dto {
     }
   }
 
-  final case class Param(name: String, @jsonField("type") paramType: String, indexed: Boolean, decoded: Boolean, value: String)
+  final case class Param(
+    name: String,
+    @jsonField("type") paramType: String,
+    indexed: Boolean,
+    decoded: Boolean,
+    value: String
+  )
 
   object Param {
     implicit val paramDecoder: JsonDecoder[Param] = Obj.decoder.map { json =>
       (for {
-        name <- json.fields.find(_._1 == "name").flatMap(_._2.as[String].toOption)
+        name      <- json.fields.find(_._1 == "name").flatMap(_._2.as[String].toOption)
         paramType <- json.fields.find(_._1 == "type").flatMap(_._2.as[String].toOption)
-        indexed <- json.fields.find(_._1 == "indexed").flatMap(_._2.as[Boolean].toOption)
-        decoded <- json.fields.find(_._1 == "decoded").flatMap(_._2.as[Boolean].toOption)
+        indexed   <- json.fields.find(_._1 == "indexed").flatMap(_._2.as[Boolean].toOption)
+        decoded   <- json.fields.find(_._1 == "decoded").flatMap(_._2.as[Boolean].toOption)
         value <- json.fields.find(_._1 == "value").map(_._2).map {
-          case Json.Arr(elements) => elements.headOption.flatMap(_.as[String].toOption).getOrElse("")
-          case Json.Str(value) => value
-        }
+                  case Json.Arr(elements) => elements.headOption.flatMap(_.as[String].toOption).getOrElse("")
+                  case Json.Str(value)    => value
+                }
       } yield Param(name, paramType, indexed, decoded, value)).get
     }
 
     implicit class ParamOps(param: Param) {
-      def toDomain() = {
+      def toDomain() =
         DomainParam(
           name = param.name,
           `type` = param.paramType,
@@ -129,7 +140,6 @@ object dto {
           decoded = param.decoded,
           value = param.value
         )
-      }
     }
   }
 
