@@ -72,7 +72,7 @@ final case class DatastorePositionRepo(
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
-          PropertyFilter.ge("openedAt", positionFilter.interval.start.toDatastoreTimestamp()),
+//          PropertyFilter.ge("openedAt", positionFilter.interval.start.toDatastoreTimestamp()), //doesn't work because datastore filters.
           PropertyFilter.le("openedAt", positionFilter.interval.end.toDatastoreTimestamp())
         )
       )

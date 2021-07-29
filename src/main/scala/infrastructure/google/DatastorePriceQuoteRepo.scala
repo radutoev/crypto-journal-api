@@ -41,12 +41,12 @@ final case class DatastorePriceQuoteRepo(datastore: Datastore, datastoreConfig: 
                     .newEntityQueryBuilder()
                     .setKind(datastoreConfig.priceQuote)
                     .setFilter(filter)
-                    .addOrderBy(OrderBy.desc("timestamp"))
+//                    .addOrderBy(OrderBy.desc("timestamp"))
                     .build()
                   val queryResults: QueryResults[Entity] = datastore.run(query, Seq.empty[ReadOption]: _*)
                   queryResults
                 }.tapError(errr => UIO(println(errr)))
-      priceQuotes = results.asScala.toList.map(entityToPriceQuote)
+      priceQuotes = results.asScala.toList.map(entityToPriceQuote).sortBy(_.timestamp)(Ordering[Instant])
     } yield priceQuotes
 
   private val entityToPriceQuote: Entity => PriceQuote = entity => {

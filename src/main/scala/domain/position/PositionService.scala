@@ -88,8 +88,10 @@ final case class LivePositionService(
   private def enrichPositions(positions: List[Position]): IO[PositionError, List[Position]] = {
     val interval = extractTimeInterval(positions)
     if (positions.nonEmpty) {
+      logger.info(s"Fetching quotes for [${interval.get.start} - ${interval.get.end}]") *>
       priceQuoteRepo
         .getQuotes(interval.get)
+        .tap(quotes => logger.info(s"Found ${quotes.length} quotes"))
         .bimap(PriceQuotesError, PriceQuotes.apply)
         .map(priceQuotes =>
           positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
