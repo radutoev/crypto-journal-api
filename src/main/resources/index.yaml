@@ -1,0 +1,7 @@
+indexes:
+  - kind: PositionTest
+    ancestor: no
+    properties:
+      - name: address
+      - name: openedAt
+        direction: desc

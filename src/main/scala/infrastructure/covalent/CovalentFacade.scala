@@ -86,14 +86,13 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
       } yield pull
     }
 
-  def executeRequest(url: String Refined Url) =
+  private def executeRequest(url: String Refined Url) =
     httpClient
       .send(
         basicRequest
           .get(uri"${url.value}")
           .response(asString)
       )
-      .tapError(t => logger.warn("Covalent request failed: " + t.getMessage))
       .mapError(err => TransactionsGetError(err.getMessage))
       .flatMap(response =>
         ZIO.fromEither(response.body.map(_.fromJson[TransactionQueryResponse])).mapError(TransactionsGetError)
