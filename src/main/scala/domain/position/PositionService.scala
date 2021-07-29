@@ -141,7 +141,7 @@ final case class LivePositionService(
   private def importPositions(
     txStream: ZStream[Any, TransactionsGetError, Transaction]
   )(userWallet: UserWallet): IO[PositionError, Unit] = {
-    val noPositionsEffect = logger.debug(s"No positions to import for ${userWallet.address}")
+    val noPositionsEffect = logger.info(s"No positions to import for ${userWallet.address}")
 
     @inline
     def handlePositionsImport(positions: List[Position]): IO[PositionError, Unit] =

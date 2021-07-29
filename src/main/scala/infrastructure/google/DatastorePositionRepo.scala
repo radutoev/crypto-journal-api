@@ -51,7 +51,7 @@ final case class DatastorePositionRepo(
     if (positions.isEmpty) {
       logger.debug(s"No positions to import for ${address.value}")
     } else {
-      val latestTxInstant = positions.head.openedAt
+      val latestTxInstant = positions.sortBy(_.openedAt)(Ordering[Instant].reverse).head.openedAt
 
       for {
         instant <- clock.instant

@@ -29,14 +29,14 @@ final case class LiveWalletService(walletRepo: WalletRepo, positionService: Posi
           .foldM(
             {
               case CheckpointNotFound(address) =>
-                logger.debug(s"No checkpoint found for ${address.value} Performing full import...") *>
+                logger.info(s"No checkpoint found for ${address.value} Performing full import...") *>
                   positionService.importPositions(userWallet)
               case _ => logger.error(s"Unable to fetch latest checkpoint. Aborting address ${address.value} import")
             },
             checkpoint =>
               checkpoint.latestTxTimestamp.fold[Task[Unit]](logger.debug("Import job currently running. Skipping..."))(
                 timestamp =>
-                  logger.debug(s"Importing positions starting from ${checkpoint.latestTxTimestamp}") *>
+                  logger.info(s"Importing positions starting from ${checkpoint.latestTxTimestamp.get}") *>
                     positionService
                       .importPositions(userWallet, timestamp)
                       .tapError(_ => logger.error(s"Unable to import positions for $address"))

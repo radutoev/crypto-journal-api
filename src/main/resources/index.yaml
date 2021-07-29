@@ -3,5 +3,6 @@ indexes:
     ancestor: no
     properties:
       - name: address
+      - name: state
       - name: openedAt
         direction: desc
