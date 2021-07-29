@@ -309,7 +309,7 @@ object Routes {
             status = Status.OK,
             headers = headers,
             content = HttpData.CompleteData(
-              Chunk.fromArray(list.map(fromPosition).reverse.toJson.getBytes(HTTP_CHARSET))
+              Chunk.fromArray(list.map(fromPosition).toJson.getBytes(HTTP_CHARSET))
             )
           )
         case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)

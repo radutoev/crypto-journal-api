@@ -77,27 +77,8 @@ final case class DatastorePositionRepo(
           PropertyFilter.le("openedAt", positionFilter.interval.end.toDatastoreTimestamp())
         )
       )
-      .addOrderBy(OrderBy.asc("openedAt"))
+      .addOrderBy(OrderBy.desc("openedAt"))
       .setLimit(positionFilter.count)
-      .build()
-    doFetchPositions(address, query)
-  }
-
-  //TODO How to include end?
-  override def getPositions(address: WalletAddress, timeInterval: TimeInterval): IO[PositionError, List[Position]] = {
-    val query = Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.position)
-      .setFilter(
-        CompositeFilter.and(
-          PropertyFilter.eq("address", address.value),
-          PropertyFilter.ge(
-            "openedAt",
-            Timestamp.ofTimeSecondsAndNanos(timeInterval.start.getEpochSecond, timeInterval.start.getNano)
-          )
-        )
-      )
-      .addOrderBy(OrderBy.asc("openedAt"))
       .build()
     doFetchPositions(address, query)
   }

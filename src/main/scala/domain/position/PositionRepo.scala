@@ -16,8 +16,6 @@ trait PositionRepo {
 
   def getPositions(address: WalletAddress)(filter: PositionFilter): IO[PositionError, List[Position]]
 
-  def getPositions(address: WalletAddress, timeInterval: TimeInterval): IO[PositionError, List[Position]]
-
   def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]]
 
   def getPositions(address: WalletAddress, state: State): IO[PositionError, List[Position]]
