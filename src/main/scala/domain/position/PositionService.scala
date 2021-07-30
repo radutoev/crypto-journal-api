@@ -35,7 +35,7 @@ trait PositionService {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp)
     timestamps match {
       case head :: Nil  => Some(TimeInterval(head))
-      case head :: tail => Some(TimeInterval(head, tail.last))
+      case head :: tail => Some(TimeInterval(tail.last, head))
       case Nil          => None
     }
   }

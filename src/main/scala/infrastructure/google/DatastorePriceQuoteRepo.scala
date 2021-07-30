@@ -41,7 +41,7 @@ final case class DatastorePriceQuoteRepo(datastore: Datastore, datastoreConfig: 
                     .newEntityQueryBuilder()
                     .setKind(datastoreConfig.priceQuote)
                     .setFilter(filter)
-//                    .addOrderBy(OrderBy.desc("timestamp"))
+                    .addOrderBy(OrderBy.desc("timestamp"))
                     .build()
                   val queryResults: QueryResults[Entity] = datastore.run(query, Seq.empty[ReadOption]: _*)
                   queryResults
