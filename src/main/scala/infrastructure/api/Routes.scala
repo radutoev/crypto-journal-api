@@ -248,7 +248,7 @@ object Routes {
 
   final case class DecodedJwtClaims(
     given_name: String,
-    family_name: String,
+    family_name: Option[String],
     nickname: String,
     name: String,
     picture: String,
