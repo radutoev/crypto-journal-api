@@ -57,7 +57,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .newBuilder(
         datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, positionId))
       )
-      .set("notes", entry.notes.map(_.value).getOrElse(""))
+      .set("notes", entry.notes.getOrElse(""))
       .set("setups", entry.setups.map(_.value).map(StringValue.of).asJava)
       .set("mistakes", entry.mistakes.map(_.value).map(StringValue.of).asJava)
       .build()
@@ -79,7 +79,7 @@ object DatastoreJournalingRepo {
   val entityToJournalEntry: Entity => Either[InvalidRepresentation, JournalEntry] = entity => {
     for {
       notes <- tryOrLeft(entity.getString("notes"), InvalidRepresentation("Entry has no key notes"))
-                .map(rawNotesStr => refined.refineV[NonEmpty](rawNotesStr).map(Some(_)).getOrElse(None))
+                .map(rawNotesStr => if (rawNotesStr.nonEmpty) Some(rawNotesStr) else None)
       setups <- tryOrLeft(
                  if (entity.contains("setups")) entity.getList[StringValue]("setups") else List.empty.asJava,
                  InvalidRepresentation("Invalid setups representation")

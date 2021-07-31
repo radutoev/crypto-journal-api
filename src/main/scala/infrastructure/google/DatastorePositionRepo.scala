@@ -2,20 +2,20 @@ package io.softwarechain.cryptojournal
 package infrastructure.google
 
 import domain.model._
-import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
+import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
 import domain.position.error._
-import domain.position.{Checkpoint, Position, PositionEntry, PositionRepo}
-import util.{InstantOps, tryOrLeft}
+import domain.position.{ Checkpoint, Position, PositionEntry, PositionRepo }
+import util.{ tryOrLeft, InstantOps }
 import vo.filter.PositionFilter
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -122,10 +122,11 @@ final case class DatastorePositionRepo(
         case e: DatastoreException if e.getMessage.contains("no matching index found") => UIO.none
       }
       .bimap(
-        _       => PositionsFetchError(address),
-        resultsOpt => resultsOpt.fold[List[Position]](List.empty)(results =>
-          results.asScala.toList.map(entityToPosition).collect { case Right(position) => position }
-        )
+        _ => PositionsFetchError(address),
+        resultsOpt =>
+          resultsOpt.fold[List[Position]](List.empty)(results =>
+            results.asScala.toList.map(entityToPosition).collect { case Right(position) => position }
+          )
       )
 
   override def getPosition(positionId: PositionId): IO[PositionError, Position] = {

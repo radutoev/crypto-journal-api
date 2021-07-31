@@ -84,7 +84,7 @@ final case class Position(
    */
   def averageOrderSize(): FungibleData = {
     val nrOfBuys = entries.count(_.isBuy())
-    if(nrOfBuys > 0) {
+    if (nrOfBuys > 0) {
       orderSize().divide(nrOfBuys)
     } else {
       FungibleData.zero(currency)

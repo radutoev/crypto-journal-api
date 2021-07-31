@@ -241,7 +241,7 @@ object dto {
     implicit class JournalEntryOps(entry: JournalEntry) {
       def toDomainModel: CJJournalEntry =
         CJJournalEntry(
-          entry.notes.map(NonEmptyString.unsafeFrom),
+          entry.notes,
           setups = entry.setups.map(NonEmptyString.unsafeFrom),
           mistakes = entry.mistakes.map(NonEmptyString.unsafeFrom)
         )
@@ -250,6 +250,6 @@ object dto {
 
   implicit class DomainJournalEntryOps(entry: CJJournalEntry) {
     def toDto: JournalEntry =
-      JournalEntry(entry.notes.map(_.value), entry.setups.map(_.value), entry.mistakes.map(_.value))
+      JournalEntry(entry.notes, entry.setups.map(_.value), entry.mistakes.map(_.value))
   }
 }
