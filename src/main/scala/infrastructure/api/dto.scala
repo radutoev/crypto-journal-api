@@ -163,8 +163,8 @@ object dto {
 
   final case class KpiDistinctValues(
     netReturn: BigDecimal,
-    biggestWin: Option[BigDecimal],
-    biggestLoss: Option[BigDecimal],
+    biggestWin: Option[FungibleData],
+    biggestLoss: Option[FungibleData],
     winRate: Float,
     loseRate: Float,
     tradeCount: Int,
@@ -177,7 +177,7 @@ object dto {
     totalTradedCoins: BigDecimal,
     avgWinnerHoldTime: String,
     avgLoserHoldTime: String,
-    totalFees: BigDecimal
+    totalFees: FungibleData
   )
 
   object KpiDistinctValues {
@@ -189,8 +189,8 @@ object dto {
     def apply(portfolio: CJPortfolioKpi): KpiDistinctValues =
       new KpiDistinctValues(
         portfolio.netReturn.amount,
-        portfolio.biggestWin.map(_.amount),
-        portfolio.biggestLoss.map(_.amount),
+        portfolio.biggestWin.map(_.asJson),
+        portfolio.biggestLoss.map(_.asJson),
         portfolio.winRate,
         portfolio.loseRate,
         portfolio.tradeCount,
@@ -203,7 +203,7 @@ object dto {
         portfolio.totalCoins,
         asHumanReadableForm(portfolio.avgWinningHoldTime),
         asHumanReadableForm(portfolio.avgLosingHoldTime),
-        portfolio.totalFees.amount
+        portfolio.totalFees.asJson
       )
   }
 
