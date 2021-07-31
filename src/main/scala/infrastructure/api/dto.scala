@@ -122,11 +122,11 @@ object dto {
   }
 
   final case class PortfolioKpi(
-    accountBalance: BigDecimal,
+    accountBalance: FungibleData,
     tradeCount: Int,
     winRate: Float,
     loseRate: Float,
-    netReturn: BigDecimal,
+    netReturn: FungibleData,
     balanceTrend: List[BigDecimal]
   )
 
@@ -135,11 +135,11 @@ object dto {
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi =
       new PortfolioKpi(
-        kpi.balance.amount,
+        kpi.balance.asJson,
         kpi.tradeCount,
         kpi.winRate,
         kpi.loseRate,
-        kpi.netReturn.amount,
+        kpi.netReturn.asJson,
         kpi.balanceTrend.map(_.amount)
       )
   }
