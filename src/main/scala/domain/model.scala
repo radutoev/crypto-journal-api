@@ -50,6 +50,8 @@ object model {
     def subtract(value: BigDecimal): FungibleData = copy(amount = amount - value)
 
     def negate(): FungibleData = copy(amount = -amount)
+
+    def divide(denominator: Int): FungibleData = copy(amount = amount / denominator)
   }
 
   object FungibleData {

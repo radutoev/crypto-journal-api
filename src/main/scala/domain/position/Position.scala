@@ -76,6 +76,21 @@ final case class Position(
       currency
     )
 
+  /* Alias with totalCoins */
+  def orderSize(): FungibleData = totalCoins()
+
+  /**
+   * @return Order size if only one buy or order size divided by number of buys if multiple buys in position.
+   */
+  def averageOrderSize(): FungibleData = {
+    val nrOfBuys = entries.count(_.isBuy())
+    if(nrOfBuys > 0) {
+      orderSize().divide(nrOfBuys)
+    } else {
+      FungibleData.zero(currency)
+    }
+  }
+
   /**
    * @return Entry coin fiat price
    */
