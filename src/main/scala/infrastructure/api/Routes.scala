@@ -59,10 +59,9 @@ object Routes {
 
   private def wallets(userId: UserId) = HttpApp.collectM {
     case Method.POST -> Root / "wallets" / rawWalletAddress =>
-      for {
+      (for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress.toLowerCase))
-                    .orElseFail(BadRequest("Invalid address"))
         response <- CryptoJournalApi
                      .addWallet(address)
                      .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
@@ -73,7 +72,15 @@ object Routes {
                        },
                        _ => Response.status(Status.CREATED)
                      )
-      } yield response
+      } yield response).orElse(
+        UIO(
+          Response.http(
+            status = Status.BAD_REQUEST,
+            headers = List(Header("Content-Type", "application/json")),
+            content = ApiError(`type` = "InvalidInput", "Invalid addrress").toResponsePayload()
+          )
+        )
+      )
 
     case Method.DELETE -> Root / "wallets" / rawWalletAddress =>
       for {
