@@ -211,13 +211,22 @@ object dto {
       )
   }
 
-  final case class TradeSummary(wins: List[FungibleData], loses: List[FungibleData])
+  final case class CoinToFungiblePair(currency: String, fungibleData: FungibleData)
+
+  object CoinToFungiblePair {
+    implicit val xCodec: JsonCodec[CoinToFungiblePair] = DeriveJsonCodec.gen[CoinToFungiblePair]
+  }
+
+  final case class TradeSummary(wins: List[CoinToFungiblePair], loses: List[CoinToFungiblePair])
 
   object TradeSummary {
     implicit val tradeSummaryCodec: JsonCodec[TradeSummary] = DeriveJsonCodec.gen[TradeSummary]
 
     def apply(portfolio: CJPortfolioKpi): TradeSummary =
-      new TradeSummary(wins = portfolio.coinWins().map(_.asJson), loses = portfolio.coinLoses().map(_.asJson))
+      new TradeSummary(
+        wins = portfolio.coinWins().map(t => CoinToFungiblePair(t._1.value, t._2.asJson)),
+        loses = portfolio.coinLoses().map(t => CoinToFungiblePair(t._1.value, t._2.asJson))
+      )
   }
 
   final case class PeriodDistribution(

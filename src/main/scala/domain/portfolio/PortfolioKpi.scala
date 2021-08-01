@@ -181,25 +181,25 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     }.minOption
   }
 
-  def coinWins(): List[FungibleData] =
-    coinContributions.slice(0, Math.min(8, coinContributions.size))
+  def coinWins(): List[(Currency, FungibleData)] = {
+    val wins = coinContributions.filter(_._2.amount > 0)
+    wins.slice(0, Math.min(8, wins.size))
+  }
 
-  def coinLoses(): List[FungibleData] =
-    coinContributions.slice(Math.max(0, coinContributions.size - 8), coinContributions.size).reverse
+  def coinLoses(): List[(Currency, FungibleData)] = {
+    val loses = coinContributions.filter(_._2.amount < 0).reverse
+    loses.slice(0, Math.min(8, loses.size))
+  }
 
-  lazy val coinContributions: List[FungibleData] = {
+  lazy val coinContributions: List[(Currency, FungibleData)] = {
     positions.closedPositions
       .groupBy(_.currency)
       .map {
         case (currency, listOfPositions) =>
-          currency -> FungibleData(
-            listOfPositions.map(_.fiatReturn().getOrElse(FungibleData.zero(USDCurrency))).map(_.amount).sum,
-            currency
-          )
+          currency -> listOfPositions.map(_.fiatReturn().getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData()
       }
-      .values
       .toList
-      .sorted(Ordering[FungibleData].reverse)
+      .sortBy(_._2)(Ordering[FungibleData].reverse)
   }
 
   def periodReturn(): PeriodDistribution = {
