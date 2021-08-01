@@ -128,7 +128,8 @@ object dto {
     loseRate: Float,
     netReturn: FungibleData,
     avgDailyTradeCount: Float,
-    balanceTrend: List[BigDecimal]
+    balanceTrend: List[BigDecimal],
+    netReturnTrend: List[BigDecimal]
   )
 
   object PortfolioKpi {
@@ -142,7 +143,8 @@ object dto {
         kpi.loseRate,
         kpi.netReturn.asJson,
         kpi.avgDailyTradeCount,
-        kpi.balanceTrend.map(_.amount)
+        kpi.balanceTrend.map(_.amount),
+        kpi.netReturnTrend.map(_.amount)
       )
   }
 
