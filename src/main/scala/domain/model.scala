@@ -77,7 +77,8 @@ object model {
   type WalletAddressPredicate = And[Size[Equal[42]], MatchesRegex["0x[a-zA-Z0-9]{40}"]]
   type WalletAddress          = String Refined WalletAddressPredicate
 
-  type UserId = NonEmptyString
+  type UserIdPredicate = NonEmpty
+  type UserId = String Refined UserIdPredicate
 
   type TradeCountPredicate = NonNegative
   type TradeCount          = Int Refined TradeCountPredicate

@@ -11,6 +11,8 @@ import zio.IO
 trait JournalingRepo {
   def getEntry(userId: UserId, positionId: PositionId): IO[PositionError, JournalEntry]
 
+  def getEntries(userId: UserId, ids: List[PositionId]): IO[PositionError, List[JournalEntry]]
+
   def saveEntry(userId: UserId, positionId: PositionId, entry: JournalEntry): IO[JournalSaveError, Unit]
 
   def addSetups(userId: UserId, tagPositions: TagPositions): IO[SetupSaveError, Unit]

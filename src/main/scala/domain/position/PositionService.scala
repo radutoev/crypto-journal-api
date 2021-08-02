@@ -23,6 +23,8 @@ import scala.collection.mutable.ArrayBuffer
 trait PositionService {
   def getPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, Positions]
 
+  def getJournalPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, List[JournalPosition]]
+
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition]
 
   def diff(userWallet: UserWallet): IO[PositionError, Positions]
@@ -78,6 +80,18 @@ final case class LivePositionService(
                    case CheckpointNotFound(_) => UIO(Positions.empty())
                  }
     } yield result
+
+
+  override def getJournalPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, List[JournalPosition]] = {
+    for {
+      positions <- getPositions(userWallet)(filter)
+      journalEntries <- journalingRepo.getEntries(userWallet.userId, positions.items.map(_.id).collect{ case Some(id) => id })
+      journalPositions = {
+        val positionToEntryMap = journalEntries.map(e => e.positionId.get -> e).toMap
+        positions.items.map(item => JournalPosition(item, item.id.flatMap(positionToEntryMap.get)))
+      }
+    } yield journalPositions
+  }
 
   private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
     positionRepo
