@@ -25,5 +25,7 @@ object error {
   final case class SetupSaveError(throwable: Throwable) extends PositionError
   final case class MistakeSaveError(throwable: Throwable) extends PositionError
 
+  final case class InvalidInput(reason: String) extends PositionError
+
   final case class PositionImportError(address: WalletAddress, throwable: Throwable) extends PositionError
 }

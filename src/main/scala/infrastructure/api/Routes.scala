@@ -11,7 +11,7 @@ import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.{ JournalEntry, TagPositions, PortfolioKpi, PortfolioStats }
+import infrastructure.api.dto.{ JournalEntry, PortfolioKpi, PortfolioStats, TagPositions }
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.TagPositions._
@@ -59,29 +59,29 @@ object Routes {
   }
 
   private def wallets(userId: UserId) = HttpApp.collectM {
-    case Method.POST -> Root / "wallets" / rawWalletAddress =>
-      (for {
-        address <- ZIO
-                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress.toLowerCase))
-        response <- CryptoJournalApi
-                     .addWallet(address)
-                     .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
-                     .fold(
-                       {
-                         case WalletAddressExists(address) => Response.status(Status.CONFLICT)
-                         case _                            => Response.status(Status.INTERNAL_SERVER_ERROR)
-                       },
-                       _ => Response.status(Status.CREATED)
-                     )
-      } yield response).orElse(
-        UIO(
-          Response.http(
-            status = Status.BAD_REQUEST,
-            headers = List(Header("Content-Type", "application/json")),
-            content = ApiError(`type` = "InvalidInput", "Invalid addrress").toResponsePayload()
-          )
+    case Method.POST -> Root / "wallets" / rawWalletAddress => {
+      ZIO
+        .fromEither(refineV[WalletAddressPredicate](rawWalletAddress.toLowerCase))
+        .orElseFail(InvalidWallet(s"Invalid address ${rawWalletAddress}"))
+        .flatMap(address =>
+          CryptoJournalApi
+            .addWallet(address)
+            .provideSomeLayer[Has[WalletService]](JwtUserContext.layer(userId))
         )
-      )
+        .fold(
+          {
+            case InvalidWallet(reason) =>
+              Response.http(
+                status = Status.BAD_REQUEST,
+                headers = List(Header("Content-Type", "application/json")),
+                content = ApiError(`type` = "InvalidInput", "Invalid addrress").toResponsePayload()
+              )
+            case WalletAddressExists(address) => Response.status(Status.CONFLICT)
+            case _                            => Response.status(Status.INTERNAL_SERVER_ERROR)
+          },
+          _ => Response.status(Status.CREATED)
+        )
+    }
 
     case Method.DELETE -> Root / "wallets" / rawWalletAddress =>
       for {
@@ -209,30 +209,32 @@ object Routes {
     case Method.GET -> Root / "setups" => UIO(Response.jsonString(List("Presale", "Fair Launch").toJson))
 
     case req @ Method.PUT -> Root / "setups" =>
-      for {
-        tagPositions <- ZIO
-          .fromOption(req.getBodyAsString)
-          .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).map(_.toDomainModel))
-          .orElseFail(Response.http(status = Status.BAD_REQUEST, headers = List(Header("Content-Type", "application/json")), content = ApiError("InvalidInput", "Invalid ids").toResponsePayload()))
-        response <- CryptoJournalApi.addSetups(tagPositions)
-          .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
-          .fold(positionErrorToHttpResponse, _ => Response.ok)
-      } yield response
+      ZIO
+        .fromOption(req.getBodyAsString)
+        .orElseFail(InvalidInput("No body provided"))
+        .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).bimap(InvalidInput, _.toDomainModel))
+        .flatMap(tagPositions =>
+          CryptoJournalApi
+            .addSetups(tagPositions)
+            .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
+        )
+        .fold(positionErrorToHttpResponse, _ => Response.ok)
   }
 
   private def mistakes(userId: UserId) = HttpApp.collectM {
     case Method.GET -> Root / "mistakes" => UIO(Response.jsonString(List("Honeypot", "Sold to early").toJson))
 
     case req @ Method.PUT -> Root / "mistakes" =>
-      for {
-        tagPositions <- ZIO
-          .fromOption(req.getBodyAsString)
-          .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).map(_.toDomainModel))
-          .orElseFail(Response.http(status = Status.BAD_REQUEST, headers = List(Header("Content-Type", "application/json")), content = ApiError("InvalidInput", "Invalid ids").toResponsePayload()))
-        response <- CryptoJournalApi.addMistakes(tagPositions)
-          .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
-          .fold(positionErrorToHttpResponse, _ => Response.ok)
-      } yield response
+      ZIO
+        .fromOption(req.getBodyAsString)
+        .orElseFail(InvalidInput("No body provided"))
+        .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).bimap(InvalidInput, _.toDomainModel))
+        .flatMap(tagPositions =>
+          CryptoJournalApi
+            .addMistakes(tagPositions)
+            .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
+        )
+        .fold(positionErrorToHttpResponse, _ => Response.ok)
   }
 
   private def corsSupport() = HttpApp.collect {
@@ -442,6 +444,12 @@ object Routes {
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "MistakeSaveError", throwable.getMessage).toResponsePayload()
+      )
+    case InvalidInput(reason) =>
+      Response.http(
+        status = Status.BAD_REQUEST,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "InvalidInput", reason).toResponsePayload()
       )
   }
 
