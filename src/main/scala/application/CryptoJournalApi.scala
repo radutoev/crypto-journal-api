@@ -3,16 +3,16 @@ package application
 
 import domain.account.UserContext
 import domain.model._
-import domain.portfolio.{ KpiService, PortfolioKpi }
+import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
-import domain.position.{ JournalEntry, JournalingService, PositionService, Positions }
+import domain.position.{JournalEntry, JournalingService, PositionService, Positions, TagPositions}
 import domain.wallet.error.WalletError
-import domain.wallet.{ Wallet, WalletService }
+import domain.wallet.{Wallet, WalletService}
 import vo.JournalPosition
-import vo.filter.{ KpiFilter, PositionFilter }
+import vo.filter.{KpiFilter, PositionFilter}
 
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object CryptoJournalApi {
   def getPositions(
@@ -71,5 +71,17 @@ object CryptoJournalApi {
     for {
       userId <- UserContext.userId
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntry(userId, positionId, entry))
+    } yield ()
+
+  def addSetups(tagPositions: TagPositions): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
+    for {
+      userId <- UserContext.userId
+      _      <- ZIO.serviceWith[JournalingService](_.addSetups(userId, tagPositions))
+    } yield ()
+
+  def addMistakes(tagPositions: TagPositions): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
+    for {
+      userId <- UserContext.userId
+      _      <- ZIO.serviceWith[JournalingService](_.addMistakes(userId, tagPositions))
     } yield ()
 }

@@ -11,9 +11,10 @@ import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.{ JournalEntry, PortfolioKpi, PortfolioStats }
+import infrastructure.api.dto.{ JournalEntry, TagPositions, PortfolioKpi, PortfolioStats }
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
+import infrastructure.api.dto.TagPositions._
 import infrastructure.api.dto.Wallet._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
@@ -204,12 +205,34 @@ object Routes {
       } yield response
   }
 
-  private def setups(userId: UserId) = HttpApp.collect {
-    case Method.GET -> Root / "setups" => Response.jsonString(List("Presale", "Fair Launch").toJson)
+  private def setups(userId: UserId) = HttpApp.collectM {
+    case Method.GET -> Root / "setups" => UIO(Response.jsonString(List("Presale", "Fair Launch").toJson))
+
+    case req @ Method.PUT -> Root / "setups" =>
+      for {
+        tagPositions <- ZIO
+          .fromOption(req.getBodyAsString)
+          .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).map(_.toDomainModel))
+          .orElseFail(Response.http(status = Status.BAD_REQUEST, headers = List(Header("Content-Type", "application/json")), content = ApiError("InvalidInput", "Invalid ids").toResponsePayload()))
+        response <- CryptoJournalApi.addSetups(tagPositions)
+          .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
+          .fold(positionErrorToHttpResponse, _ => Response.ok)
+      } yield response
   }
 
-  private def mistakes(userId: UserId) = HttpApp.collect {
-    case Method.GET -> Root / "mistakes" => Response.jsonString(List("Honeypot", "Sold to early").toJson)
+  private def mistakes(userId: UserId) = HttpApp.collectM {
+    case Method.GET -> Root / "mistakes" => UIO(Response.jsonString(List("Honeypot", "Sold to early").toJson))
+
+    case req @ Method.PUT -> Root / "mistakes" =>
+      for {
+        tagPositions <- ZIO
+          .fromOption(req.getBodyAsString)
+          .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).map(_.toDomainModel))
+          .orElseFail(Response.http(status = Status.BAD_REQUEST, headers = List(Header("Content-Type", "application/json")), content = ApiError("InvalidInput", "Invalid ids").toResponsePayload()))
+        response <- CryptoJournalApi.addMistakes(tagPositions)
+          .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
+          .fold(positionErrorToHttpResponse, _ => Response.ok)
+      } yield response
   }
 
   private def corsSupport() = HttpApp.collect {
@@ -407,6 +430,18 @@ object Routes {
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "PositionImportError").toResponsePayload()
+      )
+    case SetupSaveError(throwable) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "SetupSaveError", throwable.getMessage).toResponsePayload()
+      )
+    case MistakeSaveError(throwable) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "MistakeSaveError", throwable.getMessage).toResponsePayload()
       )
   }
 

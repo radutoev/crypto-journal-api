@@ -2,25 +2,19 @@ package io.softwarechain.cryptojournal
 package infrastructure.google
 
 import domain.position.Position.PositionId
-import domain.position.error.{
-  InvalidRepresentation,
-  JournalFetchError,
-  JournalNotFound,
-  JournalSaveError,
-  PositionError
-}
-import domain.position.{ JournalEntry, JournalingRepo }
+import domain.position.error._
+import domain.position.{JournalEntry, JournalingRepo, TagPositions}
 import domain.model.UserId
-import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
+import infrastructure.google.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
-import com.google.cloud.datastore.{ Datastore, Entity, Query, QueryResults, ReadOption, StringValue }
+import com.google.cloud.datastore.{Datastore, Entity, Query, QueryResults, ReadOption, StringValue}
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.types.string.NonEmptyString
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import scala.jdk.CollectionConverters._
 
@@ -51,6 +45,30 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .tapError(throwable => logger.error(s"Unable to save journal entry - ${throwable.getMessage}"))
       .mapError(throwable => JournalSaveError(throwable))
       .unit
+
+
+  override def addSetups(userId: UserId, tagPositions: TagPositions): IO[SetupSaveError, Unit] = {
+    addTag(userId, tagPositions, "setups").orElseFail(SetupSaveError(new RuntimeException("Unable to save setups")))
+  }
+
+  override def addMistakes(userId: UserId, tagPositions: TagPositions): IO[MistakeSaveError, Unit] =
+    addTag(userId, tagPositions, "mistakes").orElseFail(MistakeSaveError(new RuntimeException("Unable to save mistakes")))
+
+  private def addTag(userId: UserId, tagPositions: TagPositions, tag: String): Task[Unit] = {
+    val kind = datastore.newKeyFactory().setKind(datastoreConfig.journal)
+    val entityBatches = tagPositions.ids.map(positionId => {
+      Entity.newBuilder(kind.newKey(journalEntryKey(userId, positionId)))
+        .set(tag, tagPositions.tags.map(StringValue.of).asJava)
+        .build()
+    }).grouped(25).toList
+
+    @inline
+    def doSave(entities: List[Entity]) = Task(datastore.put(entities: _*))
+      .tapError(err => logger.warn(s"Failure saving entities: ${err.getMessage}"))
+
+    logger.info(s"Adding $tag to ${tagPositions.ids.size} positions") *>
+    ZIO.foreach(entityBatches)(doSave).unit
+  }
 
   val journalEntryToEntity: (UserId, PositionId, JournalEntry) => Entity = (userId, positionId, entry) => {
     Entity

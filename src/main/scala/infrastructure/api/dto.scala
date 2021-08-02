@@ -3,13 +3,15 @@ package infrastructure.api
 
 import domain.model.{ FungibleData => CJFungibleData }
 import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
-import domain.position.{ JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry }
+import domain.position.{ JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, TagPositions => CJTagPositions }
+import domain.position.Position.PositionIdPredicate
 import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
 import domain.wallet.{ Wallet => CJWallet }
 import vo.{ PeriodDistribution => CJPeriodDistribution, JournalPosition }
 
 import dto.Position._
 
+import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
 import zio.json.{ DeriveJsonCodec, JsonCodec }
 
@@ -264,5 +266,19 @@ object dto {
   implicit class DomainJournalEntryOps(entry: CJJournalEntry) {
     def toDto: JournalEntry =
       JournalEntry(entry.notes, entry.setups.map(_.value), entry.mistakes.map(_.value))
+  }
+
+  final case class TagPositions(tags: List[String], ids: List[String])
+
+  object TagPositions {
+    implicit val tagPositionsCodec: JsonCodec[TagPositions] = DeriveJsonCodec.gen[TagPositions]
+
+    implicit class TagPositionsOps(tagPositions: TagPositions) {
+      def toDomainModel: CJTagPositions = {
+        CJTagPositions(tagPositions.tags, tagPositions.ids.map(rawPositionId => refineV[PositionIdPredicate](rawPositionId)).collect {
+          case Right(positionId) => positionId
+        })
+      }
+    }
   }
 }
