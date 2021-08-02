@@ -4,12 +4,12 @@ package application
 import domain.account.UserContext
 import domain.model._
 import domain.portfolio.{KpiService, PortfolioKpi}
+import domain.position.{ JournalPosition, JournalPositions }
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
 import domain.position.{JournalEntry, JournalingService, PositionService, Positions, TagPositions}
 import domain.wallet.error.WalletError
 import domain.wallet.{Wallet, WalletService}
-import vo.JournalPosition
 import vo.filter.{KpiFilter, PositionFilter}
 
 import zio.{Has, ZIO}
@@ -18,10 +18,10 @@ object CryptoJournalApi {
   def getPositions(
     address: WalletAddress,
     filter: PositionFilter
-  ): ZIO[Has[PositionService] with Has[UserContext], PositionError, Positions] =
+  ): ZIO[Has[PositionService] with Has[UserContext], PositionError, JournalPositions] =
     for {
       userId    <- UserContext.userId
-      positions <- ZIO.serviceWith[PositionService](_.getPositions(UserWallet(userId, address))(filter))
+      positions <- ZIO.serviceWith[PositionService](_.getJournalPositions(UserWallet(userId, address))(filter))
     } yield positions
 
   def getPosition(

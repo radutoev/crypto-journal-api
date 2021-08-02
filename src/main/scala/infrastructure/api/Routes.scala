@@ -6,7 +6,7 @@ import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{ JournalingService, PositionService, Positions }
+import domain.position.{ JournalingService, JournalPositions, PositionService, Positions }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
@@ -357,6 +357,28 @@ object Routes {
             headers = headers,
             content = HttpData.CompleteData(
               Chunk.fromArray(list.map(fromPosition).toJson.getBytes(HTTP_CHARSET))
+            )
+          )
+        case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)
+      }
+    }
+  }
+
+  implicit class JournalPositionsResponseOps(positions: JournalPositions) {
+    def asResponse(): UResponse = {
+      val resultHeaders: List[Header] = positions.lastSync match {
+        case Some(value) => List(Header("X-CoinLogger-LatestSync", value.toString))
+        case None        => Nil
+      }
+      val headers = Header("Content-Type", "application/json") :: resultHeaders
+
+      positions.items match {
+        case list =>
+          Response.http(
+            status = Status.OK,
+            headers = headers,
+            content = HttpData.CompleteData(
+              Chunk.fromArray(list.map(fromJournalPosition).toJson.getBytes(HTTP_CHARSET))
             )
           )
         case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)

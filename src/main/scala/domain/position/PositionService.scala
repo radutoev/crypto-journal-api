@@ -8,7 +8,7 @@ import domain.position.error._
 import domain.position.Position._
 import domain.position.LivePositionService.findPositions
 import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
-import vo.{ JournalPosition, TimeInterval }
+import vo.TimeInterval
 import vo.filter.PositionFilter
 
 import eu.timepit.refined
@@ -23,7 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 trait PositionService {
   def getPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, Positions]
 
-  def getJournalPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, List[JournalPosition]]
+  def getJournalPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, JournalPositions]
 
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, JournalPosition]
 
@@ -82,7 +82,7 @@ final case class LivePositionService(
     } yield result
 
 
-  override def getJournalPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, List[JournalPosition]] = {
+  override def getJournalPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, JournalPositions] = {
     for {
       positions <- getPositions(userWallet)(filter)
       journalEntries <- journalingRepo.getEntries(userWallet.userId, positions.items.map(_.id).collect{ case Some(id) => id })
@@ -90,7 +90,7 @@ final case class LivePositionService(
         val positionToEntryMap = journalEntries.map(e => e.positionId.get -> e).toMap
         positions.items.map(item => JournalPosition(item, item.id.flatMap(positionToEntryMap.get)))
       }
-    } yield journalPositions
+    } yield JournalPositions(journalPositions, positions.lastSync)
   }
 
   private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
