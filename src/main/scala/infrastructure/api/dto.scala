@@ -3,7 +3,7 @@ package infrastructure.api
 
 import domain.model.{FungibleData => CJFungibleData}
 import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalPosition, JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, TagPositions => CJTagPositions}
+import domain.position.{JournalPosition, JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionTags => CJPositionTags}
 import domain.position.Position.PositionIdPredicate
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
@@ -267,16 +267,15 @@ object dto {
       JournalEntry(entry.notes, entry.setups.map(_.value), entry.mistakes.map(_.value))
   }
 
-  final case class TagPositions(tags: List[String], ids: List[String])
+  final case class PositionTags(positionId: String, tags: List[String])
 
-  object TagPositions {
-    implicit val tagPositionsCodec: JsonCodec[TagPositions] = DeriveJsonCodec.gen[TagPositions]
+  object PositionTags {
+    implicit val positionTagsCodec: JsonCodec[PositionTags] = DeriveJsonCodec.gen[PositionTags]
 
-    implicit class TagPositionsOps(tagPositions: TagPositions) {
-      def toDomainModel: CJTagPositions = {
-        CJTagPositions(tagPositions.tags, tagPositions.ids.map(rawPositionId => refineV[PositionIdPredicate](rawPositionId)).collect {
-          case Right(positionId) => positionId
-        })
+    implicit class PositionTagsOps(positionTags: PositionTags) {
+      //TODO Add validation.
+      def toDomainModel: CJPositionTags = {
+        CJPositionTags(positionId = refineV[PositionIdPredicate].unsafeFrom(positionTags.positionId), tags = positionTags.tags)
       }
     }
   }

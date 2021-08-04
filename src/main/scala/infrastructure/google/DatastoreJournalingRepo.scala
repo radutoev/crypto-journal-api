@@ -3,7 +3,7 @@ package infrastructure.google
 
 import domain.position.Position.{PositionId, PositionIdPredicate}
 import domain.position.error._
-import domain.position.{JournalEntry, JournalingRepo, TagPositions}
+import domain.position.{JournalEntry, JournalingRepo, PositionTags}
 import domain.model.{UserId, UserIdPredicate}
 import infrastructure.google.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
 import util.tryOrLeft
@@ -59,26 +59,29 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .unit
 
 
-  override def addSetups(userId: UserId, tagPositions: TagPositions): IO[SetupSaveError, Unit] = {
-    addTag(userId, tagPositions, "setups").orElseFail(SetupSaveError(new RuntimeException("Unable to save setups")))
+  override def addSetups(userId: UserId, positionTags: List[PositionTags]): IO[SetupSaveError, Unit] = {
+    addTag(userId, positionTags, "setups").orElseFail(SetupSaveError(new RuntimeException("Unable to save setups")))
   }
 
-  override def addMistakes(userId: UserId, tagPositions: TagPositions): IO[MistakeSaveError, Unit] =
-    addTag(userId, tagPositions, "mistakes").orElseFail(MistakeSaveError(new RuntimeException("Unable to save mistakes")))
+  override def addMistakes(userId: UserId, positionTags: List[PositionTags]): IO[MistakeSaveError, Unit] =
+    addTag(userId, positionTags, "mistakes").orElseFail(MistakeSaveError(new RuntimeException("Unable to save mistakes")))
 
-  private def addTag(userId: UserId, tagPositions: TagPositions, tag: String): Task[Unit] = {
+  private def addTag(userId: UserId, positionTags: List[PositionTags], tag: String): Task[Unit] = {
     val kind = datastore.newKeyFactory().setKind(datastoreConfig.journal)
-    val entityBatches = tagPositions.ids.map(positionId => {
-      Entity.newBuilder(kind.newKey(journalEntryKey(userId, positionId)))
-        .set(tag, tagPositions.tags.map(StringValue.of).asJava)
+
+    val entityBatches = positionTags.map { pTags =>
+      Entity.newBuilder(kind.newKey(journalEntryKey(userId, pTags.positionId)))
+        .set(tag, pTags.tags.map(StringValue.of).asJava)
         .build()
-    }).grouped(25).toList
+    }.grouped(25).toList
 
     @inline
-    def doSave(entities: List[Entity]) = Task(datastore.put(entities: _*))
-      .tapError(err => logger.warn(s"Failure saving entities: ${err.getMessage}"))
+    def doSave(entities: List[Entity]) = {
+      Task(datastore.put(entities: _*))
+        .tapError(err => logger.warn(s"Failure saving entities: ${err.getMessage}"))
+    }
 
-    logger.info(s"Adding $tag to ${tagPositions.ids.size} positions") *>
+    logger.info(s"Adding $tag to ${positionTags.size} positions") *>
     ZIO.foreach(entityBatches)(doSave).unit
   }
 

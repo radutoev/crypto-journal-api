@@ -10,9 +10,9 @@ import zio.{ Function1ToLayerSyntax, Has, IO, URLayer }
 trait JournalingService {
   def saveJournalEntry(userId: UserId, positionId: PositionId, entry: JournalEntry): IO[JournalSaveError, Unit]
 
-  def addSetups(userId: UserId, tagPositions: TagPositions): IO[SetupSaveError, Unit]
+  def addSetups(userId: UserId, positionTags: List[PositionTags]): IO[SetupSaveError, Unit]
 
-  def addMistakes(userId: UserId, tagPositions: TagPositions): IO[MistakeSaveError, Unit]
+  def addMistakes(userId: UserId, positionTags: List[PositionTags]): IO[MistakeSaveError, Unit]
 }
 
 final case class LiveJournalingService(journalingRepo: JournalingRepo) extends JournalingService {
@@ -23,11 +23,11 @@ final case class LiveJournalingService(journalingRepo: JournalingRepo) extends J
   ): IO[JournalSaveError, Unit] =
     journalingRepo.saveEntry(userId, positionId, entry)
 
-  override def addSetups(userId: UserId, tagPositions: TagPositions): IO[SetupSaveError, Unit] =
-    journalingRepo.addSetups(userId, tagPositions)
+  override def addSetups(userId: UserId, positionTags: List[PositionTags]): IO[SetupSaveError, Unit] =
+    journalingRepo.addSetups(userId, positionTags)
 
-  override def addMistakes(userId: UserId, tagPositions: TagPositions): IO[MistakeSaveError, Unit] =
-    journalingRepo.addMistakes(userId, tagPositions)
+  override def addMistakes(userId: UserId, positionTags: List[PositionTags]): IO[MistakeSaveError, Unit] =
+    journalingRepo.addMistakes(userId, positionTags)
 }
 
 object LiveJournalingService {

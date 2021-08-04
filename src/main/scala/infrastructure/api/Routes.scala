@@ -11,10 +11,10 @@ import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.{ JournalEntry, PortfolioKpi, PortfolioStats, TagPositions }
+import infrastructure.api.dto.{ JournalEntry, PortfolioKpi, PortfolioStats, PositionTags }
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
-import infrastructure.api.dto.TagPositions._
+import infrastructure.api.dto.PositionTags._
 import infrastructure.api.dto.Wallet._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
@@ -212,10 +212,10 @@ object Routes {
       ZIO
         .fromOption(req.getBodyAsString)
         .orElseFail(InvalidInput("No body provided"))
-        .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).bimap(InvalidInput, _.toDomainModel))
-        .flatMap(tagPositions =>
+        .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[List[PositionTags]]).bimap(InvalidInput, list => list.map(_.toDomainModel)))
+        .flatMap(positionTags =>
           CryptoJournalApi
-            .addSetups(tagPositions)
+            .addSetups(positionTags)
             .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
         )
         .fold(positionErrorToHttpResponse, _ => Response.ok)
@@ -228,10 +228,10 @@ object Routes {
       ZIO
         .fromOption(req.getBodyAsString)
         .orElseFail(InvalidInput("No body provided"))
-        .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[TagPositions]).bimap(InvalidInput, _.toDomainModel))
-        .flatMap(tagPositions =>
+        .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[List[PositionTags]]).bimap(InvalidInput, _.map(_.toDomainModel)))
+        .flatMap(positionTags =>
           CryptoJournalApi
-            .addMistakes(tagPositions)
+            .addMistakes(positionTags)
             .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
         )
         .fold(positionErrorToHttpResponse, _ => Response.ok)
