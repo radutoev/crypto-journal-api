@@ -115,7 +115,7 @@ object DatastoreJournalingRepo {
       parts = key.split(KeyDelimiter)
       userId <- refined.refineV[UserIdPredicate](parts.head).left.map(_ => InvalidRepresentation("Invalid user id"))
       positionId <- refined.refineV[PositionIdPredicate](parts.last).left.map(_ => InvalidRepresentation("Invalid position id"))
-      notes <- tryOrLeft(entity.getString("notes"), InvalidRepresentation("Entry has no key notes"))
+      notes <- tryOrLeft(if(entity.contains("notes")) entity.getString("notes") else "", InvalidRepresentation("Invalid notes representation"))
         .map(rawNotesStr => if (rawNotesStr.nonEmpty) Some(rawNotesStr) else None)
       setups <- tryOrLeft(
         if (entity.contains("setups")) entity.getList[StringValue]("setups") else List.empty.asJava,
