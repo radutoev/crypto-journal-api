@@ -81,17 +81,19 @@ final case class LivePositionService(
                  }
     } yield result
 
-
-  override def getJournalPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, JournalPositions] = {
+  override def getJournalPositions(
+    userWallet: UserWallet
+  )(filter: PositionFilter): IO[PositionError, JournalPositions] =
     for {
       positions <- getPositions(userWallet)(filter)
-      journalEntries <- journalingRepo.getEntries(userWallet.userId, positions.items.map(_.id).collect{ case Some(id) => id })
+      journalEntries <- journalingRepo.getEntries(userWallet.userId, positions.items.map(_.id).collect {
+                         case Some(id) => id
+                       })
       journalPositions = {
         val positionToEntryMap = journalEntries.map(e => e.positionId.get -> e).toMap
         positions.items.map(item => JournalPosition(item, item.id.flatMap(positionToEntryMap.get)))
       }
     } yield JournalPositions(journalPositions, positions.lastSync)
-  }
 
   private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
     positionRepo

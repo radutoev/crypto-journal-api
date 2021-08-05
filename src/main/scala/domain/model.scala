@@ -78,7 +78,7 @@ object model {
   type WalletAddress          = String Refined WalletAddressPredicate
 
   type UserIdPredicate = NonEmpty
-  type UserId = String Refined UserIdPredicate
+  type UserId          = String Refined UserIdPredicate
 
   type TradeCountPredicate = NonNegative
   type TradeCount          = Int Refined TradeCountPredicate

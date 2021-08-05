@@ -1,19 +1,19 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.position.Position.{PositionId, PositionIdPredicate}
+import domain.position.Position.{ PositionId, PositionIdPredicate }
 import domain.position.error._
-import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
-import domain.model.{UserId, UserIdPredicate}
-import infrastructure.google.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
+import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
+import domain.model.{ UserId, UserIdPredicate }
+import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
-import com.google.cloud.datastore.{Datastore, Entity, Query, QueryResults, ReadOption, StringValue}
+import com.google.cloud.datastore.{ Datastore, Entity, Query, QueryResults, ReadOption, StringValue }
 import eu.timepit.refined
 import eu.timepit.refined.types.string.NonEmptyString
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import scala.jdk.CollectionConverters._
 
@@ -44,12 +44,13 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
     val keys = ids.map(id => kind.newKey(journalEntryKey(userId, id)))
     Task(datastore.get(keys: _*))
       .tapError(throwable => logger.warn(throwable.getMessage))
-      .bimap(JournalFetchError, {
+      .bimap(
+        JournalFetchError,
         results =>
           results.asScala.toList.map(entityToJournalEntry).collect {
             case Right(journalEntry) => journalEntry
           }
-      })
+      )
   }
 
   override def saveEntry(userId: UserId, positionId: PositionId, entry: JournalEntry): IO[JournalSaveError, Unit] =
@@ -59,12 +60,18 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .unit
 
   override def saveEntries(userId: UserId, positionEntries: List[PositionJournalEntry]): IO[JournalSaveError, Unit] = {
-    val batches = positionEntries.map(posEntry => journalEntryToEntity(userId, posEntry.positionId, posEntry.entry)).grouped(25).toList
+    val batches = positionEntries
+      .map(posEntry => journalEntryToEntity(userId, posEntry.positionId, posEntry.entry))
+      .grouped(25)
+      .toList
     logger.info(s"Saving ${batches.size} batches") *>
-      ZIO.foreach(batches) { entities =>
+    ZIO
+      .foreach(batches) { entities =>
         Task(datastore.put(entities: _*))
           .tapError(err => logger.warn(s"Failure saving entities: ${err.getMessage}"))
-      }.mapError(t => JournalSaveError(t)).unit
+      }
+      .mapError(t => JournalSaveError(t))
+      .unit
   }
 
   val journalEntryToEntity: (UserId, PositionId, JournalEntry) => Entity = (userId, positionId, entry) => {
@@ -93,20 +100,25 @@ object DatastoreJournalingRepo {
 
   val entityToJournalEntry: Entity => Either[InvalidRepresentation, JournalEntry] = entity => {
     for {
-      key <- tryOrLeft(entity.getKey().getName, InvalidRepresentation("Entry has no key name"))
-      parts = key.split(KeyDelimiter)
+      key    <- tryOrLeft(entity.getKey().getName, InvalidRepresentation("Entry has no key name"))
+      parts  = key.split(KeyDelimiter)
       userId <- refined.refineV[UserIdPredicate](parts.head).left.map(_ => InvalidRepresentation("Invalid user id"))
-      positionId <- refined.refineV[PositionIdPredicate](parts.last).left.map(_ => InvalidRepresentation("Invalid position id"))
-      notes <- tryOrLeft(if(entity.contains("notes")) entity.getString("notes") else "", InvalidRepresentation("Invalid notes representation"))
-        .map(rawNotesStr => if (rawNotesStr.nonEmpty) Some(rawNotesStr) else None)
+      positionId <- refined
+                     .refineV[PositionIdPredicate](parts.last)
+                     .left
+                     .map(_ => InvalidRepresentation("Invalid position id"))
+      notes <- tryOrLeft(
+                if (entity.contains("notes")) entity.getString("notes") else "",
+                InvalidRepresentation("Invalid notes representation")
+              ).map(rawNotesStr => if (rawNotesStr.nonEmpty) Some(rawNotesStr) else None)
       setups <- tryOrLeft(
-        if (entity.contains("setups")) entity.getList[StringValue]("setups") else List.empty.asJava,
-        InvalidRepresentation("Invalid setups representation")
-      ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
+                 if (entity.contains("setups")) entity.getList[StringValue]("setups") else List.empty.asJava,
+                 InvalidRepresentation("Invalid setups representation")
+               ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
       mistakes <- tryOrLeft(
-        if (entity.contains("mistakes")) entity.getList[StringValue]("mistakes") else List.empty.asJava,
-        InvalidRepresentation("Invalid mistakes representation")
-      ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
+                   if (entity.contains("mistakes")) entity.getList[StringValue]("mistakes") else List.empty.asJava,
+                   InvalidRepresentation("Invalid mistakes representation")
+                 ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
     } yield JournalEntry(notes, setups, mistakes, Some(userId), Some(positionId))
   }
 }

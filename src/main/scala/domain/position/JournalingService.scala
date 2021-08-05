@@ -21,7 +21,10 @@ final case class LiveJournalingService(journalingRepo: JournalingRepo) extends J
   ): IO[JournalSaveError, Unit] =
     journalingRepo.saveEntry(userId, positionId, entry)
 
-  override def saveJournalEntries(userId: UserId, positionEntries: List[PositionJournalEntry]): IO[JournalSaveError, Unit] =
+  override def saveJournalEntries(
+    userId: UserId,
+    positionEntries: List[PositionJournalEntry]
+  ): IO[JournalSaveError, Unit] =
     journalingRepo.saveEntries(userId, positionEntries)
 }
 

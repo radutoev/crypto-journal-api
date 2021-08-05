@@ -1,20 +1,26 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{FungibleData => CJFungibleData}
-import domain.portfolio.{PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalPosition, JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry}
+import domain.model.{ FungibleData => CJFungibleData }
+import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
+import domain.position.{
+  JournalPosition,
+  JournalEntry => CJJournalEntry,
+  Position => CJPosition,
+  PositionEntry => CJPositionEntry,
+  PositionJournalEntry => CJPositionJournalEntry
+}
 import domain.position.Position.PositionIdPredicate
-import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
-import domain.wallet.{Wallet => CJWallet}
-import vo.{PeriodDistribution => CJPeriodDistribution}
+import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
+import domain.wallet.{ Wallet => CJWallet }
+import vo.{ PeriodDistribution => CJPeriodDistribution }
 
 import dto.Position._
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 object dto {
   final case class Positions(positions: List[Position], lastSync: Option[Instant])
@@ -274,9 +280,11 @@ object dto {
 
     implicit class PositionTagsOps(posJournalEntry: PositionJournalEntry) {
       //TODO Add validation.
-      def toDomainModel: CJPositionJournalEntry = {
-        CJPositionJournalEntry(positionId = refineV[PositionIdPredicate].unsafeFrom(posJournalEntry.positionId), entry = posJournalEntry.entry.toDomainModel)
-      }
+      def toDomainModel: CJPositionJournalEntry =
+        CJPositionJournalEntry(
+          positionId = refineV[PositionIdPredicate].unsafeFrom(posJournalEntry.positionId),
+          entry = posJournalEntry.entry.toDomainModel
+        )
     }
   }
 }

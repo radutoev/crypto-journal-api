@@ -6,7 +6,7 @@ import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{ JournalingService, JournalPositions, PositionService, Positions }
+import domain.position.{ JournalPositions, JournalingService, PositionService, Positions }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
@@ -168,15 +168,18 @@ object Routes {
                      .fold(positionErrorToHttpResponse, _ => Response.status(Status.OK))
       } yield response
 
-    case req@Method.PUT -> Root / "journal" =>
+    case req @ Method.PUT -> Root / "journal" =>
       for {
         entries <- ZIO
-          .fromOption(req.getBodyAsString)
-          .flatMap(rawBody => ZIO.fromEither(rawBody.fromJson[List[PositionJournalEntry]]).map(_.map(_.toDomainModel)))
-          .orElseFail(BadRequest("Invalid request"))
-        response <- CryptoJournalApi.saveJournalEntries(entries)
-          .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
-          .fold(positionErrorToHttpResponse, _ => Response.status(Status.OK))
+                    .fromOption(req.getBodyAsString)
+                    .flatMap(rawBody =>
+                      ZIO.fromEither(rawBody.fromJson[List[PositionJournalEntry]]).map(_.map(_.toDomainModel))
+                    )
+                    .orElseFail(BadRequest("Invalid request"))
+        response <- CryptoJournalApi
+                     .saveJournalEntries(entries)
+                     .provideSomeLayer[Has[JournalingService]](JwtUserContext.layer(userId))
+                     .fold(positionErrorToHttpResponse, _ => Response.status(Status.OK))
       } yield response
   }
 

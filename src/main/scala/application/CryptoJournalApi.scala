@@ -3,16 +3,16 @@ package application
 
 import domain.account.UserContext
 import domain.model._
-import domain.portfolio.{KpiService, PortfolioKpi}
-import domain.position.{JournalPosition, JournalPositions}
+import domain.portfolio.{ KpiService, PortfolioKpi }
+import domain.position.{ JournalPosition, JournalPositions }
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
-import domain.position.{JournalEntry, JournalingService, PositionService, Positions, PositionJournalEntry}
+import domain.position.{ JournalEntry, JournalingService, PositionJournalEntry, PositionService, Positions }
 import domain.wallet.error.WalletError
-import domain.wallet.{Wallet, WalletService}
-import vo.filter.{KpiFilter, PositionFilter}
+import domain.wallet.{ Wallet, WalletService }
+import vo.filter.{ KpiFilter, PositionFilter }
 
-import zio.{Has, ZIO}
+import zio.{ Has, ZIO }
 
 object CryptoJournalApi {
   def getPositions(
@@ -73,7 +73,9 @@ object CryptoJournalApi {
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntry(userId, positionId, entry))
     } yield ()
 
-  def saveJournalEntries(positionEntries: List[PositionJournalEntry]): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
+  def saveJournalEntries(
+    positionEntries: List[PositionJournalEntry]
+  ): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
     for {
       userId <- UserContext.userId
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntries(userId, positionEntries))
