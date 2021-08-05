@@ -14,7 +14,5 @@ trait JournalingRepo {
 
   def saveEntry(userId: UserId, positionId: PositionId, entry: JournalEntry): IO[JournalSaveError, Unit]
 
-  def addSetups(userId: UserId, positionTags: List[PositionTags]): IO[SetupSaveError, Unit]
-
-  def addMistakes(userId: UserId, positionTags: List[PositionTags]): IO[MistakeSaveError, Unit]
+  def saveEntries(userId: UserId, positionEntries: List[PositionJournalEntry]): IO[JournalSaveError, Unit]
 }

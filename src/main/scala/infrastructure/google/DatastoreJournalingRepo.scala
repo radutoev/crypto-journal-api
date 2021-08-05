@@ -3,7 +3,7 @@ package infrastructure.google
 
 import domain.position.Position.{PositionId, PositionIdPredicate}
 import domain.position.error._
-import domain.position.{JournalEntry, JournalingRepo, PositionTags}
+import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
 import domain.model.{UserId, UserIdPredicate}
 import infrastructure.google.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
 import util.tryOrLeft
@@ -58,31 +58,13 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .mapError(throwable => JournalSaveError(throwable))
       .unit
 
-
-  override def addSetups(userId: UserId, positionTags: List[PositionTags]): IO[SetupSaveError, Unit] = {
-    addTag(userId, positionTags, "setups").orElseFail(SetupSaveError(new RuntimeException("Unable to save setups")))
-  }
-
-  override def addMistakes(userId: UserId, positionTags: List[PositionTags]): IO[MistakeSaveError, Unit] =
-    addTag(userId, positionTags, "mistakes").orElseFail(MistakeSaveError(new RuntimeException("Unable to save mistakes")))
-
-  private def addTag(userId: UserId, positionTags: List[PositionTags], tag: String): Task[Unit] = {
-    val kind = datastore.newKeyFactory().setKind(datastoreConfig.journal)
-
-    val entityBatches = positionTags.map { pTags =>
-      Entity.newBuilder(kind.newKey(journalEntryKey(userId, pTags.positionId)))
-        .set(tag, pTags.tags.map(StringValue.of).asJava)
-        .build()
-    }.grouped(25).toList
-
-    @inline
-    def doSave(entities: List[Entity]) = {
-      Task(datastore.put(entities: _*))
-        .tapError(err => logger.warn(s"Failure saving entities: ${err.getMessage}"))
-    }
-
-    logger.info(s"Adding $tag to ${positionTags.size} positions") *>
-    ZIO.foreach(entityBatches)(doSave).unit
+  override def saveEntries(userId: UserId, positionEntries: List[PositionJournalEntry]): IO[JournalSaveError, Unit] = {
+    val batches = positionEntries.map(posEntry => journalEntryToEntity(userId, posEntry.positionId, posEntry.entry)).grouped(25).toList
+    logger.info(s"Saving ${batches.size} batches") *>
+      ZIO.foreach(batches) { entities =>
+        Task(datastore.put(entities: _*))
+          .tapError(err => logger.warn(s"Failure saving entities: ${err.getMessage}"))
+      }.mapError(t => JournalSaveError(t)).unit
   }
 
   val journalEntryToEntity: (UserId, PositionId, JournalEntry) => Entity = (userId, positionId, entry) => {

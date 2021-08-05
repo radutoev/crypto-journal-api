@@ -22,9 +22,6 @@ object error {
   final case class JournalFetchError(throwable: Throwable)                 extends PositionError
   final case class JournalNotFound(userId: UserId, positionId: PositionId) extends PositionError
 
-  final case class SetupSaveError(throwable: Throwable) extends PositionError
-  final case class MistakeSaveError(throwable: Throwable) extends PositionError
-
   final case class InvalidInput(reason: String) extends PositionError
 
   final case class PositionImportError(address: WalletAddress, throwable: Throwable) extends PositionError

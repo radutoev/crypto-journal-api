@@ -7,7 +7,7 @@ import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.position.{JournalPosition, JournalPositions}
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
-import domain.position.{JournalEntry, JournalingService, PositionService, Positions, PositionTags}
+import domain.position.{JournalEntry, JournalingService, PositionService, Positions, PositionJournalEntry}
 import domain.wallet.error.WalletError
 import domain.wallet.{Wallet, WalletService}
 import vo.filter.{KpiFilter, PositionFilter}
@@ -73,15 +73,9 @@ object CryptoJournalApi {
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntry(userId, positionId, entry))
     } yield ()
 
-  def addSetups(positionTags: List[PositionTags]): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
+  def saveJournalEntries(positionEntries: List[PositionJournalEntry]): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
     for {
       userId <- UserContext.userId
-      _      <- ZIO.serviceWith[JournalingService](_.addSetups(userId, positionTags))
-    } yield ()
-
-  def addMistakes(positionTags: List[PositionTags]): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
-    for {
-      userId <- UserContext.userId
-      _      <- ZIO.serviceWith[JournalingService](_.addMistakes(userId, positionTags))
+      _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntries(userId, positionEntries))
     } yield ()
 }
