@@ -43,7 +43,7 @@ object dto {
     win: Option[Boolean],
     entries: List[PositionEntry],
     id: Option[String],
-    journalEntry: Option[JournalEntry]
+    journalEntry: JournalEntry
   )
 
   final case class PositionEntry(
@@ -67,7 +67,7 @@ object dto {
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
 
     def fromJournalPosition(journalPosition: JournalPosition): Position =
-      fromPosition(journalPosition.position).copy(journalEntry = journalPosition.entry.map(_.toDto))
+      fromPosition(journalPosition.position).copy(journalEntry = journalPosition.entry.getOrElse(CJJournalEntry(None, List.empty, List.empty)).toDto)
 
     def fromPosition(position: CJPosition): Position =
       Position(
@@ -88,7 +88,7 @@ object dto {
         position.isWin().map(isWin => if (isWin) true else false),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
         position.id.map(_.value),
-        None
+        JournalEntry(None, List.empty, List.empty)
       )
 
     def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry =
