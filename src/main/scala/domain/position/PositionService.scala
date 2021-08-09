@@ -76,10 +76,15 @@ final case class LivePositionService(
                     .getPositions(userWallet.address)(positionFilter)
                     .flatMap(enrichPositions)
                     .orElseFail(PositionsFetchError(userWallet.address))
-      journalEntries <- journalingRepo.getEntries(userWallet.userId, positions.map(_.id).collect{ case Some(id) => id })
+      journalEntries <- journalingRepo.getEntries(
+                         userWallet.userId,
+                         positions.map(_.id).collect { case Some(id) => id }
+                       )
       result <- positionRepo
                  .getCheckpoint(userWallet.address)
-                 .map(checkpoint => Positions(withJournalEntries(positions, journalEntries), checkpoint.latestTxTimestamp))
+                 .map(checkpoint =>
+                   Positions(withJournalEntries(positions, journalEntries), checkpoint.latestTxTimestamp)
+                 )
                  .catchSome {
                    case CheckpointNotFound(_) => UIO(Positions.empty())
                  }
