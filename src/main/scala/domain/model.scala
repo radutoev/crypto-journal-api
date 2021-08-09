@@ -84,10 +84,10 @@ object model {
   type TradeCount          = Int Refined TradeCountPredicate
 
   type SetupPredicate = NonEmpty
-  type Setup = String Refined SetupPredicate
+  type Setup          = String Refined SetupPredicate
 
   type MistakePredicate = NonEmpty
-  type Mistake = String Refined MistakePredicate
+  type Mistake          = String Refined MistakePredicate
 
   final case class UserWallet(userId: UserId, address: WalletAddress)
 

@@ -6,7 +6,7 @@ import domain.model._
 import domain.portfolio.{ KpiService, PortfolioKpi }
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
-import domain.position.{ JournalEntry, JournalingService, PositionJournalEntry, PositionService, Position, Positions }
+import domain.position.{ JournalEntry, JournalingService, Position, PositionJournalEntry, PositionService, Positions }
 import domain.wallet.error.WalletError
 import domain.wallet.{ Wallet, WalletService }
 import vo.filter.{ KpiFilter, PositionFilter }

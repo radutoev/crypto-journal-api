@@ -16,7 +16,6 @@ import vo.{ PeriodDistribution => CJPeriodDistribution }
 
 import dto.Position._
 import eu.timepit.refined.refineV
-import eu.timepit.refined.types.string.NonEmptyString
 import zio.json.{ DeriveJsonCodec, JsonCodec }
 
 import java.time.{ Duration, Instant }
@@ -84,7 +83,7 @@ object dto {
         position.isWin().map(isWin => if (isWin) true else false),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
         position.id.map(_.value),
-        JournalEntry(None, List.empty, List.empty)
+        position.journal.map(_.toDto).getOrElse(JournalEntry(None, List.empty, List.empty))
       )
 
     def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry =
@@ -232,6 +231,19 @@ object dto {
       )
   }
 
+  final case class TagDistribution(mistakes: Map[String, FungibleData], setups: Map[String, FungibleData])
+
+  object TagDistribution {
+    implicit val tagDistributionCodec: JsonCodec[TagDistribution] = DeriveJsonCodec.gen[TagDistribution]
+
+    def apply(portfolioKpi: CJPortfolioKpi): TagDistribution =
+      new TagDistribution(mistakes = portfolioKpi.mistakeContributions.map {
+        case (mistake, fungibleData) => mistake.value -> fungibleData.asJson
+      }, setups = portfolioKpi.setupContributions.map {
+        case (setup, fungibleData) => setup.value -> fungibleData.asJson
+      })
+  }
+
   final case class PeriodDistribution(
     weekly: List[FungibleData],
     monthly: List[FungibleData],
@@ -258,7 +270,7 @@ object dto {
       def toDomainModel: CJJournalEntry =
         CJJournalEntry(
           entry.notes,
-          setups = entry.setups.map(refineV[SetupPredicate](_)).collect { case Right(setup) => setup },
+          setups = entry.setups.map(refineV[SetupPredicate](_)).collect { case Right(setup)         => setup },
           mistakes = entry.mistakes.map(refineV[MistakePredicate](_)).collect { case Right(mistake) => mistake }
         )
     }
