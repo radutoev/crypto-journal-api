@@ -4,7 +4,6 @@ package infrastructure.api
 import domain.model.{ FungibleData => CJFungibleData }
 import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
 import domain.position.{
-  JournalPosition,
   JournalEntry => CJJournalEntry,
   Position => CJPosition,
   PositionEntry => CJPositionEntry,
@@ -65,9 +64,6 @@ object dto {
     implicit val feeCodec: JsonCodec[FungibleData]            = DeriveJsonCodec.gen[FungibleData]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
-
-    def fromJournalPosition(journalPosition: JournalPosition): Position =
-      fromPosition(journalPosition.position).copy(journalEntry = journalPosition.entry.getOrElse(CJJournalEntry(None, List.empty, List.empty)).toDto)
 
     def fromPosition(position: CJPosition): Position =
       Position(
@@ -231,8 +227,8 @@ object dto {
 
     def apply(portfolio: CJPortfolioKpi): TradeSummary =
       new TradeSummary(
-        wins = portfolio.coinWins().map(t => CoinToFungiblePair(t._1.value, t._2.asJson)),
-        loses = portfolio.coinLoses().map(t => CoinToFungiblePair(t._1.value, t._2.asJson))
+        wins = portfolio.coinWins.map(t => CoinToFungiblePair(t._1.value, t._2.asJson)),
+        loses = portfolio.coinLoses.map(t => CoinToFungiblePair(t._1.value, t._2.asJson))
       )
   }
 

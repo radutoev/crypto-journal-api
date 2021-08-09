@@ -181,12 +181,12 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     }.minOption
   }
 
-  def coinWins(): List[(Currency, FungibleData)] = {
+  lazy val coinWins: List[(Currency, FungibleData)] = {
     val wins = coinContributions.filter(_._2.amount > 0)
     wins.slice(0, Math.min(8, wins.size))
   }
 
-  def coinLoses(): List[(Currency, FungibleData)] = {
+  lazy val coinLoses: List[(Currency, FungibleData)] = {
     val loses = coinContributions.filter(_._2.amount < 0).reverse
     loses.slice(0, Math.min(8, loses.size))
   }

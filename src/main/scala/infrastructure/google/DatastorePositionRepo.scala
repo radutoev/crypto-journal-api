@@ -285,7 +285,7 @@ final case class DatastorePositionRepo(
                     .toList,
                   InvalidRepresentation("Invalid entries representation")
                 )
-    } yield Position(currency, openedAt, entries, None, Some(id))
+    } yield Position(currency, openedAt, entries, id = Some(id))
   }
 
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {

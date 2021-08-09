@@ -123,5 +123,5 @@ object Generators {
     currency   <- genCurrency
     openedAt   <- Gen.anyInstant
     entries    <- Gen.listOfN(2)(genPositionEntry)
-  } yield Position(currency, openedAt, entries, None, Some(positionId))
+  } yield Position(currency, openedAt, entries, id = Some(positionId))
 }
