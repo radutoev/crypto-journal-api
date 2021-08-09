@@ -153,7 +153,8 @@ object dto {
   final case class PortfolioStats(
     distinctValues: KpiDistinctValues,
     tradeSummary: TradeSummary,
-    periodDistribution: PeriodDistribution
+    periodDistribution: PeriodDistribution,
+    tagDistribution: TagDistribution
   )
 
   object PortfolioStats {
@@ -163,7 +164,8 @@ object dto {
       new PortfolioStats(
         distinctValues = KpiDistinctValues(portfolioKpi),
         TradeSummary(portfolioKpi),
-        PeriodDistribution(portfolioKpi.periodReturn())
+        PeriodDistribution(portfolioKpi.periodReturn()),
+        TagDistribution(portfolioKpi)
       )
   }
 
