@@ -2,37 +2,38 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ UserId, WalletAddressPredicate }
+import domain.model.{UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{ JournalPositions, JournalingService, PositionService, Positions }
+import domain.position.{JournalPositions, JournalingService, PositionService, Positions}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.PortfolioKpi._
-import infrastructure.api.dto.{ JournalEntry, PortfolioKpi, PortfolioStats, PositionJournalEntry }
+import infrastructure.api.dto.{JournalEntry, PortfolioKpi, PortfolioStats, PositionJournalEntry, TradeSummary}
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.Position._
 import infrastructure.api.dto.PositionJournalEntry._
+import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
 import infrastructure.auth.JwtUserContext
 import infrastructure.google.esp.AuthHeaderData
 import infrastructure.google.esp.AuthHeaderData._
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
+import vo.filter.{KpiFilter, PositionCount, PositionFilter}
 
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
-import pdi.jwt.{ Jwt, JwtAlgorithm, JwtClaim }
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{ Header, _ }
+import zhttp.http.{Header, _}
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{ LocalDate, ZoneId, ZoneOffset }
+import java.time.{LocalDate, ZoneId, ZoneOffset}
 import scala.util.Try
 
 object Routes {
@@ -216,6 +217,23 @@ object Routes {
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        portfolioKpi => Response.jsonString(PortfolioStats(portfolioKpi).toJson)
                      )
+      } yield response
+
+    case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" / "trade-summary" =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+
+        kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
+
+        response <- CryptoJournalApi
+          .getPortfolioKpis(address)(kpiFilter)
+          .provideSomeLayer[Has[KpiService]](JwtUserContext.layer(userId))
+          .fold(
+            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+            portfolioKpi => Response.jsonString(TradeSummary(portfolioKpi).toJson)
+          )
       } yield response
   }
 
