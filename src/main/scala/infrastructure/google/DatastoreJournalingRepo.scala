@@ -1,19 +1,18 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.position.Position.{ PositionId, PositionIdPredicate }
+import domain.position.Position.{PositionId, PositionIdPredicate}
 import domain.position.error._
-import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
-import domain.model.{ UserId, UserIdPredicate }
-import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
+import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
+import domain.model.{MistakePredicate, SetupPredicate, UserId, UserIdPredicate}
+import infrastructure.google.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
-import com.google.cloud.datastore.{ Datastore, Entity, Query, QueryResults, ReadOption, StringValue }
+import com.google.cloud.datastore.{Datastore, Entity, Query, QueryResults, ReadOption, StringValue}
 import eu.timepit.refined
-import eu.timepit.refined.types.string.NonEmptyString
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import scala.jdk.CollectionConverters._
 
@@ -114,11 +113,11 @@ object DatastoreJournalingRepo {
       setups <- tryOrLeft(
                  if (entity.contains("setups")) entity.getList[StringValue]("setups") else List.empty.asJava,
                  InvalidRepresentation("Invalid setups representation")
-               ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
+               ).map(rawSetups => rawSetups.asScala.map(strValue => refined.refineV[SetupPredicate].unsafeFrom(strValue.get())).toList)
       mistakes <- tryOrLeft(
                    if (entity.contains("mistakes")) entity.getList[StringValue]("mistakes") else List.empty.asJava,
                    InvalidRepresentation("Invalid mistakes representation")
-                 ).map(rawSetups => rawSetups.asScala.map(strValue => NonEmptyString.unsafeFrom(strValue.get())).toList)
+                 ).map(rawSetups => rawSetups.asScala.map(strValue => refined.refineV[MistakePredicate].unsafeFrom(strValue.get())).toList)
     } yield JournalEntry(notes, setups, mistakes, Some(userId), Some(positionId))
   }
 }

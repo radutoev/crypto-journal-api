@@ -1,15 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.UserId
+import domain.model.{ Mistake, Setup, UserId }
 import domain.position.Position.PositionId
-
-import eu.timepit.refined.types.string.NonEmptyString
 
 final case class JournalEntry(
   notes: Option[String],
-  setups: List[NonEmptyString],
-  mistakes: List[NonEmptyString],
+  setups: List[Setup],
+  mistakes: List[Mistake],
   userId: Option[UserId] = None,
   positionId: Option[PositionId] = None
 )

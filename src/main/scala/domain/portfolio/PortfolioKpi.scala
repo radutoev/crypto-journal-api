@@ -221,6 +221,8 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     )
   }
 
+//  lazy val setupContributions =
+
   private val USDCurrency: Currency = refineV.unsafeFrom("USD")
 }
 

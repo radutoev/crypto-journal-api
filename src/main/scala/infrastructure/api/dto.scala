@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{ FungibleData => CJFungibleData }
+import domain.model.{ MistakePredicate, SetupPredicate, FungibleData => CJFungibleData }
 import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
 import domain.position.{
   JournalEntry => CJJournalEntry,
@@ -258,8 +258,8 @@ object dto {
       def toDomainModel: CJJournalEntry =
         CJJournalEntry(
           entry.notes,
-          setups = entry.setups.map(NonEmptyString.unsafeFrom),
-          mistakes = entry.mistakes.map(NonEmptyString.unsafeFrom)
+          setups = entry.setups.map(refineV[SetupPredicate](_)).collect { case Right(setup) => setup },
+          mistakes = entry.mistakes.map(refineV[MistakePredicate](_)).collect { case Right(mistake) => mistake }
         )
     }
   }

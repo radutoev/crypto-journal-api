@@ -83,6 +83,12 @@ object model {
   type TradeCountPredicate = NonNegative
   type TradeCount          = Int Refined TradeCountPredicate
 
+  type SetupPredicate = NonEmpty
+  type Setup = String Refined SetupPredicate
+
+  type MistakePredicate = NonEmpty
+  type Mistake = String Refined MistakePredicate
+
   final case class UserWallet(userId: UserId, address: WalletAddress)
 
   implicit class FungibleDataOps(list: List[FungibleData]) {
