@@ -1,11 +1,11 @@
 import com.typesafe.sbt.packager.docker._
 
-val firestoreVersion  = "1.107.0"
+val datastoreVersion  = "2.1.1"
 val jwtVersion        = "8.0.2"
-val refinedVersion    = "0.9.18"
+val refinedVersion    = "0.9.27"
 val sttpClientVersion = "3.3.9" //Used until zio-http fixes its client
-val zioVersion        = "1.0.9"
-val zioConfigVersion  = "1.0.6"
+val zioVersion        = "1.0.12"
+val zioConfigVersion  = "1.0.10"
 val zioHttpVersion    = "1.0.0.0-RC17+12-2f7aa146-SNAPSHOT"
 val zioJsonVersion    = "0.1.5"
 val zioLoggingVersion = "0.5.8"
@@ -24,7 +24,7 @@ val root = (project in file("."))
     name := "crypto-journal-api",
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
     libraryDependencies ++= Seq(
-      "com.google.cloud"              % "google-cloud-datastore"  % firestoreVersion,
+      "com.google.cloud"              % "google-cloud-datastore"  % datastoreVersion,
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
       "com.softwaremill.sttp.client3" %% "httpclient-backend-zio" % sttpClientVersion,
       "dev.zio"                       %% "zio"                    % zioVersion,
