@@ -9,12 +9,15 @@ object CryptoJournalConfig {
 }
 
 final case class CryptoJournalConfig(
+  coinApi: CoinApiConfig,
   covalent: CovalentConfig,
   demoAccount: DemoAccountConfig,
   datastore: DatastoreConfig
 )
 
 final case class CovalentConfig(baseUrl: String, key: String)
+
+final case class CoinApiConfig(baseUrl: String, key: String)
 
 final case class DemoAccountConfig(maxPositions: PosInt)
 
