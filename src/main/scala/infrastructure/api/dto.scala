@@ -1,6 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
+import domain.market.{ Ohlcv => CJOhlcv }
 import domain.model.{ MistakePredicate, SetupPredicate, FungibleData => CJFungibleData }
 import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
 import domain.position.{
@@ -296,5 +297,31 @@ object dto {
           entry = posJournalEntry.entry.toDomainModel
         )
     }
+  }
+
+  final case class Ohlcv(
+    timePeriodStart: Instant,
+    timePeriodEnd: Instant,
+    timeOpen: Instant,
+    timeClose: Instant,
+    priceOpen: FungibleData,
+    priceHigh: FungibleData,
+    priceLow: FungibleData,
+    priceClose: FungibleData
+  )
+
+  object Ohlcv {
+    implicit val ohlcvEntryCodec: JsonCodec[Ohlcv] = DeriveJsonCodec.gen[Ohlcv]
+    def apply(ohlcv: CJOhlcv) =
+      Ohlcv(
+        ohlcv.timePeriodStart,
+        ohlcv.timePeriodEnd,
+        ohlcv.timeOpen,
+        ohlcv.timeClose,
+        ohlcv.priceOpen.asJson,
+        ohlcv.priceHigh.asJson,
+        ohlcv.priceLow.asJson,
+        ohlcv.priceClose.asJson
+      )
   }
 }

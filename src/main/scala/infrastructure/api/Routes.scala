@@ -10,9 +10,11 @@ import domain.position.{ JournalingService, PositionService, Positions }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
+import infrastructure.api.dto.Ohlcv._
 import infrastructure.api.dto.PortfolioKpi._
 import infrastructure.api.dto.{
   JournalEntry,
+  Ohlcv,
   PortfolioKpi,
   PortfolioStats,
   PositionJournalEntry,
@@ -58,6 +60,7 @@ object Routes {
       authenticate(forbidden, wallets) +++
       authenticate(forbidden, positions) +++
       authenticate(forbidden, portfolio) +++
+      authenticate(forbidden, market) +++
       authenticate(forbidden, setups) +++
       authenticate(forbidden, mistakes),
     config = CORSConfig(anyOrigin = true)
@@ -269,6 +272,17 @@ object Routes {
 
   private def mistakes(userId: UserId) = HttpApp.collectM {
     case Method.GET -> Root / "mistakes" => UIO(Response.jsonString(List("Honeypot", "Sold to early").toJson))
+  }
+
+  private def market(userId: UserId) = HttpApp.collectM {
+    case Method.GET -> Root / "markets" / "ohlcv" =>
+      for {
+        response <- CryptoJournalApi.getHistoricalOhlcv()
+          .fold(
+            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+            data => Response.jsonString(data.map(o => Ohlcv(o)).toJson)
+          )
+      } yield response
   }
 
   private def corsSupport() = HttpApp.collect {

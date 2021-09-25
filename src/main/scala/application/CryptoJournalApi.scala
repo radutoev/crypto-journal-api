@@ -7,6 +7,8 @@ import domain.portfolio.{ KpiService, PortfolioKpi }
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
 import domain.position.{ JournalEntry, JournalingService, Position, PositionJournalEntry, PositionService, Positions }
+import domain.market.error.MarketError
+import domain.market.{Ohlcv, MarketService}
 import domain.wallet.error.WalletError
 import domain.wallet.{ Wallet, WalletService }
 import vo.filter.{ KpiFilter, PositionFilter }
@@ -79,4 +81,9 @@ object CryptoJournalApi {
       userId <- UserContext.userId
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntries(userId, positionEntries))
     } yield ()
+
+  def getHistoricalOhlcv(): ZIO[Has[MarketService], MarketError, List[Ohlcv]] =
+    for {
+      data <- ZIO.serviceWith[MarketService](_.getHistoricalOhlcv())
+    } yield data
 }

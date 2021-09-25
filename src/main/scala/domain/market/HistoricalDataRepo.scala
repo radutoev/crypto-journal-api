@@ -1,11 +1,12 @@
 package io.softwarechain.cryptojournal
 package domain.market
 
+import error.MarketError
 import zio.IO
 
 /**
  * OHLCV (Open, High, Low, Close, Volume) timeseries data.
  */
-trait OhlcvRepo {
-  def getHistoricalData(): IO[Throwable, List[Ohlcv]]
+trait HistoricalDataRepo {
+  def getHistoricalOhlcv(): IO[MarketError, List[Ohlcv]]
 }
