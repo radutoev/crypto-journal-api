@@ -312,8 +312,8 @@ object dto {
 
   object Ohlcv {
     implicit val ohlcvEntryCodec: JsonCodec[Ohlcv] = DeriveJsonCodec.gen[Ohlcv]
-    def apply(ohlcv: CJOhlcv) =
-      Ohlcv(
+    def apply(ohlcv: CJOhlcv): Ohlcv =
+      new Ohlcv(
         ohlcv.timePeriodStart,
         ohlcv.timePeriodEnd,
         ohlcv.timeOpen,

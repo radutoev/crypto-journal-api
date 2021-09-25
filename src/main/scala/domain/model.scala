@@ -14,6 +14,10 @@ object model {
   type CurrencyPredicate = NonEmpty
   type Currency          = String Refined CurrencyPredicate
 
+  object Currency {
+    def unsafeFrom(str: String) = refineV[CurrencyPredicate].unsafeFrom(str)
+  }
+
   type NumberOfDaysPredicate = NonNegative
   type NumberOfDays          = Int Refined NumberOfDaysPredicate
 
