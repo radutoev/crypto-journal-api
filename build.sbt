@@ -1,14 +1,14 @@
 import com.typesafe.sbt.packager.docker._
 
-val datastoreVersion  = "2.1.1"
+val datastoreVersion  = "2.1.2"
 val jwtVersion        = "8.0.2"
 val refinedVersion    = "0.9.27"
-val sttpClientVersion = "3.3.9" //Used until zio-http fixes its client
+val sttpClientVersion = "3.3.14"
 val zioVersion        = "1.0.12"
 val zioConfigVersion  = "1.0.10"
 val zioHttpVersion    = "1.0.0.0-RC17+12-2f7aa146-SNAPSHOT"
 val zioJsonVersion    = "0.1.5"
-val zioLoggingVersion = "0.5.8"
+val zioLoggingVersion = "0.5.12"
 val zioPreludeVersion = "1.0.0-RC5"
 
 val root = (project in file("."))
@@ -38,10 +38,10 @@ val root = (project in file("."))
       "dev.zio"                       %% "zio-prelude"            % zioPreludeVersion,
       "eu.timepit"                    %% "refined"                % refinedVersion,
       "io.d11"                        %% "zhttp"                  % zioHttpVersion,
-      "ch.qos.logback"                % "logback-classic"         % "1.2.3",
+      "ch.qos.logback"                % "logback-classic"         % "1.2.6",
       "org.reactivestreams"           % "reactive-streams"        % "1.0.3",
-      "com.github.jwt-scala"          %% "jwt-core"               % "8.0.2", //Use this until I figure out how to configure API-Gw with CloudRun
-      "com.auth0"                     % "jwks-rsa"                % "0.6.1",
+      "com.github.jwt-scala"          %% "jwt-core"               % "9.0.1", //Use this until I figure out how to configure API-Gw with CloudRun
+      "com.auth0"                     % "jwks-rsa"                % "0.19.0",
       "dev.zio"                       %% "zio-test"               % zioVersion % Test,
       "dev.zio"                       %% "zio-test-sbt"           % zioVersion % Test
     ),
