@@ -1,23 +1,22 @@
 package io.softwarechain.cryptojournal
 
+import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
-import domain.model.{TransactionHash, WalletAddress}
+import domain.model.TransactionHash
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
 
 import com.typesafe.config.{Config, ConfigFactory}
-import io.softwarechain.cryptojournal.config.CryptoJournalConfig
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zio._
 import zio.config.typesafe.TypesafeConfig
-import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
 
 import scala.jdk.CollectionConverters._
 
-object Sync {
+object Sync extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     ZIO(ConfigFactory.load.resolve()).flatMap(rawConfig => program(rawConfig)).exitCode
 
@@ -35,19 +34,20 @@ object Sync {
 
   //TODO I think i need to split based on to vs from presence.
   private def filterByWalletPresence(tx: Transaction) = {
-    if(tx.getTo != null && tx.getFrom != null) {
-      for {
-        toFound   <- WalletRepo.exists(WalletAddress.unsafeApply(tx.getTo))
-        fromFound <- WalletRepo.exists(WalletAddress.unsafeApply(tx.getFrom))
-        _         <- if(toFound || fromFound) {
-          Logging.info(s"True from transaction ${tx.getHash}")
-        } else {
-          Logging.info(s"False from transaction ${tx.getHash}")
-        }
-      } yield toFound || fromFound
-    } else {
-      Logging.info(s"Transaction ${tx.getHash} has not to/from values") *> UIO(false)
-    }
+    UIO(false)
+//    if(tx.getTo != null && tx.getFrom != null) {
+//      for {
+//        toFound   <- WalletRepo.exists(WalletAddress.unsafeApply(tx.getTo))
+//        fromFound <- WalletRepo.exists(WalletAddress.unsafeApply(tx.getFrom))
+//        _         <- if(toFound || fromFound) {
+//          Logging.info(s"True from transaction ${tx.getHash}")
+//        } else {
+//          Logging.info(s"False from transaction ${tx.getHash}")
+//        }
+//      } yield toFound || fromFound
+//    } else {
+//      Logging.info(s"Transaction ${tx.getHash} has not to/from values") *> UIO(false)
+//    }
   }
 
   def listenerEnvironment(config: Config) = {
@@ -62,8 +62,8 @@ object Sync {
     }
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
-    lazy val walletRepoLayer   = (httpClientLayer ++ loggingLayer) >>> CryptoJournalFacade.layer
+//    lazy val walletRepoLayer   = (httpClientLayer ++ loggingLayer) >>> CryptoJournalFacade.layer
 
-    exchangeRepoLayer ++ walletRepoLayer ++ loggingLayer
+    exchangeRepoLayer ++ loggingLayer //++ walletRepoLayer
   }
 }
