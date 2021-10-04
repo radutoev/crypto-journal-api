@@ -3,37 +3,61 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
 import domain.model.TransactionHash
+import domain.repo.{ LiveWalletRepo, WalletRepo }
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
+import infrastructure.journal.PubSubWalletStream
+import infrastructure.journal.dto.{ WalletAdded, WalletRemoved }
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory }
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zio._
 import zio.config.typesafe.TypesafeConfig
+import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
 
 import scala.jdk.CollectionConverters._
 
 object Sync extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    ZIO(ConfigFactory.load.resolve()).flatMap(rawConfig => program(rawConfig)).exitCode
+    ZIO(ConfigFactory.load.resolve())
+      .flatMap(rawConfig => program(rawConfig))
+      .exitCode
 
   private def program(config: Config) =
-    BnbListener
-      .positionEntryStream()
-      .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
-      .flattenIterables
-      .filterM(txObject => filterByWalletPresence(txObject.get()))
-      .map(txObject => TransactionHash.unsafeApply(txObject.get().getHash))
-      .mapM(txHash => BlockchainRepo.fetchTransaction(txHash))
-      .foreach(t => UIO(println(t)))
-      .provideCustomLayer(listenerEnvironment(config))
-      .forever
+    for {
+      bnbStream <- BnbListener
+                    .positionEntryStream()
+                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
+                    .flattenIterables
+                    .filterM(txObject => filterByWalletPresence(txObject.get()))
+                    .map(txObject => TransactionHash.unsafeApply(txObject.get().getHash))
+                    .mapM(txHash => BlockchainRepo.fetchTransaction(txHash))
+                    .foreach(t => UIO(println(t)))
+                    .provideCustomLayer(listenerEnvironment(config))
+                    .forever
+                    .fork
+
+      walletStream <- PubSubWalletStream
+                       .walletStream()
+                       .foreach {
+                         case WalletAdded(wallet) =>
+                           Logging.info(s"Wallet ${wallet.address} added. Adding to cache") *>
+                             LiveWalletRepo.addWallet(wallet.address)
+                         case WalletRemoved(wallet) =>
+                           Logging.info(s"Wallet ${wallet.address.value} removed. No action required.")
+                       }
+                       .provideCustomLayer(listenerEnvironment(config))
+                       .forever
+                       .fork
+
+      _ <- (bnbStream <*> walletStream).join
+    } yield ()
 
   //TODO I think i need to split based on to vs from presence.
-  private def filterByWalletPresence(tx: Transaction) = {
+  private def filterByWalletPresence(tx: Transaction) =
     UIO(false)
 //    if(tx.getTo != null && tx.getFrom != null) {
 //      for {
@@ -48,9 +72,8 @@ object Sync extends App {
 //    } else {
 //      Logging.info(s"Transaction ${tx.getHash} has not to/from values") *> UIO(false)
 //    }
-  }
 
-  def listenerEnvironment(config: Config) = {
+  private def listenerEnvironment(config: Config) = {
     val configLayer         = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
     val covalentConfigLayer = configLayer.map(c => Has(c.get.covalent))
 
@@ -62,8 +85,8 @@ object Sync extends App {
     }
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
-//    lazy val walletRepoLayer   = (httpClientLayer ++ loggingLayer) >>> CryptoJournalFacade.layer
+    lazy val walletRepoLayer   = LiveWalletRepo.layer
 
-    exchangeRepoLayer ++ loggingLayer //++ walletRepoLayer
+    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer
   }
 }
