@@ -3,11 +3,10 @@ package domain.portfolio
 
 import domain.model.UserWallet
 import domain.position.PositionService
-import vo.filter.{KpiFilter, PositionFilter}
+import vo.filter.{ KpiFilter, PositionFilter }
 
-import zio.{Has, Task, URLayer}
+import zio.{ Has, Task, URLayer }
 import zio.clock.Clock
-
 
 trait KpiService {
   def portfolioKpi(userWallet: UserWallet)(kpiFilter: KpiFilter): Task[PortfolioKpi]

@@ -2,18 +2,18 @@ package io.softwarechain.cryptojournal
 package infrastructure.google
 
 import config.DatastoreConfig
-import domain.model.{MistakePredicate, SetupPredicate, UserId, UserIdPredicate}
-import domain.position.Position.{PositionId, PositionIdPredicate}
+import domain.model.{ MistakePredicate, SetupPredicate, UserId, UserIdPredicate }
+import domain.position.Position.{ PositionId, PositionIdPredicate }
 import domain.position.error._
-import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
-import infrastructure.google.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
+import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
+import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import scala.jdk.CollectionConverters._
 

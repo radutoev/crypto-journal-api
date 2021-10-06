@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{UserId, WalletAddress}
+import domain.model.{ UserId, WalletAddress }
 import domain.position.Position.PositionId
 
 object error {

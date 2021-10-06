@@ -136,17 +136,17 @@ object Routes {
                      .fold(positionErrorToHttpResponse, _.asResponse())
       } yield response
 
-    case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
-      for {
-        address <- ZIO
-                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-                    .orElseFail(BadRequest("Invalid address"))
-
-        response <- CryptoJournalApi
-                     .diff(address)
-                     .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
-                     .fold(positionErrorToHttpResponse, _.asResponse())
-      } yield response
+//    case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
+//      for {
+//        address <- ZIO
+//                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+//                    .orElseFail(BadRequest("Invalid address"))
+//
+//        response <- CryptoJournalApi
+//                     .diff(address)
+//                     .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
+//                     .fold(positionErrorToHttpResponse, _.asResponse())
+//      } yield response
 
     case Method.GET -> Root / "positions" / rawPositionId =>
       for {
@@ -277,11 +277,12 @@ object Routes {
   private def market(userId: UserId) = HttpApp.collectM {
     case Method.GET -> Root / "markets" / "ohlcv" =>
       for {
-        response <- CryptoJournalApi.getHistoricalOhlcv()
-          .fold(
-            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-            data => Response.jsonString(data.map(o => Ohlcv(o)).toJson)
-          )
+        response <- CryptoJournalApi
+                     .getHistoricalOhlcv()
+                     .fold(
+                       _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+                       data => Response.jsonString(data.map(o => Ohlcv(o)).toJson)
+                     )
       } yield response
   }
 
@@ -392,11 +393,11 @@ object Routes {
 
   implicit class PositionsResponseOps(positions: Positions) {
     def asResponse(): UResponse = {
-      val resultHeaders: List[Header] = positions.lastSync match {
-        case Some(value) => List(Header("X-CoinLogger-LatestSync", value.toString))
-        case None        => Nil
-      }
-      val headers = Header("Content-Type", "application/json") :: resultHeaders
+//      val resultHeaders: List[Header] = positions.lastSync match {
+//        case Some(value) => List(Header("X-CoinLogger-LatestSync", value.toString))
+//        case None        => Nil
+//      }
+      val headers = Header("Content-Type", "application/json") :: Nil
 
       positions.items match {
         case list =>

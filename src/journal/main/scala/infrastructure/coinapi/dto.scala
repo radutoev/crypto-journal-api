@@ -2,9 +2,9 @@ package io.softwarechain.cryptojournal
 package infrastructure.coinapi
 
 import domain.market.Ohlcv
-import domain.model.{Currency, FungibleData}
+import domain.model.{ Currency, FungibleData }
 
-import zio.json.{DeriveJsonDecoder, JsonDecoder, jsonField}
+import zio.json.{ jsonField, DeriveJsonDecoder, JsonDecoder }
 
 import java.time.Instant
 

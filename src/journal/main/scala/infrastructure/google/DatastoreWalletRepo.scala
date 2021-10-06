@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddress, WalletAddressPredicate }
 import domain.wallet.error._
-import domain.wallet.{Wallet, WalletRepo}
-import util.{EitherOps, tryOrLeft}
+import domain.wallet.{ Wallet, WalletRepo }
+import util.{ tryOrLeft, EitherOps }
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
@@ -13,8 +13,8 @@ import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
 import io.softwarechain.cryptojournal.config.DatastoreConfig
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import java.time.Instant
 import scala.jdk.CollectionConverters._

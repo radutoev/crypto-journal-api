@@ -1,21 +1,21 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.blockchain.error._
 import domain.model._
 import domain.position.error._
 import domain.position.Position._
 import domain.position.LivePositionService.findPositions
-import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
 import vo.TimeInterval
 import vo.filter.PositionFilter
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
@@ -24,8 +24,6 @@ trait PositionService {
   def getPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, Positions]
 
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, Position]
-
-  def diff(userWallet: UserWallet): IO[PositionError, Positions]
 
   def importPositions(userWallet: UserWallet): IO[PositionError, Unit]
 
@@ -47,8 +45,6 @@ trait PositionService {
    * @return true if system is aware of the wallet address, false otherwise.
    */
   def exists(address: WalletAddress): Task[Boolean]
-
-  def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint]
 }
 
 object PositionService {
@@ -80,22 +76,8 @@ final case class LivePositionService(
                          userWallet.userId,
                          positions.map(_.id).collect { case Some(id) => id }
                        )
-      result <- positionRepo
-                 .getCheckpoint(userWallet.address)
-                 .map(checkpoint =>
-                   Positions(withJournalEntries(positions, journalEntries), checkpoint.latestTxTimestamp)
-                 )
-                 .catchSome {
-                   case CheckpointNotFound(_) => UIO(Positions.empty())
-                 }
-    } yield result
+    } yield Positions(withJournalEntries(positions, journalEntries))
   }
-
-  private def getPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Positions] =
-    positionRepo
-      .getPositions(userWallet.address, startFrom)
-      .flatMap(enrichPositions)
-      .map(positions => Positions(positions, Some(startFrom)))
 
   private def enrichPositions(positions: List[Position]): IO[PositionError, List[Position]] = {
     val interval = extractTimeInterval(positions)
@@ -120,7 +102,7 @@ final case class LivePositionService(
       .zipPar(journalingRepo.getEntry(userId, positionId).map(Some(_)).catchSome {
         case _: JournalNotFound => UIO.none
       })
-      .bimap(_ => PositionFetchError(positionId, new RuntimeException("Unable to enrich position")), {
+      .mapBoth(_ => PositionFetchError(positionId, new RuntimeException("Unable to enrich position")), {
         case (position, entry) => position.copy(journal = entry)
       })
 
@@ -130,20 +112,6 @@ final case class LivePositionService(
       .getQuotes(interval)
       .map(PriceQuotes.apply)
       .map(priceQuotes => position.copy(priceQuotes = Some(priceQuotes)))
-  }
-
-  override def diff(userWallet: UserWallet): IO[PositionError, Positions] = {
-    @inline
-    def diffPositions(timestamp: Instant): IO[PositionError, Positions] =
-      importPositions(userWallet, timestamp) *> getPositions(userWallet, timestamp)
-
-    def noNewPositions(): UIO[Positions] =
-      logger.debug(s"No new positions found for ${userWallet.address}") *> UIO(Positions.empty())
-
-    for {
-      checkpoint <- getCheckpoint(userWallet.address)
-      positions  <- checkpoint.latestTxTimestamp.fold[IO[PositionError, Positions]](noNewPositions())(diffPositions)
-    } yield positions
   }
 
   override def importPositions(userWallet: UserWallet): IO[PositionError, Unit] =
@@ -173,7 +141,7 @@ final case class LivePositionService(
       _ <- logger.info(s"Importing data for ${userWallet.address.value}...")
 
       positions <- txStream.runCollect
-                    .bimap(
+                    .mapBoth(
                       error => PositionImportError(userWallet.address, new RuntimeException(error.message)),
                       chunks => findPositions(chunks.toList)
                     ) // TODO Try to optimize so as not to process the entire stream.
@@ -187,9 +155,6 @@ final case class LivePositionService(
   }
 
   override def exists(address: WalletAddress): Task[Boolean] = positionRepo.exists(address)
-
-  override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] =
-    positionRepo.getCheckpoint(address)
 }
 
 object LivePositionService {

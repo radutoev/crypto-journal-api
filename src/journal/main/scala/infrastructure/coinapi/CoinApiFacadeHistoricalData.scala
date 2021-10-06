@@ -3,15 +3,15 @@ package infrastructure.coinapi
 
 import config.CoinApiConfig
 import domain.market.error._
-import domain.market.{HistoricalDataRepo, Ohlcv}
+import domain.market.{ HistoricalDataRepo, Ohlcv }
 import infrastructure.coinapi.dto.HistoricalData
 import infrastructure.coinapi.dto.HistoricalData._
 
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.json._
-import zio.{Has, IO, UIO, URLayer, ZIO}
+import zio.{ Has, IO, UIO, URLayer, ZIO }
 
 final case class CoinApiFacadeHistoricalData(
   httpClient: SttpClient.Service,

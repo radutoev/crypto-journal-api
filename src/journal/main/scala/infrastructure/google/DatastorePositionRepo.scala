@@ -3,20 +3,20 @@ package infrastructure.google
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
+import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
 import domain.position.error._
-import domain.position.{Checkpoint, Position, PositionEntry, PositionRepo}
-import util.{InstantOps, tryOrLeft}
+import domain.position.{ Position, PositionEntry, PositionRepo }
+import util.{ tryOrLeft, InstantOps }
 import vo.filter.PositionFilter
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -25,8 +25,7 @@ import scala.jdk.CollectionConverters._
 final case class DatastorePositionRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
-  logger: Logger[String],
-  clock: Clock.Service
+  logger: Logger[String]
 ) extends PositionRepo {
 
   override def save(address: WalletAddress, positions: List[Position]): Task[Unit] = {
@@ -43,23 +42,18 @@ final case class DatastorePositionRepo(
           }
         }
         .tapError(throwable =>
-          logger.error(s"Error importing positions for ${address.value}") *> logger.error(throwable.getMessage)
+          logger.error(s"Error saving positions for ${address.value}") *> logger.error(throwable.getMessage)
         )
         .ignore //TODO handle transactions response when doing error handling.
 
     val entities = positions.map(pos => positionToEntity(pos, address, datastoreConfig.position)).grouped(23).toList
 
     if (positions.isEmpty) {
-      logger.debug(s"No positions to import for ${address.value}")
+      logger.debug(s"No positions to save for ${address.value}")
     } else {
-      val latestTxInstant = positions.sortBy(_.openedAt)(Ordering[Instant].reverse).head.openedAt
-
       for {
-        instant <- clock.instant
-        _       <- upsertCheckpoint(address)(instant)
-        _       <- ZIO.foreach(entities)(saveEntities).ignore
-        _       <- upsertCheckpoint(address, latestTxInstant)(instant)
-        _       <- logger.info(s"Finished importing positions for address ${address.value}")
+        _ <- ZIO.foreach(entities)(saveEntities).ignore
+        _ <- logger.info(s"Finished saving positions for address ${address.value}")
       } yield ()
     }
   }
@@ -122,7 +116,7 @@ final case class DatastorePositionRepo(
       .catchSome {
         case e: DatastoreException if e.getMessage.contains("no matching index found") => UIO.none
       }
-      .bimap(
+      .mapBoth(
         _ => PositionsFetchError(address),
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty)(results =>
@@ -149,67 +143,17 @@ final case class DatastorePositionRepo(
       }
   }
 
-  override def exists(address: WalletAddress): Task[Boolean] =
-    executeQuery(
-      Query
-        .newKeyQueryBuilder()
-        .setKind(datastoreConfig.checkpoint)
-        .setFilter(
-          PropertyFilter
-            .eq("__key__", datastore.newKeyFactory().setKind(datastoreConfig.checkpoint).newKey(address.value))
-        )
-        .build()
-    ).map(results => results.asScala.nonEmpty)
-
-  override def getCheckpoint(address: WalletAddress): IO[PositionError, Checkpoint] =
-    executeQuery(
-      Query
-        .newEntityQueryBuilder()
-        .setKind(datastoreConfig.checkpoint)
-        .setFilter(
-          PropertyFilter
-            .eq("__key__", datastore.newKeyFactory().setKind(datastoreConfig.checkpoint).newKey(address.value))
-        )
-        .build()
-    ).mapError(throwable => CheckpointFetchError(address, throwable)).flatMap { results =>
-      val checkpoints = results.asScala
-      if (checkpoints.nonEmpty) {
-        val entity = checkpoints.next()
-        UIO(
-          Checkpoint(
-            address,
-            Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
-            if (entity.contains("latestTxTimestamp"))
-              Some(Instant.ofEpochSecond(entity.getTimestamp("latestTxTimestamp").getSeconds))
-            else None
-          )
-        )
-      } else {
-        ZIO.fail(CheckpointNotFound(address))
-      }
-    }
-
-  private def upsertCheckpoint(address: WalletAddress, latestTxTimestamp: Instant)(implicit instant: Instant) = Task {
-    datastore.put(
-      Entity
-        .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.checkpoint).newKey(address.value))
-        .set("timestamp", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
-        .set(
-          "latestTxTimestamp",
-          Timestamp.ofTimeSecondsAndNanos(latestTxTimestamp.getEpochSecond, latestTxTimestamp.getNano)
-        )
-        .build()
-    )
-  }
-
-  private def upsertCheckpoint(address: WalletAddress)(implicit instant: Instant) = Task {
-    datastore.put(
-      Entity
-        .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.checkpoint).newKey(address.value))
-        .set("timestamp", Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano))
-        .build()
-    )
-  }
+  override def exists(address: WalletAddress): Task[Boolean] = ???
+//    executeQuery(
+//      Query
+//        .newKeyQueryBuilder()
+//        .setKind(datastoreConfig.checkpoint)
+//        .setFilter(
+//          PropertyFilter
+//            .eq("__key__", datastore.newKeyFactory().setKind(datastoreConfig.checkpoint).newKey(address.value))
+//        )
+//        .build()
+//    ).map(results => results.asScala.nonEmpty)
 
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
@@ -332,5 +276,5 @@ final case class DatastorePositionRepo(
 
 object DatastorePositionRepo {
   lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[PositionRepo]] =
-    (DatastorePositionRepo(_, _, _, _)).toLayer
+    (DatastorePositionRepo(_, _, _)).toLayer
 }

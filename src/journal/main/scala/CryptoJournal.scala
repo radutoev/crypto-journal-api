@@ -3,22 +3,27 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.market.LiveMarketService
 import domain.portfolio.LiveKpiService
-import domain.position.{LiveJournalingService, LivePositionService}
+import domain.position.{ LiveJournalingService, LivePositionService }
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.{DatastoreJournalingRepo, DatastorePositionRepo, DatastorePriceQuoteRepo, DatastoreWalletRepo}
+import infrastructure.google.{
+  DatastoreJournalingRepo,
+  DatastorePositionRepo,
+  DatastorePriceQuoteRepo,
+  DatastoreWalletRepo
+}
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory }
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.{ EventLoopGroup, Server }
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{App, ExitCode, Has, URIO, ZIO, console}
+import zio.{ console, App, ExitCode, Has, URIO, ZIO }
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -35,7 +40,7 @@ object CryptoJournal extends App {
     val configLayer = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
 
     val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
-    val coinApiConfigLayer = configLayer.map(c => Has(c.get.coinApi))
+    val coinApiConfigLayer   = configLayer.map(c => Has(c.get.coinApi))
     val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
 //    val demoAccountConfigLayer = configLayer.map(c => Has(c.get.demoAccount))
 
@@ -50,7 +55,8 @@ object CryptoJournal extends App {
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
-    lazy val coinApiFacadeLayer = (httpClientLayer ++ coinApiConfigLayer ++ loggingLayer) >+> CoinApiFacadeHistoricalData.layer
+    lazy val coinApiFacadeLayer =
+      (httpClientLayer ++ coinApiConfigLayer ++ loggingLayer) >+> CoinApiFacadeHistoricalData.layer
 
     lazy val covalentFacadeLayer = (httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer
 

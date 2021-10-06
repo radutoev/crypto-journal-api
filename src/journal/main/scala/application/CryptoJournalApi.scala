@@ -3,17 +3,17 @@ package application
 
 import domain.account.UserContext
 import domain.market.error.MarketError
-import domain.market.{MarketService, Ohlcv}
-import domain.model.{UserWallet, WalletAddress}
-import domain.portfolio.{KpiService, PortfolioKpi}
+import domain.market.{ MarketService, Ohlcv }
+import domain.model.{ UserWallet, WalletAddress }
+import domain.portfolio.{ KpiService, PortfolioKpi }
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
 import domain.position._
 import domain.wallet.error.WalletError
-import domain.wallet.{Wallet, WalletService}
-import vo.filter.{KpiFilter, PositionFilter}
+import domain.wallet.{ Wallet, WalletService }
+import vo.filter.{ KpiFilter, PositionFilter }
 
-import zio.{Has, ZIO}
+import zio.{ Has, ZIO }
 
 object CryptoJournalApi {
   def getPositions(
@@ -31,12 +31,6 @@ object CryptoJournalApi {
     for {
       userId   <- UserContext.userId
       position <- ZIO.serviceWith[PositionService](_.getPosition(userId, positionId))
-    } yield position
-
-  def diff(address: WalletAddress): ZIO[Has[PositionService] with Has[UserContext], PositionError, Positions] =
-    for {
-      userId   <- UserContext.userId
-      position <- ZIO.serviceWith[PositionService](_.diff(UserWallet(userId, address)))
     } yield position
 
   def getPortfolioKpis(

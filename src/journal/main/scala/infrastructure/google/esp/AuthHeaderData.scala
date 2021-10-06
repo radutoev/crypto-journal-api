@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google.esp
 
-import zio.json.{DecoderOps, DeriveJsonDecoder, JsonDecoder}
+import zio.json.{ DecoderOps, DeriveJsonDecoder, JsonDecoder }
 
 import java.nio.charset.StandardCharsets
 import java.util.Base64
