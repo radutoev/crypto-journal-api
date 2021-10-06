@@ -17,11 +17,11 @@ trait WalletService {
   def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit]
 }
 
-final case class LiveWalletService(walletRepo: WalletRepo, positionService: PositionService, logger: Logger[String])
+final case class LiveWalletService(userWalletRepo: UserWalletRepo, positionService: PositionService, logger: Logger[String])
     extends WalletService {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
 //    val userWallet = UserWallet(userId, address)
-    walletRepo.addWallet(userId, address)
+    userWalletRepo.addWallet(userId, address)
 
 //    walletRepo
 //      .addWallet(userId, address)
@@ -49,13 +49,13 @@ final case class LiveWalletService(walletRepo: WalletRepo, positionService: Posi
 //      }
 //      .unit
 
-  override def getWallets(userId: UserId): IO[WalletError, List[Wallet]] = walletRepo.getWallets(userId)
+  override def getWallets(userId: UserId): IO[WalletError, List[Wallet]] = userWalletRepo.getWallets(userId)
 
   override def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
-    walletRepo.removeWallet(userId, address)
+    userWalletRepo.removeWallet(userId, address)
 }
 
 object LiveWalletService {
-  lazy val layer: URLayer[Has[WalletRepo] with Has[PositionService] with Logging, Has[WalletService]] =
+  lazy val layer: URLayer[Has[UserWalletRepo] with Has[PositionService] with Logging, Has[WalletService]] =
     (LiveWalletService(_, _, _)).toLayer
 }

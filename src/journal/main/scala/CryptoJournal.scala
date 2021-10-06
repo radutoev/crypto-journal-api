@@ -12,7 +12,7 @@ import infrastructure.google.{
   DatastoreJournalingRepo,
   DatastorePositionRepo,
   DatastorePriceQuoteRepo,
-  DatastoreWalletRepo
+  DatastoreUserWalletRepo
 }
 
 import com.google.cloud.datastore.DatastoreOptions
@@ -36,7 +36,7 @@ object CryptoJournal extends App {
       .use(_ => console.putStrLn("Server started on port 8080") *> ZIO.never)
       .provideCustomLayer(prepareEnvironment(config))
 
-  def prepareEnvironment(config: Config) = {
+  private def prepareEnvironment(config: Config) = {
     val configLayer = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
 
     val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
@@ -71,7 +71,7 @@ object CryptoJournal extends App {
       positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LivePositionService.layer
 
     lazy val walletServiceLayer =
-      (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
+      (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer) ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
 
     lazy val kpiServiceLayer = (positionServiceLayer ++ Clock.live) >>> LiveKpiService.layer
 

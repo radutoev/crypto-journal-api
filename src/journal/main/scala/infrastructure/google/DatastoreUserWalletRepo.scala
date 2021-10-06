@@ -1,30 +1,30 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google
 
-import domain.model.{ UserId, WalletAddress, WalletAddressPredicate }
+import config.DatastoreConfig
+import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
 import domain.wallet.error._
-import domain.wallet.{ Wallet, WalletRepo }
-import util.{ tryOrLeft, EitherOps }
+import domain.wallet.{UserWalletRepo, Wallet}
+import util.{EitherOps, tryOrLeft}
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.config.DatastoreConfig
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import java.time.Instant
 import scala.jdk.CollectionConverters._
 
-final case class DatastoreWalletRepo(
+final case class DatastoreUserWalletRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
   logger: Logger[String],
   clock: Clock.Service
-) extends WalletRepo {
+) extends UserWalletRepo {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
     clock.instant.flatMap(instant =>
       getWallet(userId, address)
@@ -41,8 +41,8 @@ final case class DatastoreWalletRepo(
         .setKind(datastoreConfig.wallet)
         .setFilter(PropertyFilter.eq("userId", userId.value))
         .build()
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*)).bimap({
-      case t: Throwable => WalletsFetchError(userId, t)
+    Task(datastore.run(query, Seq.empty[ReadOption]: _*)).mapBoth({
+      t: Throwable => WalletsFetchError(userId, t)
     }, results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet })
   }
 
@@ -86,7 +86,7 @@ final case class DatastoreWalletRepo(
   }
 }
 
-object DatastoreWalletRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[WalletRepo]] =
-    (DatastoreWalletRepo(_, _, _, _)).toLayer
+object DatastoreUserWalletRepo {
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[UserWalletRepo]] =
+    (DatastoreUserWalletRepo(_, _, _, _)).toLayer
 }
