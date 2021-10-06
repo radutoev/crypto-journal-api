@@ -49,4 +49,6 @@ final case class Positions(items: List[Position]) {
 
 object Positions {
   def apply(items: List[Position]): Positions = new Positions(items)
+
+  def empty(): Positions = Positions(List.empty)
 }

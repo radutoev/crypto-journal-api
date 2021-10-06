@@ -6,7 +6,7 @@ import zio.config.magnolia.DeriveConfigDescriptor
 import zio.config.refined._
 
 object CryptoJournalConfig {
-  val descriptor = DeriveConfigDescriptor.descriptor[CryptoJournalConfig]
+  val descriptor: zio.config.ConfigDescriptor[CryptoJournalConfig] = DeriveConfigDescriptor.descriptor[CryptoJournalConfig]
 }
 
 final case class CryptoJournalConfig(
@@ -25,5 +25,6 @@ final case class DatastoreConfig(
   journal: String,
   position: String,
   priceQuote: String,
+  userWallet: String,
   wallet: String
 )
