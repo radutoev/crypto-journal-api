@@ -23,35 +23,23 @@ final case class LiveWalletService(
   positionService: PositionService,
   logger: Logger[String]
 ) extends WalletService {
-  override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
-//    val userWallet = UserWallet(userId, address)
-    userWalletRepo.addWallet(userId, address)
-
-//    walletRepo
-//      .addWallet(userId, address)
-//      .zipParRight {
-//        positionService
-//          .getCheckpoint(address)
-//          .foldM(
-//            {
-//              case CheckpointNotFound(address) =>
-//                logger.info(s"No checkpoint found for ${address.value} Performing full import...") *>
-//                  positionService.importPositions(userWallet)
-//              case _ => logger.error(s"Unable to fetch latest checkpoint. Aborting address ${address.value} import")
-//            },
-//            checkpoint =>
-//              checkpoint.latestTxTimestamp.fold[Task[Unit]](logger.debug("Import job currently running. Skipping..."))(
-//                timestamp =>
-//                  logger.info(s"Importing positions starting from ${checkpoint.latestTxTimestamp.get}") *>
-//                    positionService
-//                      .importPositions(userWallet, timestamp)
-//                      .tapError(_ => logger.error(s"Unable to import positions for $address"))
-//                      .ignore
-//              )
-//          )
-//          .forkDaemon
-//      }
-//      .unit
+  override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
+    val userWallet = UserWallet(userId, address)
+    walletRepo.exists(address).flatMap {
+      case true => logger.info(s"Address ${address.value} found in system. Skipping import.")
+      case false =>
+        (userWalletRepo
+          .addWallet(userId, address) *> walletRepo.addWallet(address)) //TODO Recover code, not sure if saga
+          .zipParRight(
+            positionService
+              .importPositions(userWallet)
+              .tapError(_ => logger.error(s"Unable to import positions for $address"))
+              .ignore
+              .forkDaemon
+          )
+          .unit
+    }
+  }
 
   override def getWallets(userId: UserId): IO[WalletError, List[Wallet]] = userWalletRepo.getWallets(userId)
 
@@ -60,6 +48,7 @@ final case class LiveWalletService(
 }
 
 object LiveWalletService {
-  lazy val layer: URLayer[Has[UserWalletRepo] with Has[WalletRepo] with Has[PositionService] with Logging, Has[WalletService]] =
+  lazy val layer
+    : URLayer[Has[UserWalletRepo] with Has[WalletRepo] with Has[PositionService] with Logging, Has[WalletService]] =
     (LiveWalletService(_, _, _, _)).toLayer
 }
