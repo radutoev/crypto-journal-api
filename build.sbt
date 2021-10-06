@@ -6,8 +6,8 @@ val jwtVersion            = "9.0.1"
 val logbackVersion        = "1.2.6"
 val reactiveVersion       = "1.0.3"
 val refinedVersion        = "0.9.27"
-val pubsubVersion         = "1.0.4"
-val spotifyFuturesVersion = "4.2.0"
+val pubsubVersion         = "1.2.0"
+val spotifyFuturesVersion = "4.3.0"
 val sttpClientVersion     = "3.3.14"
 val web3jVersion          = "5.0.0"
 val zioVersion            = "1.0.12"
@@ -21,11 +21,6 @@ val zioPreludeVersion     = "1.0.0-RC5"
 lazy val commonSettings = Nil ++
   Seq(
     scalacOptions ++= Seq("-Ymacro-annotations"),
-    Compile / javaSource := baseDirectory.value / "main/java",
-    Compile / scalaSource := baseDirectory.value / "main/scala",
-    Compile / resourceDirectory := baseDirectory.value / "main/resources",
-    Test / sourceDirectory := baseDirectory.value / "test/scala",
-    Test / resourceDirectory := baseDirectory.value / "test/resources",
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
   ) ++
@@ -55,7 +50,15 @@ lazy val packageSettings = Nil ++
 lazy val shared = project
   .in(file("src/shared"))
   .settings(
-    commonSettings ++ Seq(name := "shared"),
+    commonSettings ++
+      Seq(
+        name := "shared",
+        Compile / javaSource := baseDirectory.value / "main/java",
+        Compile / scalaSource := baseDirectory.value / "main/scala",
+        Compile / resourceDirectory := baseDirectory.value / "main/resources",
+        Test / sourceDirectory := baseDirectory.value / "test/scala",
+        Test / resourceDirectory := baseDirectory.value / "test/resources"
+      ),
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
       "com.softwaremill.sttp.client3" %% "httpclient-backend-zio" % sttpClientVersion,
@@ -72,7 +75,15 @@ lazy val shared = project
 lazy val sync = project
   .in(file("src/sync"))
   .settings(
-    commonSettings ++ packageSettings ++ Seq(name := "sync"),
+    commonSettings ++ packageSettings ++
+      Seq(
+        name := "sync",
+        Compile / javaSource := baseDirectory.value / "main/java",
+        Compile / scalaSource := baseDirectory.value / "main/scala",
+        Compile / resourceDirectory := baseDirectory.value / "main/resources",
+        Test / sourceDirectory := baseDirectory.value / "test/scala",
+        Test / resourceDirectory := baseDirectory.value / "test/resources"
+      ),
     libraryDependencies ++= Seq(
       "ch.qos.logback"   % "logback-classic"              % logbackVersion,
       "com.google.cloud" % "google-cloud-pubsublite"      % pubsubVersion,
@@ -90,7 +101,15 @@ lazy val sync = project
 lazy val journal = project
   .in(file("src/journal"))
   .settings(
-    commonSettings ++ packageSettings ++ Seq(name := "journal"),
+    commonSettings ++ packageSettings ++
+      Seq(
+        name := "journal",
+        Compile / javaSource := baseDirectory.value / "main/java",
+        Compile / scalaSource := baseDirectory.value / "main/scala",
+        Compile / resourceDirectory := baseDirectory.value / "main/resources",
+        Test / sourceDirectory := baseDirectory.value / "test/scala",
+        Test / resourceDirectory := baseDirectory.value / "test/resources"
+      ),
     libraryDependencies ++= Seq(
       "com.auth0"            % "jwks-rsa"               % auth0Version,
       "com.github.jwt-scala" %% "jwt-core"              % jwtVersion,
