@@ -1,18 +1,17 @@
-package io.softwarechain.cryptojournal.domain.position
+package io.softwarechain.cryptojournal
+package domain.position
 
-import io.softwarechain.cryptojournal.domain.model._
+import domain.model._
+import domain.position.LivePositionService.findPositions
+import infrastructure.covalent.dto._
 
-import io.softwarechain.cryptojournal.infrastructure.covalent.dto._
-
-import LivePositionService.findPositions
 import eu.timepit.refined
 import zio.json._
-import zio.test.Assertion.{ equalTo, hasSameElementsDistinct }
-import zio.test.{ assert, DefaultRunnableSpec }
+import zio.test.Assertion.{equalTo, hasSameElementsDistinct}
+import zio.test.{DefaultRunnableSpec, assert}
 
 import java.time.Instant
 import scala.io.Source
-import scala.util.Try
 
 object PositionGeneratorSpec extends DefaultRunnableSpec {
   override def spec = suite("PositionGeneratorSpec")(

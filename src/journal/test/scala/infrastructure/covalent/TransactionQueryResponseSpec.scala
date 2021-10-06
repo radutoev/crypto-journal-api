@@ -1,6 +1,8 @@
-package io.softwarechain.cryptojournal.infrastructure.covalent
+package io.softwarechain.cryptojournal
+package infrastructure.covalent
 
-import io.softwarechain.cryptojournal.infrastructure.covalent.dto.TransactionQueryResponse
+import infrastructure.covalent.dto.TransactionQueryResponse
+
 import zio.json._
 import zio.test.Assertion._
 import zio.test._

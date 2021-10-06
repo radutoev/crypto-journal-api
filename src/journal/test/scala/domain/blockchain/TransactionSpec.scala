@@ -1,4 +1,5 @@
-package io.softwarechain.cryptojournal.domain.blockchain
+package io.softwarechain.cryptojournal
+package domain.blockchain
 
 import io.softwarechain.cryptojournal.domain.model.{ Buy, CurrencyPredicate, FungibleData, Sell }
 

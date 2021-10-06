@@ -1,13 +1,14 @@
-package io.softwarechain.cryptojournal.domain.position
+package io.softwarechain.cryptojournal
+package domain.position
 
-import io.softwarechain.cryptojournal.domain.model._
+import domain.model._
+import domain.position.Generators._
 
-import Generators._
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
 import zio.random.Random
-import zio.test._
 import zio.test.Assertion._
+import zio.test._
 
 import java.time.Instant
 

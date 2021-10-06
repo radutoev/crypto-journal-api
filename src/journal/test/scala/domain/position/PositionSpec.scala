@@ -1,4 +1,5 @@
-package io.softwarechain.cryptojournal.domain.position
+package io.softwarechain.cryptojournal
+package domain.position
 
 import zio.test._
 
