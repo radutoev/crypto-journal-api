@@ -5,7 +5,7 @@ import org.web3j.protocol.Web3j
 import org.web3j.protocol.http.HttpService
 import zio.interop.reactivestreams.publisherToStream
 import zio.stream.ZStream
-import zio.{ZIO, ZManaged}
+import zio.{ ZIO, ZManaged }
 
 object BnbListener {
   def positionEntryStream() = {

@@ -3,7 +3,7 @@ package domain.repo
 
 import domain.model.WalletAddress
 
-import zio.{Has, Ref, UIO, ZIO, ZLayer}
+import zio.{ Has, Ref, UIO, ZIO, ZLayer }
 
 trait WalletRepo {
   protected def walletCache: Ref[Set[WalletAddress]]

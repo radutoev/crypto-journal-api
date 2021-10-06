@@ -3,7 +3,7 @@ package infrastructure.journal
 
 import domain.model.WalletAddress
 import domain.wallet.Wallet
-import infrastructure.journal.dto.{WalletAdded, WalletUpdate}
+import infrastructure.journal.dto.{ WalletAdded, WalletUpdate }
 
 import eu.timepit.refined.types.string.NonEmptyString
 import zio.stream.ZStream
