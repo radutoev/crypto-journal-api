@@ -112,17 +112,18 @@ lazy val journal = project
         Test / resourceDirectory := baseDirectory.value / "test" / "resources"
       ),
     libraryDependencies ++= Seq(
-      "com.auth0"            % "jwks-rsa"               % auth0Version,
-      "com.github.jwt-scala" %% "jwt-core"              % jwtVersion,
-      "com.google.cloud"     % "google-cloud-datastore" % datastoreVersion,
-      "dev.zio"              %% "zio-config"            % zioConfigVersion,
-      "dev.zio"              %% "zio-config-magnolia"   % zioConfigVersion,
-      "dev.zio"              %% "zio-config-refined"    % zioConfigVersion,
-      "dev.zio"              %% "zio-config-typesafe"   % zioConfigVersion,
-      "dev.zio"              %% "zio-prelude"           % zioPreludeVersion,
-      "io.d11"               %% "zhttp"                 % zioHttpVersion,
-      "ch.qos.logback"       % "logback-classic"        % logbackVersion,
-      "org.reactivestreams"  % "reactive-streams"       % reactiveVersion
+      "com.auth0"            % "jwks-rsa"                % auth0Version,
+      "com.github.jwt-scala" %% "jwt-core"               % jwtVersion,
+      "com.google.cloud"     % "google-cloud-datastore"  % datastoreVersion,
+      "com.google.cloud"     % "google-cloud-pubsublite" % pubsubVersion,
+      "dev.zio"              %% "zio-config"             % zioConfigVersion,
+      "dev.zio"              %% "zio-config-magnolia"    % zioConfigVersion,
+      "dev.zio"              %% "zio-config-refined"     % zioConfigVersion,
+      "dev.zio"              %% "zio-config-typesafe"    % zioConfigVersion,
+      "dev.zio"              %% "zio-prelude"            % zioPreludeVersion,
+      "io.d11"               %% "zhttp"                  % zioHttpVersion,
+      "ch.qos.logback"       % "logback-classic"         % logbackVersion,
+      "org.reactivestreams"  % "reactive-streams"        % reactiveVersion
     )
   )
   .dependsOn(shared)

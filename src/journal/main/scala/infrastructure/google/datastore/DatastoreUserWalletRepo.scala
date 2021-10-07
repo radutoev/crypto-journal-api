@@ -2,10 +2,10 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddress, WalletAddressPredicate }
 import domain.wallet.error._
-import domain.wallet.{UserWalletRepo, Wallet}
-import util.{EitherOps, tryOrLeft}
+import domain.wallet.{ UserWalletRepo, Wallet }
+import util.{ tryOrLeft, EitherOps }
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
@@ -13,8 +13,8 @@ import com.google.cloud.datastore._
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import java.time.Instant
 import scala.jdk.CollectionConverters._
@@ -41,9 +41,10 @@ final case class DatastoreUserWalletRepo(
         .setKind(datastoreConfig.userWallet)
         .setFilter(PropertyFilter.eq("userId", userId.value))
         .build()
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*)).mapBoth({
-      t: Throwable => WalletsFetchError(userId, t)
-    }, results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet })
+    Task(datastore.run(query, Seq.empty[ReadOption]: _*)).mapBoth(
+      { t: Throwable => WalletsFetchError(userId, t) },
+      results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet }
+    )
   }
 
   override def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =

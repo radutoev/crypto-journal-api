@@ -3,13 +3,13 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model.WalletAddress
-import domain.wallet.error.{UnableToAddWallet, WalletError, WalletFetchError}
-import domain.wallet.model.{Importing, WalletImportState}
-import domain.wallet.{WalletImportRepo, error}
+import domain.wallet.error.{ UnableToAddWallet, WalletError, WalletFetchError }
+import domain.wallet.model.{ Importing, WalletImportState }
+import domain.wallet.{ error, WalletImportRepo }
 
 import com.google.cloud.datastore._
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer }
 
 final case class DatastoreWalletImportRepo(
   datastore: Datastore,

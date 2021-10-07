@@ -1,13 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
-import domain.model.{UserId, UserWallet, WalletAddress}
+import domain.model.{ UserId, UserWallet, WalletAddress }
 import domain.position.PositionService
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportState
 
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, URLayer }
 
 trait WalletService {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]
@@ -20,10 +20,11 @@ trait WalletService {
 }
 
 final case class LiveWalletService(
-                                    userWalletRepo: UserWalletRepo,
-                                    walletRepo: WalletImportRepo,
-                                    positionService: PositionService,
-                                    logger: Logger[String]
+  userWalletRepo: UserWalletRepo,
+  walletRepo: WalletImportRepo,
+  walletMessaging: WalletMessaging,
+  positionService: PositionService,
+  logger: Logger[String]
 ) extends WalletService {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
     val userWallet = UserWallet(userId, address)
@@ -53,7 +54,8 @@ final case class LiveWalletService(
 }
 
 object LiveWalletService {
-  lazy val layer
-    : URLayer[Has[UserWalletRepo] with Has[WalletImportRepo] with Has[PositionService] with Logging, Has[WalletService]] =
-    (LiveWalletService(_, _, _, _)).toLayer
+  lazy val layer: URLayer[Has[UserWalletRepo] with Has[WalletImportRepo] with Has[WalletMessaging] with Has[PositionService] with Logging, Has[
+    WalletService
+  ]] =
+    (LiveWalletService(_, _, _, _, _)).toLayer
 }

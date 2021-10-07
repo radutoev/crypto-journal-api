@@ -9,8 +9,10 @@ import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
 import infrastructure.covalent.CovalentFacade
 import infrastructure.google.datastore._
+import infrastructure.google.pubsub.PubSubWalletMessaging
 
 import com.google.cloud.datastore.DatastoreOptions
+import com.google.cloud.pubsublite.cloudpubsub.{Publisher, PublisherSettings}
 import com.typesafe.config.{Config, ConfigFactory}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
@@ -18,7 +20,7 @@ import zhttp.service.{EventLoopGroup, Server}
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{App, ExitCode, Has, URIO, ZIO, console}
+import zio.{App, ExitCode, Has, UIO, URIO, ZIO, ZLayer, ZManaged, console}
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -43,6 +45,13 @@ object CryptoJournal extends App {
 
     val datastoreLayer = ZIO(DatastoreOptions.getDefaultInstance.toBuilder.build().getService).toLayer
 
+    //TODO Add publisher settings info.
+    val pubSubLitPublisherLayer = ZLayer.fromManaged(
+      ZManaged.make(ZIO(Publisher.create(PublisherSettings.newBuilder().build())))(publisher =>
+        UIO(publisher.stopAsync().awaitTerminated())
+      )
+    )
+
     lazy val loggingLayer = {
       val logFormat = "%s"
       Slf4jLogger.make((_, message) => logFormat.format(message))
@@ -57,9 +66,12 @@ object CryptoJournal extends App {
 
     lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer >>> DatastorePriceQuoteRepo.layer
 
-    lazy val userWalletRepo = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer
+    lazy val userWalletRepo =
+      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer
 
     lazy val walletRepo = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
+
+    lazy val walletMessaging = loggingLayer ++ pubSubLitPublisherLayer >>> PubSubWalletMessaging.layer
 
     lazy val positionRepoLayer =
       datastoreLayer ++ datastoreConfigLayer ++ loggingLayer ++ Clock.live >>> DatastorePositionRepo.layer
@@ -69,7 +81,8 @@ object CryptoJournal extends App {
     lazy val positionServiceLayer =
       positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LivePositionService.layer
 
-    lazy val walletServiceLayer = userWalletRepo ++ walletRepo ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
+    lazy val walletServiceLayer =
+      userWalletRepo ++ walletRepo ++ walletMessaging ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
 
     lazy val kpiServiceLayer = (positionServiceLayer ++ Clock.live) >>> LiveKpiService.layer
 
