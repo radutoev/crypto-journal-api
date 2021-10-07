@@ -3,17 +3,18 @@ package application
 
 import domain.account.UserContext
 import domain.market.error.MarketError
-import domain.market.{ MarketService, Ohlcv }
-import domain.model.{ UserWallet, WalletAddress }
-import domain.portfolio.{ KpiService, PortfolioKpi }
+import domain.market.{MarketService, Ohlcv}
+import domain.model.{UserWallet, WalletAddress}
+import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.position.Position.PositionId
-import domain.position.error.PositionError
 import domain.position._
+import domain.position.error.PositionError
 import domain.wallet.error.WalletError
-import domain.wallet.{ Wallet, WalletService }
-import vo.filter.{ KpiFilter, PositionFilter }
+import domain.wallet.model.WalletImportState
+import domain.wallet.{Wallet, WalletService}
+import vo.filter.{KpiFilter, PositionFilter}
 
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object CryptoJournalApi {
   def getPositions(
@@ -58,6 +59,9 @@ object CryptoJournalApi {
       userId  <- UserContext.userId
       wallets <- ZIO.serviceWith[WalletService](_.getWallets(userId))
     } yield wallets
+
+  def getWalletImportState(address: WalletAddress): ZIO[Has[WalletService], WalletError, WalletImportState] =
+    ZIO.serviceWith[WalletService](_.getImportState(address))
 
   def saveJournalEntry(
     positionId: PositionId,

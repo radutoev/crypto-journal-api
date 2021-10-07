@@ -3,13 +3,13 @@ package infrastructure.google
 
 import config.DatastoreConfig
 import domain.model.WalletAddress
-import domain.wallet.error.{UnableToAddWallet, WalletError, WalletFetchError}
-import domain.wallet.model.{Importing, WalletImportState}
-import domain.wallet.{WalletImportRepo, error}
+import domain.wallet.error.{ UnableToAddWallet, WalletError, WalletFetchError }
+import domain.wallet.model.{ Importing, WalletImportState }
+import domain.wallet.{ error, WalletImportRepo }
 
 import com.google.cloud.datastore._
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer }
 
 final case class DatastoreWalletImportRepo(
   datastore: Datastore,
@@ -34,9 +34,10 @@ final case class DatastoreWalletImportRepo(
     getByAddress(address).map(Option(_).isDefined)
 
   override def updateImportStatus(address: WalletAddress, state: WalletImportState): IO[error.WalletError, Unit] =
-    Task(datastore.update(Entity.newBuilder(addressKey(address)).set("importState", state.toString).build()))
-      .mapError(err => datastoreErrorMapper(address, err))
-      .unit
+    logger.info(s"Set import status for ${address.value} to $state") *>
+      Task(datastore.update(Entity.newBuilder(addressKey(address)).set("importState", state.toString).build()))
+        .mapError(err => datastoreErrorMapper(address, err))
+        .unit
 
   override def getImportState(address: WalletAddress): IO[error.WalletError, WalletImportState] =
     logger.info(s"Fetch import state for ${address.value}") *>

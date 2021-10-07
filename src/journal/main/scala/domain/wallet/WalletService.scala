@@ -1,13 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
-import domain.model.{ UserId, UserWallet, WalletAddress }
+import domain.model.{UserId, UserWallet, WalletAddress}
 import domain.position.PositionService
-import domain.position.error._
 import domain.wallet.error.WalletError
+import domain.wallet.model.WalletImportState
 
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, URLayer}
 
 trait WalletService {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]
@@ -15,6 +15,8 @@ trait WalletService {
   def getWallets(userId: UserId): IO[WalletError, List[Wallet]]
 
   def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit]
+
+  def getImportState(address: WalletAddress): IO[WalletError, WalletImportState]
 }
 
 final case class LiveWalletService(
@@ -45,6 +47,9 @@ final case class LiveWalletService(
 
   override def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
     userWalletRepo.removeWallet(userId, address)
+
+  override def getImportState(address: WalletAddress): IO[WalletError, WalletImportState] =
+    walletRepo.getImportState(address)
 }
 
 object LiveWalletService {

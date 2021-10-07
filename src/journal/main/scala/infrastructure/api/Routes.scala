@@ -119,6 +119,25 @@ object Routes {
             case wallets => Response.jsonString(wallets.map(fromWallet).toJson)
           }
         )
+
+    case Method.GET -> Root / "wallets" / rawWalletAddress / "import-status" =>
+      for {
+        address <- ZIO
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
+        response <- CryptoJournalApi
+                     .getWalletImportState(address)
+                     .fold(
+                       walletsErrorToHttpResponse,
+                       state =>
+                         Response.http(
+                           status = Status.OK,
+                           content = HttpData.CompleteData(
+                             Chunk.fromArray(state.toString.toJson.getBytes(HTTP_CHARSET))
+                           )
+                         )
+                     )
+      } yield response
   }
 
   private def positions(userId: UserId) = HttpApp.collectM {
@@ -487,6 +506,51 @@ object Routes {
         status = Status.BAD_REQUEST,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "InvalidInput", reason).toResponsePayload()
+      )
+  }
+
+  val walletsErrorToHttpResponse: WalletError => UResponse = {
+    case InvalidWallet(reason) =>
+      Response.http(
+        status = Status.BAD_REQUEST,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "InvalidInput", reason).toResponsePayload()
+      )
+    case WalletAddressExists(address) =>
+      Response.http(
+        status = Status.CONFLICT,
+        content =
+          ApiError(`type` = "WalletAddressExists", s"Wallet ${address.value} already defined").toResponsePayload()
+      )
+    case UnableToAddWallet(address) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "UnableToAddWallet").toResponsePayload()
+      )
+    case UnableToRemoveWallet(address) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "UnableToRemoveWallet").toResponsePayload()
+      )
+    case WalletNotFound(userId, address) =>
+      Response.http(
+        status = Status.NOT_FOUND,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "WalletNotFound").toResponsePayload()
+      )
+    case WalletFetchError(address, throwable) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "WalletFetchError").toResponsePayload()
+      )
+    case WalletsFetchError(userId, throwable) =>
+      Response.http(
+        status = Status.INTERNAL_SERVER_ERROR,
+        headers = List(Header("Content-Type", "application/json")),
+        content = ApiError(`type` = "WalletsFetchError").toResponsePayload()
       )
   }
 
