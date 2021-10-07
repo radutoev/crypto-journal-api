@@ -8,7 +8,7 @@ import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.{DatastoreJournalingRepo, DatastorePositionRepo, DatastorePriceQuoteRepo, DatastoreUserWalletRepo, DatastoreWalletRepo}
+import infrastructure.google.{DatastoreJournalingRepo, DatastorePositionRepo, DatastorePriceQuoteRepo, DatastoreUserWalletRepo, DatastoreWalletImportRepo}
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
@@ -59,7 +59,7 @@ object CryptoJournal extends App {
 
     lazy val userWalletRepo = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer
 
-    lazy val walletRepo = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletRepo.layer
+    lazy val walletRepo = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
     lazy val positionRepoLayer =
       datastoreLayer ++ datastoreConfigLayer ++ loggingLayer ++ Clock.live >>> DatastorePositionRepo.layer

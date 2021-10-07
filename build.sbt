@@ -53,11 +53,11 @@ lazy val shared = project
     commonSettings ++
       Seq(
         name := "shared",
-        Compile / javaSource := baseDirectory.value / "main/java",
-        Compile / scalaSource := baseDirectory.value / "main/scala",
-        Compile / resourceDirectory := baseDirectory.value / "main/resources",
-        Test / sourceDirectory := baseDirectory.value / "test/scala",
-        Test / resourceDirectory := baseDirectory.value / "test/resources"
+        Compile / javaSource := baseDirectory.value / "main" / "java",
+        Compile / scalaSource := baseDirectory.value / "main" / "scala",
+        Compile / resourceDirectory := baseDirectory.value / "main" / "resources",
+        Test / scalaSource := baseDirectory.value / "test" / "scala",
+        Test / resourceDirectory := baseDirectory.value / "test" / "resources"
       ),
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
@@ -81,8 +81,8 @@ lazy val sync = project
         Compile / javaSource := baseDirectory.value / "main/java",
         Compile / scalaSource := baseDirectory.value / "main/scala",
         Compile / resourceDirectory := baseDirectory.value / "main/resources",
-        Test / sourceDirectory := baseDirectory.value / "test/scala",
-        Test / resourceDirectory := baseDirectory.value / "test/resources"
+        Test / scalaSource := baseDirectory.value / "test" / "scala",
+        Test / resourceDirectory := baseDirectory.value / "test" / "resources"
       ),
     libraryDependencies ++= Seq(
       "ch.qos.logback"   % "logback-classic"              % logbackVersion,
@@ -104,11 +104,12 @@ lazy val journal = project
     commonSettings ++ packageSettings ++
       Seq(
         name := "journal",
-        Compile / javaSource := baseDirectory.value / "main/java",
-        Compile / scalaSource := baseDirectory.value / "main/scala",
-        Compile / resourceDirectory := baseDirectory.value / "main/resources",
-        Test / sourceDirectory := baseDirectory.value / "test/scala",
-        Test / resourceDirectory := baseDirectory.value / "test/resources"
+        Compile / javaSource := baseDirectory.value / "main" / "java",
+        Compile / scalaSource := baseDirectory.value / "main" / "scala",
+        Compile / resourceDirectory := baseDirectory.value / "main" / "resources",
+        Test / scalaSource := baseDirectory.value / "test" / "scala",
+        Test / sourceDirectory := baseDirectory.value / "test" / "scala",
+        Test / resourceDirectory := baseDirectory.value / "test" / "resources"
       ),
     libraryDependencies ++= Seq(
       "com.auth0"            % "jwks-rsa"               % auth0Version,
