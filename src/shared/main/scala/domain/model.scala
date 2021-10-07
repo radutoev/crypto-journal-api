@@ -14,7 +14,7 @@ object model {
   type Currency          = String Refined CurrencyPredicate
 
   object Currency {
-    def unsafeFrom(str: String) = refineV[CurrencyPredicate].unsafeFrom(str)
+    def unsafeFrom(str: String): Refined[String, CurrencyPredicate] = refineV[CurrencyPredicate].unsafeFrom(str)
   }
 
   type NumberOfDaysPredicate = NonNegative
@@ -97,8 +97,6 @@ object model {
 
   type MistakePredicate = NonEmpty
   type Mistake          = String Refined MistakePredicate
-
-  final case class UserWallet(userId: UserId, address: WalletAddress)
 
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData =

@@ -3,7 +3,7 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.market.LiveMarketService
 import domain.portfolio.LiveKpiService
-import domain.position.{LiveJournalingService, LivePositionService}
+import domain.position.{ LiveJournalingService, LivePositionService }
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
@@ -12,15 +12,15 @@ import infrastructure.google.datastore._
 import infrastructure.google.pubsub.PubSubWalletMessaging
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.google.cloud.pubsublite.cloudpubsub.{Publisher, PublisherSettings}
-import com.typesafe.config.{Config, ConfigFactory}
+import com.google.cloud.pubsublite.cloudpubsub.{ Publisher, PublisherSettings }
+import com.typesafe.config.{ Config, ConfigFactory }
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.{ EventLoopGroup, Server }
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{App, ExitCode, Has, UIO, URIO, ZIO, ZLayer, ZManaged, console}
+import zio.{ console, App, ExitCode, Has, UIO, URIO, ZIO, ZLayer, ZManaged }
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

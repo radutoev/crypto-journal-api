@@ -116,6 +116,7 @@ lazy val journal = project
       "com.github.jwt-scala" %% "jwt-core"               % jwtVersion,
       "com.google.cloud"     % "google-cloud-datastore"  % datastoreVersion,
       "com.google.cloud"     % "google-cloud-pubsublite" % pubsubVersion,
+      "com.spotify"          % "futures-extra"           % spotifyFuturesVersion,
       "dev.zio"              %% "zio-config"             % zioConfigVersion,
       "dev.zio"              %% "zio-config-magnolia"    % zioConfigVersion,
       "dev.zio"              %% "zio-config-refined"     % zioConfigVersion,

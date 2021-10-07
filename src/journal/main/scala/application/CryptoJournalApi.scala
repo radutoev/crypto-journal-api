@@ -4,7 +4,7 @@ package application
 import domain.account.UserContext
 import domain.market.error.MarketError
 import domain.market.{ MarketService, Ohlcv }
-import domain.model.{ UserWallet, WalletAddress }
+import domain.model.WalletAddress
 import domain.portfolio.{ KpiService, PortfolioKpi }
 import domain.position.Position.PositionId
 import domain.position._
@@ -23,7 +23,7 @@ object CryptoJournalApi {
   ): ZIO[Has[PositionService] with Has[UserContext], PositionError, Positions] =
     for {
       userId    <- UserContext.userId
-      positions <- ZIO.serviceWith[PositionService](_.getPositions(UserWallet(userId, address))(filter))
+      positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address))(filter))
     } yield positions
 
   def getPosition(
@@ -39,7 +39,7 @@ object CryptoJournalApi {
   )(kpiFilter: KpiFilter): ZIO[Has[KpiService] with Has[UserContext], Throwable, PortfolioKpi] =
     for {
       userId       <- UserContext.userId
-      portfolioKpi <- ZIO.serviceWith[KpiService](_.portfolioKpi(UserWallet(userId, address))(kpiFilter))
+      portfolioKpi <- ZIO.serviceWith[KpiService](_.portfolioKpi(Wallet(userId, address))(kpiFilter))
     } yield portfolioKpi
 
   def addWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[UserContext], WalletError, Unit] =

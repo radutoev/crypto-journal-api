@@ -1,33 +1,34 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.blockchain.error._
+import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.model._
-import domain.position.error._
-import domain.position.Position._
 import domain.position.LivePositionService.findPositions
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import domain.position.Position._
+import domain.position.error._
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.wallet.Wallet
 import vo.TimeInterval
 import vo.filter.PositionFilter
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 
 trait PositionService {
-  def getPositions(userWallet: UserWallet)(filter: PositionFilter): IO[PositionError, Positions]
+  def getPositions(userWallet: Wallet)(filter: PositionFilter): IO[PositionError, Positions]
 
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, Position]
 
-  def importPositions(userWallet: UserWallet): IO[PositionError, Unit]
+  def importPositions(userWallet: Wallet): IO[PositionError, Unit]
 
-  def importPositions(userWallet: UserWallet, startingFrom: Instant): IO[PositionError, Unit]
+  def importPositions(userWallet: Wallet, startingFrom: Instant): IO[PositionError, Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp)
@@ -41,7 +42,7 @@ trait PositionService {
 
 object PositionService {
   def getPositions(
-    userWallet: UserWallet
+    userWallet: Wallet
   )(filter: PositionFilter): ZIO[Has[PositionService], PositionError, Positions] =
     ZIO.serviceWith[PositionService](_.getPositions(userWallet)(filter))
 }
@@ -53,7 +54,7 @@ final case class LivePositionService(
   journalingRepo: JournalingRepo,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: UserWallet)(positionFilter: PositionFilter): IO[PositionError, Positions] = {
+  override def getPositions(userWallet: Wallet)(positionFilter: PositionFilter): IO[PositionError, Positions] = {
     def withJournalEntries(positions: List[Position], entries: List[JournalEntry]): List[Position] = {
       val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
       positions.map(position => position.copy(journal = position.id.flatMap(positionToEntryMap.get)))
@@ -78,7 +79,7 @@ final case class LivePositionService(
       priceQuoteRepo
         .getQuotes(interval.get)
         .tap(quotes => logger.info(s"Found ${quotes.length} quotes"))
-        .bimap(PriceQuotesError, PriceQuotes.apply)
+        .mapBoth(PriceQuotesError, PriceQuotes.apply)
         .map(priceQuotes =>
           positions.map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
         )
@@ -106,15 +107,15 @@ final case class LivePositionService(
       .map(priceQuotes => position.copy(priceQuotes = Some(priceQuotes)))
   }
 
-  override def importPositions(userWallet: UserWallet): IO[PositionError, Unit] =
+  override def importPositions(userWallet: Wallet): IO[PositionError, Unit] =
     importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
 
-  override def importPositions(userWallet: UserWallet, startFrom: Instant): IO[PositionError, Unit] =
+  override def importPositions(userWallet: Wallet, startFrom: Instant): IO[PositionError, Unit] =
     importPositions(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
 
   private def importPositions(
     txStream: ZStream[Any, TransactionsGetError, Transaction]
-  )(userWallet: UserWallet): IO[PositionError, Unit] = {
+  )(userWallet: Wallet): IO[PositionError, Unit] = {
     val noPositionsEffect = logger.info(s"No positions to import for ${userWallet.address}")
 
     @inline
