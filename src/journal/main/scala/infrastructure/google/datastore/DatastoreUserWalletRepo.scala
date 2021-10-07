@@ -1,5 +1,5 @@
 package io.softwarechain.cryptojournal
-package infrastructure.google
+package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model.{UserId, WalletAddress, WalletAddressPredicate}

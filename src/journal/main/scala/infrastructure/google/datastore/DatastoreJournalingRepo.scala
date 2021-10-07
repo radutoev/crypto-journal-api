@@ -1,19 +1,19 @@
 package io.softwarechain.cryptojournal
-package infrastructure.google
+package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{ MistakePredicate, SetupPredicate, UserId, UserIdPredicate }
-import domain.position.Position.{ PositionId, PositionIdPredicate }
+import domain.model.{MistakePredicate, SetupPredicate, UserId, UserIdPredicate}
+import domain.position.Position.{PositionId, PositionIdPredicate}
 import domain.position.error._
-import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
-import infrastructure.google.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
+import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
+import infrastructure.google.datastore.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import scala.jdk.CollectionConverters._
 
@@ -44,7 +44,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
     val keys = ids.map(id => kind.newKey(journalEntryKey(userId, id)))
     Task(datastore.get(keys: _*))
       .tapError(throwable => logger.warn(throwable.getMessage))
-      .bimap(
+      .mapBoth(
         JournalFetchError,
         results =>
           results.asScala.toList.map(entityToJournalEntry).collect {

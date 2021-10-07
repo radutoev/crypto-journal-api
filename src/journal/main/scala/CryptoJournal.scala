@@ -8,7 +8,7 @@ import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.{DatastoreJournalingRepo, DatastorePositionRepo, DatastorePriceQuoteRepo, DatastoreUserWalletRepo, DatastoreWalletImportRepo}
+import infrastructure.google.datastore._
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}

@@ -37,14 +37,6 @@ trait PositionService {
       case Nil          => None
     }
   }
-
-  /**
-   * Checks if the system is aware of the given address.
-   *
-   * @param address to lookup
-   * @return true if system is aware of the wallet address, false otherwise.
-   */
-  def exists(address: WalletAddress): Task[Boolean]
 }
 
 object PositionService {
@@ -153,8 +145,6 @@ final case class LivePositionService(
           }
     } yield ()
   }
-
-  override def exists(address: WalletAddress): Task[Boolean] = positionRepo.exists(address)
 }
 
 object LivePositionService {

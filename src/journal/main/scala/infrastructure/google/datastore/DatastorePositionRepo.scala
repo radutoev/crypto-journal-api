@@ -1,22 +1,22 @@
 package io.softwarechain.cryptojournal
-package infrastructure.google
+package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
+import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
 import domain.position.error._
-import domain.position.{ Position, PositionEntry, PositionRepo }
-import util.{ tryOrLeft, InstantOps }
+import domain.position.{Position, PositionEntry, PositionRepo}
+import util.{InstantOps, tryOrLeft}
 import vo.filter.PositionFilter
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -142,18 +142,6 @@ final case class DatastorePositionRepo(
         }
       }
   }
-
-  override def exists(address: WalletAddress): Task[Boolean] = ???
-//    executeQuery(
-//      Query
-//        .newKeyQueryBuilder()
-//        .setKind(datastoreConfig.checkpoint)
-//        .setFilter(
-//          PropertyFilter
-//            .eq("__key__", datastore.newKeyFactory().setKind(datastoreConfig.checkpoint).newKey(address.value))
-//        )
-//        .build()
-//    ).map(results => results.asScala.nonEmpty)
 
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))

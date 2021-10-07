@@ -20,14 +20,6 @@ trait PositionRepo {
   def getPositions(address: WalletAddress, state: State): IO[PositionError, List[Position]]
 
   def getPosition(positionId: PositionId): IO[PositionError, Position]
-
-  /**
-   * Checks if the system is aware of the given address.
-   *
-   * @param address to lookup
-   * @return true if system is aware of the wallet address, false otherwise.
-   */
-  def exists(address: WalletAddress): Task[Boolean]
 }
 
 object PositionRepo {
