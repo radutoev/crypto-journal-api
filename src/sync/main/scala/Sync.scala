@@ -1,12 +1,15 @@
 package io.softwarechain.cryptojournal
 
 import config.CryptoJournalConfig
-import domain.LiveWalletRepo
 import domain.blockchain.BlockchainRepo
-import domain.model.TransactionHash
+import domain.model.{ TransactionHash, WalletAddress }
+import domain.wallet.WalletImportRepo
+import domain.wallet.model.ImportDone
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
+import infrastructure.google.datastore.DatastoreWalletImportRepo
 
+import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{ Config, ConfigFactory }
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
@@ -41,24 +44,23 @@ object Sync extends App {
 
   //TODO I think i need to split based on to vs from presence.
   private def filterByWalletPresence(tx: Transaction) =
-    UIO(false)
-//    if(tx.getTo != null && tx.getFrom != null) {
-//      for {
-//        toFound   <- WalletRepo.exists(WalletAddress.unsafeApply(tx.getTo))
-//        fromFound <- WalletRepo.exists(WalletAddress.unsafeApply(tx.getFrom))
-//        _         <- if(toFound || fromFound) {
-//          Logging.info(s"True from transaction ${tx.getHash}")
-//        } else {
-//          Logging.info(s"False from transaction ${tx.getHash}")
-//        }
-//      } yield toFound || fromFound
-//    } else {
-//      Logging.info(s"Transaction ${tx.getHash} has not to/from values") *> UIO(false)
-//    }
+    WalletImportRepo.getByImportStatus(ImportDone).flatMap { addresses =>
+      if (tx.getTo != null && tx.getFrom != null) {
+        val to           = WalletAddress.unsafeApply(tx.getTo)
+        val from         = WalletAddress.unsafeApply(tx.getFrom)
+        val addressFound = addresses.contains(to) || addresses.contains(from)
+        UIO(addressFound)
+      } else {
+        UIO(false)
+      }
+    }
 
   private def listenerEnvironment(config: Config) = {
-    val configLayer         = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
-    val covalentConfigLayer = configLayer.map(c => Has(c.get.covalent))
+    val configLayer          = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
+    val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
+    val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
+
+    val datastoreLayer = ZIO(DatastoreOptions.getDefaultInstance.toBuilder.build().getService).toLayer
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
@@ -68,7 +70,8 @@ object Sync extends App {
     }
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
-    lazy val walletRepoLayer   = LiveWalletRepo.layer
+    lazy val walletRepoLayer =
+      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
     exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer
   }

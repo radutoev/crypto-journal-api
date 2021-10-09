@@ -9,5 +9,6 @@ object CryptoJournalConfig {
 }
 
 final case class CryptoJournalConfig(
-  covalent: CovalentConfig
+  covalent: CovalentConfig,
+  datastore: DatastoreConfig
 )
