@@ -35,16 +35,14 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                    .tapError(t => logger.warn(t.getMessage))
       //TODO Better handling of response.
       slimTransactions <- ZIO
-                           .fromEither(response.body)
-                           .tapError(s => logger.warn(s))
-                           .map(_.fromJson[TransactionQueryResponse])
-                           .map(
-                             _.fold[List[Transaction]](
-                               _ => List.empty,
-                               response => response.data.items.map(_.toDomain())
-                             )
-                           )
-                           .mapError(err => new RuntimeException("booboo"))
+        .fromEither(response.body)
+        .tapError(s => logger.warn(s))
+        .map(_.fromJson[TransactionQueryResponse]).mapBoth(err => new RuntimeException("booboo"), {
+        _.fold[List[Transaction]](
+          _ => List.empty,
+          response => response.data.items.map(_.toDomain())
+        )
+      })
       transactions <- ZIO.foreach(slimTransactions.map(tx => TransactionHash.unsafeApply(tx.hash)))(fetchTransaction)
     } yield transactions
 

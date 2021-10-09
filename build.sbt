@@ -6,9 +6,8 @@ val jwtVersion            = "9.0.1"
 val logbackVersion        = "1.2.6"
 val reactiveVersion       = "1.0.3"
 val refinedVersion        = "0.9.27"
-val pubsubVersion         = "1.2.0"
 val spotifyFuturesVersion = "4.3.0"
-val sttpClientVersion     = "3.3.14"
+val sttpClientVersion     = "3.3.15"
 val web3jVersion          = "5.0.0"
 val zioVersion            = "1.0.12"
 val zioConfigVersion      = "1.0.10"
@@ -86,7 +85,6 @@ lazy val sync = project
       ),
     libraryDependencies ++= Seq(
       "ch.qos.logback"   % "logback-classic"              % logbackVersion,
-      "com.google.cloud" % "google-cloud-pubsublite"      % pubsubVersion,
       "com.spotify"      % "futures-extra"                % spotifyFuturesVersion,
       "dev.zio"          %% "zio-config-magnolia"         % zioConfigVersion,
       "dev.zio"          %% "zio-config-refined"          % zioConfigVersion,
@@ -115,7 +113,6 @@ lazy val journal = project
       "com.auth0"            % "jwks-rsa"                % auth0Version,
       "com.github.jwt-scala" %% "jwt-core"               % jwtVersion,
       "com.google.cloud"     % "google-cloud-datastore"  % datastoreVersion,
-      "com.google.cloud"     % "google-cloud-pubsublite" % pubsubVersion,
       "com.spotify"          % "futures-extra"           % spotifyFuturesVersion,
       "dev.zio"              %% "zio-config"             % zioConfigVersion,
       "dev.zio"              %% "zio-config-magnolia"    % zioConfigVersion,

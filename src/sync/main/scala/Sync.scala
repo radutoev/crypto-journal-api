@@ -1,21 +1,18 @@
 package io.softwarechain.cryptojournal
 
 import config.CryptoJournalConfig
+import domain.LiveWalletRepo
 import domain.blockchain.BlockchainRepo
 import domain.model.TransactionHash
-import domain.repo.{ LiveWalletRepo, WalletRepo }
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
-import infrastructure.journal.PubSubWalletStream
-import infrastructure.journal.dto.{ WalletAdded, WalletRemoved }
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{Config, ConfigFactory}
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zio._
 import zio.config.typesafe.TypesafeConfig
-import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
 
 import scala.jdk.CollectionConverters._
@@ -39,21 +36,7 @@ object Sync extends App {
                     .provideCustomLayer(listenerEnvironment(config))
                     .forever
                     .fork
-
-      walletStream <- PubSubWalletStream
-                       .walletStream()
-                       .foreach {
-                         case WalletAdded(wallet) =>
-                           Logging.info(s"Wallet ${wallet.address} added. Adding to cache") *>
-                             LiveWalletRepo.addWallet(wallet.address)
-                         case WalletRemoved(wallet) =>
-                           Logging.info(s"Wallet ${wallet.address.value} removed. No action required.")
-                       }
-                       .provideCustomLayer(listenerEnvironment(config))
-                       .forever
-                       .fork
-
-      _ <- (bnbStream <*> walletStream).join
+      _ <- bnbStream.join
     } yield ()
 
   //TODO I think i need to split based on to vs from presence.
