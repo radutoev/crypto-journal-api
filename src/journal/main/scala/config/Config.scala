@@ -20,12 +20,3 @@ final case class CryptoJournalConfig(
 final case class CoinApiConfig(baseUrl: String, key: String)
 
 final case class DemoAccountConfig(maxPositions: PosInt)
-
-final case class DatastoreConfig(
-  address: String,
-  journal: String,
-  position: String,
-  priceQuote: String,
-  userWallet: String,
-  wallet: String
-)

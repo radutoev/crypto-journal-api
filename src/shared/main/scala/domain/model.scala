@@ -3,7 +3,7 @@ package domain
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.{NonEmpty, Size}
+import eu.timepit.refined.collection.{ NonEmpty, Size }
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV

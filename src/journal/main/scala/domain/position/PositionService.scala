@@ -2,21 +2,21 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.model._
 import domain.position.LivePositionService.findPositions
 import domain.position.Position._
 import domain.position.error._
-import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
 import domain.wallet.Wallet
 import vo.TimeInterval
 import vo.filter.PositionFilter
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer

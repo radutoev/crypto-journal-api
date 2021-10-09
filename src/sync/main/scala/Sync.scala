@@ -7,7 +7,7 @@ import domain.model.TransactionHash
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory }
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend

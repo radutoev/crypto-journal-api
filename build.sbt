@@ -59,6 +59,7 @@ lazy val shared = project
         Test / resourceDirectory := baseDirectory.value / "test" / "resources"
       ),
     libraryDependencies ++= Seq(
+      "com.google.cloud"              % "google-cloud-datastore"  % datastoreVersion,
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
       "com.softwaremill.sttp.client3" %% "httpclient-backend-zio" % sttpClientVersion,
       "dev.zio"                       %% "zio"                    % zioVersion,
@@ -84,13 +85,13 @@ lazy val sync = project
         Test / resourceDirectory := baseDirectory.value / "test" / "resources"
       ),
     libraryDependencies ++= Seq(
-      "ch.qos.logback"   % "logback-classic"              % logbackVersion,
-      "com.spotify"      % "futures-extra"                % spotifyFuturesVersion,
-      "dev.zio"          %% "zio-config-magnolia"         % zioConfigVersion,
-      "dev.zio"          %% "zio-config-refined"          % zioConfigVersion,
-      "dev.zio"          %% "zio-config-typesafe"         % zioConfigVersion,
-      "dev.zio"          %% "zio-interop-reactivestreams" % zioInteropVersion,
-      "org.web3j"        % "core"                         % web3jVersion
+      "ch.qos.logback" % "logback-classic"              % logbackVersion,
+      "com.spotify"    % "futures-extra"                % spotifyFuturesVersion,
+      "dev.zio"        %% "zio-config-magnolia"         % zioConfigVersion,
+      "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
+      "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
+      "dev.zio"        %% "zio-interop-reactivestreams" % zioInteropVersion,
+      "org.web3j"      % "core"                         % web3jVersion
     )
   )
   .dependsOn(shared)
@@ -110,18 +111,17 @@ lazy val journal = project
         Test / resourceDirectory := baseDirectory.value / "test" / "resources"
       ),
     libraryDependencies ++= Seq(
-      "com.auth0"            % "jwks-rsa"                % auth0Version,
-      "com.github.jwt-scala" %% "jwt-core"               % jwtVersion,
-      "com.google.cloud"     % "google-cloud-datastore"  % datastoreVersion,
-      "com.spotify"          % "futures-extra"           % spotifyFuturesVersion,
-      "dev.zio"              %% "zio-config"             % zioConfigVersion,
-      "dev.zio"              %% "zio-config-magnolia"    % zioConfigVersion,
-      "dev.zio"              %% "zio-config-refined"     % zioConfigVersion,
-      "dev.zio"              %% "zio-config-typesafe"    % zioConfigVersion,
-      "dev.zio"              %% "zio-prelude"            % zioPreludeVersion,
-      "io.d11"               %% "zhttp"                  % zioHttpVersion,
-      "ch.qos.logback"       % "logback-classic"         % logbackVersion,
-      "org.reactivestreams"  % "reactive-streams"        % reactiveVersion
+      "com.auth0"            % "jwks-rsa"             % auth0Version,
+      "com.github.jwt-scala" %% "jwt-core"            % jwtVersion,
+      "com.spotify"          % "futures-extra"        % spotifyFuturesVersion,
+      "dev.zio"              %% "zio-config"          % zioConfigVersion,
+      "dev.zio"              %% "zio-config-magnolia" % zioConfigVersion,
+      "dev.zio"              %% "zio-config-refined"  % zioConfigVersion,
+      "dev.zio"              %% "zio-config-typesafe" % zioConfigVersion,
+      "dev.zio"              %% "zio-prelude"         % zioPreludeVersion,
+      "io.d11"               %% "zhttp"               % zioHttpVersion,
+      "ch.qos.logback"       % "logback-classic"      % logbackVersion,
+      "org.reactivestreams"  % "reactive-streams"     % reactiveVersion
     )
   )
   .dependsOn(shared)

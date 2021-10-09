@@ -1,14 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
-import domain.model.{UserId, WalletAddress}
+import domain.model.{ UserId, WalletAddress }
 import domain.position.PositionService
 import domain.wallet.error.WalletError
-import domain.wallet.event.WalletAdded
 import domain.wallet.model.WalletImportState
 
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, URLayer }
 
 trait WalletService {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]
@@ -23,7 +22,6 @@ trait WalletService {
 final case class LiveWalletService(
   userWalletRepo: UserWalletRepo,
   walletRepo: WalletImportRepo,
-  walletMessaging: WalletMessaging,
   positionService: PositionService,
   logger: Logger[String]
 ) extends WalletService {
@@ -33,8 +31,7 @@ final case class LiveWalletService(
       case true => logger.info(s"Address ${address.value} found in system. Skipping import.")
       case false =>
         (userWalletRepo
-          .addWallet(userId, address) *> walletRepo.addWallet(address) *> walletMessaging
-          .publish(WalletAdded(userWallet))) //TODO Recover code, not sure if saga
+          .addWallet(userId, address) *> walletRepo.addWallet(address)) //TODO Recover code, not sure if saga
           .zipParRight(
             positionService
               .importPositions(userWallet)
@@ -56,10 +53,10 @@ final case class LiveWalletService(
 }
 
 object LiveWalletService {
-  lazy val layer: URLayer[Has[UserWalletRepo] with Has[WalletImportRepo] with Has[WalletMessaging] with Has[
+  lazy val layer: URLayer[Has[UserWalletRepo] with Has[WalletImportRepo] with Has[
     PositionService
   ] with Logging, Has[
     WalletService
   ]] =
-    (LiveWalletService(_, _, _, _, _)).toLayer
+    (LiveWalletService(_, _, _, _)).toLayer
 }

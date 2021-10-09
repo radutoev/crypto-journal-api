@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Buy, CurrencyPredicate, Fee, FungibleData, Sell, TransactionType, Unknown}
+import domain.model.{ Buy, CurrencyPredicate, Fee, FungibleData, Sell, TransactionType, Unknown }
 
 import eu.timepit.refined
 
