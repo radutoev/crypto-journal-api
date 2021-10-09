@@ -2,11 +2,11 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{UserId, WalletAddressPredicate}
+import domain.model.{ UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{JournalingService, PositionService, Positions}
+import domain.position.{ JournalingService, PositionService, Positions }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
@@ -18,22 +18,30 @@ import infrastructure.api.dto.PositionJournalEntry._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
+import infrastructure.api.dto.{
+  JournalEntry,
+  Ohlcv,
+  PortfolioKpi,
+  PortfolioStats,
+  PositionJournalEntry,
+  TagDistribution,
+  TradeSummary
+}
 import infrastructure.auth.JwtUserContext
 import vo.TimeInterval
-import vo.filter.{KpiFilter, PositionCount, PositionFilter}
+import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
 
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
-import pdi.jwt.{Jwt, JwtAlgorithm}
+import pdi.jwt.{ Jwt, JwtAlgorithm }
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{Header, _}
+import zhttp.http.{ Header, _ }
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{LocalDate, ZoneId, ZoneOffset}
+import java.time.{ LocalDate, ZoneId, ZoneOffset }
 import scala.util.Try
 
 object Routes {
@@ -351,7 +359,7 @@ object Routes {
     aud: String,
     nonce: String
   )
-  import zio.json.{DeriveJsonCodec, JsonCodec}
+  import zio.json.{ DeriveJsonCodec, JsonCodec }
   object DecodedJwtClaims {
     implicit val jwtClaimsCodec: JsonCodec[DecodedJwtClaims] = DeriveJsonCodec.gen[DecodedJwtClaims]
   }

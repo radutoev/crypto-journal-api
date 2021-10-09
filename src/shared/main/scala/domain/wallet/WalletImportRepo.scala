@@ -5,7 +5,7 @@ import domain.model.WalletAddress
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
 
-import zio.{Has, IO, ZIO}
+import zio.{ Has, IO, ZIO }
 
 trait WalletImportRepo {
   def addWallet(address: WalletAddress): IO[WalletError, Unit]
@@ -20,7 +20,6 @@ trait WalletImportRepo {
 }
 
 object WalletImportRepo {
-  def getByImportStatus(status: WalletImportStatus): ZIO[Has[WalletImportRepo], WalletError, List[WalletAddress]] = {
+  def getByImportStatus(status: WalletImportStatus): ZIO[Has[WalletImportRepo], WalletError, List[WalletAddress]] =
     ZIO.serviceWith[WalletImportRepo](_.getByImportStatus(status))
-  }
 }

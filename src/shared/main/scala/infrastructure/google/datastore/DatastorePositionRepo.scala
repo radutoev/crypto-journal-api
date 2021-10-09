@@ -3,20 +3,20 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
+import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
 import domain.position.error._
-import domain.position.{Position, PositionEntry, PositionRepo}
-import util.{InstantOps, tryOrLeft}
+import domain.position.{ Position, PositionEntry, PositionRepo }
+import util.{ tryOrLeft, InstantOps }
 import vo.filter.PositionFilter
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -141,6 +141,26 @@ final case class DatastorePositionRepo(
           ZIO.fail(PositionNotFound(positionId))
         }
       }
+  }
+
+  override def getLatestPosition(address: WalletAddress, currency: Currency): IO[PositionError, Option[Position]] = {
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.position)
+      .setFilter(
+        CompositeFilter.and(
+          PropertyFilter.eq("address", address.value),
+          PropertyFilter.eq("currency", currency.value)
+        )
+      )
+      .addOrderBy(OrderBy.desc("openedAt"))
+      .setLimit(1)
+      .build()
+
+    executeQuery(query).mapBoth(
+      throwable => PositionsFetchError(address),
+      results => results.asScala.toList.map(entityToPosition).collectFirst { case Right(value) => value }
+    )
   }
 
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =

@@ -59,7 +59,6 @@ object Sync extends App {
       _ <- bnbStream.join
     } yield ()
 
-  //TODO I think i need to split based on to vs from presence.
   private def knownAddresses(tx: Transaction) = {
     def elementOrNil(address: WalletAddress, addresses: List[WalletAddress]) =
       if (addresses.contains(address)) {

@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{Buy, Currency, Sell, TransactionHash, TransactionType, Unknown}
+import domain.model.{ Buy, Currency, Sell, TransactionHash, TransactionType, Unknown }
 import vo.TimeInterval
 
 import eu.timepit.refined

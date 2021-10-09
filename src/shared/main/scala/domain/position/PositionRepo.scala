@@ -1,12 +1,12 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{State, WalletAddress}
+import domain.model.{ Currency, State, WalletAddress }
 import domain.position.Position.PositionId
 import domain.position.error.PositionError
 import vo.filter.PositionFilter
 
-import zio.{Has, IO, Task, ZIO}
+import zio.{ Has, IO, Task, ZIO }
 
 import java.time.Instant
 
@@ -20,9 +20,14 @@ trait PositionRepo {
   def getPositions(address: WalletAddress, state: State): IO[PositionError, List[Position]]
 
   def getPosition(positionId: PositionId): IO[PositionError, Position]
+
+  def getLatestPosition(address: WalletAddress, currency: Currency): IO[PositionError, Option[Position]]
 }
 
 object PositionRepo {
   def save(address: WalletAddress, positions: List[Position]): ZIO[Has[PositionRepo], Throwable, Unit] =
     ZIO.serviceWith[PositionRepo](_.save(address, positions))
+
+  def getLatestPosition(address: WalletAddress, currency: Currency): ZIO[Has[PositionRepo], PositionError, Option[Position]] =
+    ZIO.serviceWith[PositionRepo](_.getLatestPosition(address, currency))
 }

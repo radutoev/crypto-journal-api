@@ -4,5 +4,6 @@ indexes:
     properties:
       - name: address
       - name: state
+      - name: currency
       - name: openedAt
         direction: desc

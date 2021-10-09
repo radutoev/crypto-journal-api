@@ -2,15 +2,15 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.position.Position.{PositionEntryId, PositionId}
-import domain.pricequote.{PriceQuote, PriceQuotes}
+import domain.position.Position.{ PositionEntryId, PositionId }
+import domain.pricequote.{ PriceQuote, PriceQuotes }
 import vo.TimeInterval
 
 import eu.timepit.refined
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 final case class Position(
   currency: Currency,
