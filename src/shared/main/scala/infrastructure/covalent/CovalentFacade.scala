@@ -3,8 +3,8 @@ package infrastructure.covalent
 
 import config.CovalentConfig
 import domain.blockchain.error.TransactionsGetError
-import domain.blockchain.{BlockchainRepo, Transaction}
-import domain.model.{TransactionHash, WalletAddress}
+import domain.blockchain.{ BlockchainRepo, Transaction }
+import domain.model.{ TransactionHash, WalletAddress }
 import infrastructure.covalent.dto.TransactionQueryResponse
 
 import eu.timepit.refined.api.Refined
@@ -13,9 +13,9 @@ import eu.timepit.refined.string.Url
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
 import zio.json._
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
+import zio.{ Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 
@@ -35,14 +35,16 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                    .tapError(t => logger.warn(t.getMessage))
       //TODO Better handling of response.
       slimTransactions <- ZIO
-        .fromEither(response.body)
-        .tapError(s => logger.warn(s))
-        .map(_.fromJson[TransactionQueryResponse]).mapBoth(err => new RuntimeException("booboo"), {
-        _.fold[List[Transaction]](
-          _ => List.empty,
-          response => response.data.items.map(_.toDomain())
-        )
-      })
+                           .fromEither(response.body)
+                           .tapError(s => logger.warn(s))
+                           .map(_.fromJson[TransactionQueryResponse])
+                           .mapBoth(
+                             err => new RuntimeException("booboo"),
+                             _.fold[List[Transaction]](
+                               _ => List.empty,
+                               response => response.data.items.map(_.toDomain())
+                             )
+                           )
       transactions <- ZIO.foreach(slimTransactions.map(tx => TransactionHash.unsafeApply(tx.hash)))(fetchTransaction)
     } yield transactions
 
@@ -121,13 +123,11 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                    .tapError(t => logger.warn(t.getMessage))
       body <- ZIO
                .fromEither(response.body)
-               .map(_.fromJson[TransactionQueryResponse])
-               .mapError(err => new RuntimeException(err))
+               .mapBoth(err => new RuntimeException(err), _.fromJson[TransactionQueryResponse])
       transaction <- ZIO
                       .fromEither(body)
                       .tapError(t => logger.warn(t))
-                      .mapError(err => new RuntimeException(err))
-                      .map(_.data.items.head.toDomain())
+                      .mapBoth(err => new RuntimeException(err), _.data.items.head.toDomain())
     } yield transaction
 }
 
