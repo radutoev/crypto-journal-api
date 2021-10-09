@@ -2,7 +2,8 @@ package io.softwarechain.cryptojournal
 
 import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
-import domain.model.{ TransactionHash, WalletAddress }
+import domain.model.{ Currency, TransactionHash, WalletAddress }
+import domain.position.error.PositionsFetchError
 import domain.position.{ PositionRepo, Positions }
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
@@ -28,9 +29,6 @@ object Sync extends App {
       .flatMap(rawConfig => program(rawConfig))
       .exitCode
 
-  //is it a buy or a sell?
-  //fetch the transaction
-  //group by address (from or to => tx together with type)
   private def program(config: Config) =
     for {
       bnbStream <- BnbListener
@@ -41,18 +39,25 @@ object Sync extends App {
                       knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
                     )
                     .filter(_._2.nonEmpty)
-                    .mapM(hashAddressesTuple =>
-                      BlockchainRepo.fetchTransaction(hashAddressesTuple._1).map(_ -> hashAddressesTuple._2)
-                    )
-                    //TODO Finish merging
-                    .map {
-                      case (transaction, addresses) =>
-                        //for all addresses:
-                        //get open position by coin and address
-                        //
-                        addresses.head -> Positions.empty()
+                    .mapM {
+                      case (txHash, addresses) =>
+                        BlockchainRepo.fetchTransaction(txHash).map(_ -> addresses)
                     }
-                    .foreach { case (address, positions) => PositionRepo.save(address, positions.items) }
+                    .mapM {
+                      case (transaction, addresses) =>
+                        ZIO.foreach(addresses)(address =>
+                          PositionRepo
+                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
+                            .collect(PositionsFetchError(address)) { case Some(position) => Positions(List(position)) }
+                            .map(positions => address -> positions)
+                        )
+                    }
+                    .foreach { newAddressPositions =>
+                      ZIO.foreach(newAddressPositions) {
+                        case (address, positions) =>
+                          PositionRepo.save(address, positions.items)
+                      }
+                    }
                     .provideCustomLayer(listenerEnvironment(config))
                     .forever
                     .fork
