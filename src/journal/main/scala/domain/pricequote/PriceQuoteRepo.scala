@@ -3,7 +3,7 @@ package domain.pricequote
 
 import vo.TimeInterval
 
-import zio.{ Has, Task, ZIO }
+import zio.{Has, Task, ZIO}
 
 trait PriceQuoteRepo {
   //We currently support only BNB to USD price quotes.

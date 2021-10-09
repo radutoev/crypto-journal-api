@@ -2,13 +2,13 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.position.LivePositionService.findPositions
+import domain.position.Positions.findPositions
 import infrastructure.covalent.dto._
 
 import eu.timepit.refined
 import zio.json._
-import zio.test.Assertion.{ equalTo, hasSameElementsDistinct }
-import zio.test.{ assert, DefaultRunnableSpec }
+import zio.test.Assertion._
+import zio.test._
 
 import java.time.Instant
 import scala.io.Source

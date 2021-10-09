@@ -2,8 +2,8 @@ package io.softwarechain.cryptojournal
 package vo
 
 import domain.model.NumberOfDays
-
 import util.InstantOps
+
 import eu.timepit.refined.refineV
 
 import java.time.Instant

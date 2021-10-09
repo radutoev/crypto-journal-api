@@ -1,16 +1,17 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import PortfolioKpi.FungibleDataOps
-import domain.model.{ Currency, FungibleData, Mistake, Setup }
-import domain.position.{ Position, Positions }
+import domain.model.{Currency, FungibleData, Mistake, Setup}
+import domain.portfolio.PortfolioKpi.FungibleDataOps
+import domain.position.{Position, Positions}
+import util.InstantOps
+import vo.{PeriodDistribution, TimeInterval}
+
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
-import util.InstantOps
-import vo.{ PeriodDistribution, TimeInterval }
 
-import java.time.{ DayOfWeek, Duration, Instant, Month }
+import java.time.{DayOfWeek, Duration, Instant, Month}
 
 final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
   lazy val tradeCount: Int = positions.closedPositions.size

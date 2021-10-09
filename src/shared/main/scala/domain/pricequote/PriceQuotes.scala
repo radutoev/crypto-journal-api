@@ -1,8 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import util.InstantOps
 import vo.TimeInterval
+import util.InstantOps
 
 import java.time.Instant
 

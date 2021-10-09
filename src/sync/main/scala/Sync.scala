@@ -3,11 +3,12 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
 import domain.model.{ TransactionHash, WalletAddress }
+import domain.position.{ PositionRepo, Positions }
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.datastore.DatastoreWalletImportRepo
+import infrastructure.google.datastore.{ DatastorePositionRepo, DatastoreWalletImportRepo }
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -15,6 +16,7 @@ import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zio._
+import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
 
@@ -26,16 +28,31 @@ object Sync extends App {
       .flatMap(rawConfig => program(rawConfig))
       .exitCode
 
+  //is it a buy or a sell?
+  //fetch the transaction
+  //group by address (from or to => tx together with type)
   private def program(config: Config) =
     for {
       bnbStream <- BnbListener
                     .positionEntryStream()
                     .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
                     .flattenIterables
-                    .filterM(txObject => filterByWalletPresence(txObject.get()))
-                    .map(txObject => TransactionHash.unsafeApply(txObject.get().getHash))
-                    .mapM(txHash => BlockchainRepo.fetchTransaction(txHash))
-                    .foreach(t => UIO(println(t)))
+                    .mapM(txObject =>
+                      knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
+                    )
+                    .filter(_._2.nonEmpty)
+                    .mapM(hashAddressesTuple =>
+                      BlockchainRepo.fetchTransaction(hashAddressesTuple._1).map(_ -> hashAddressesTuple._2)
+                    )
+                    //TODO Finish merging
+                    .map {
+                      case (transaction, addresses) =>
+                        //for all addresses:
+                        //get open position by coin and address
+                        //
+                        addresses.head -> Positions.empty()
+                    }
+                    .foreach { case (address, positions) => PositionRepo.save(address, positions.items) }
                     .provideCustomLayer(listenerEnvironment(config))
                     .forever
                     .fork
@@ -43,17 +60,25 @@ object Sync extends App {
     } yield ()
 
   //TODO I think i need to split based on to vs from presence.
-  private def filterByWalletPresence(tx: Transaction) =
+  private def knownAddresses(tx: Transaction) = {
+    def elementOrNil(address: WalletAddress, addresses: List[WalletAddress]) =
+      if (addresses.contains(address)) {
+        List(address)
+      } else {
+        Nil
+      }
+
     WalletImportRepo.getByImportStatus(ImportDone).flatMap { addresses =>
       if (tx.getTo != null && tx.getFrom != null) {
-        val to           = WalletAddress.unsafeApply(tx.getTo)
-        val from         = WalletAddress.unsafeApply(tx.getFrom)
-        val addressFound = addresses.contains(to) || addresses.contains(from)
-        UIO(addressFound)
+        val to             = WalletAddress.unsafeApply(tx.getTo)
+        val from           = WalletAddress.unsafeApply(tx.getFrom)
+        val foundAddresses = Nil ++ elementOrNil(to, addresses) ++ elementOrNil(from, addresses)
+        UIO(foundAddresses)
       } else {
-        UIO(false)
+        UIO(Nil)
       }
     }
+  }
 
   private def listenerEnvironment(config: Config) = {
     val configLayer          = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
@@ -70,9 +95,11 @@ object Sync extends App {
     }
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
+    lazy val positionsRepoLayer =
+      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastorePositionRepo.layer
     lazy val walletRepoLayer =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
-    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer
+    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ positionsRepoLayer
   }
 }

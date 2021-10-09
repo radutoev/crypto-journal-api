@@ -2,24 +2,21 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{ BlockchainRepo, Transaction }
+import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.model._
-import domain.position.LivePositionService.findPositions
 import domain.position.Position._
+import domain.position.Positions.findPositions
 import domain.position.error._
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import domain.wallet.Wallet
 import vo.TimeInterval
 import vo.filter.PositionFilter
 
-import eu.timepit.refined
-import eu.timepit.refined.collection.NonEmpty
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
-import scala.collection.mutable.ArrayBuffer
 
 trait PositionService {
   def getPositions(userWallet: Wallet)(filter: PositionFilter): IO[PositionError, Positions]
@@ -155,73 +152,4 @@ object LivePositionService {
     PositionService
   ]] =
     (LivePositionService(_, _, _, _, _)).toLayer
-
-  val TransactionTypes = Vector(Buy, Sell)
-
-  def findPositions(transactions: List[Transaction]): List[Position] = {
-    val transactionsByCoin = transactions
-      .sortBy(_.instant)(Ordering[Instant])
-      .filter(_.successful)
-      .filter(_.hasTransactionEvents)
-      .filter(tx => TransactionTypes.contains(tx.transactionType))
-      .groupBy(_.coin.get)
-
-    val positions = transactionsByCoin.flatMap {
-      case (rawCurrency, txList) =>
-        val currency                                = refined.refineV[NonEmpty].unsafeFrom(rawCurrency)
-        val grouped: ArrayBuffer[List[Transaction]] = ArrayBuffer.empty
-
-        val acc: ArrayBuffer[Transaction] = ArrayBuffer.empty
-        var lastTxType: TransactionType   = Unknown //just a marker to get things going.
-
-        for (tx <- txList) {
-          tx.transactionType match {
-            case Buy =>
-              if (lastTxType == Buy) {
-                acc.addOne(tx)
-              } else if (lastTxType == Sell) {
-                grouped.addOne(acc.toList)
-                acc.clear()
-                acc.addOne(tx)
-              } else {
-                acc.addOne(tx)
-              }
-            case Sell =>
-              acc.addOne(tx)
-            case Unknown => //do nothing
-          }
-          lastTxType = tx.transactionType
-        }
-
-        if (acc.nonEmpty) {
-          grouped.addOne(acc.toList)
-        }
-
-        grouped.toList.map { txList =>
-          txList.last.transactionType match {
-            case Buy => Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
-            case Sell =>
-              Position(
-                currency,
-                txList.head.instant,
-                transactionsToPositionEntries(txList)
-              )
-          }
-        }
-    }.toList
-
-    positions.sortBy(_.openedAt)(Ordering[Instant].reverse)
-  }
-
-  val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {
-    for {
-      value <- tx.value
-      hash  <- TransactionHash(tx.hash)
-    } yield PositionEntry(tx.transactionType, value, tx.fee, tx.instant, hash)
-  }
-
-  val transactionsToPositionEntries: List[Transaction] => List[PositionEntry] =
-    _.map(transactionToPositionEntry).collect {
-      case Right(entry) => entry
-    }
 }

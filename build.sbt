@@ -66,6 +66,7 @@ lazy val shared = project
       "dev.zio"                       %% "zio-logging"            % zioLoggingVersion,
       "dev.zio"                       %% "zio-logging-slf4j"      % zioLoggingVersion,
       "dev.zio"                       %% "zio-json"               % zioJsonVersion,
+      "dev.zio"                       %% "zio-prelude"            % zioPreludeVersion,
       "dev.zio"                       %% "zio-test"               % zioVersion % Test,
       "dev.zio"                       %% "zio-test-sbt"           % zioVersion % Test,
       "eu.timepit"                    %% "refined"                % refinedVersion
@@ -118,7 +119,6 @@ lazy val journal = project
       "dev.zio"              %% "zio-config-magnolia" % zioConfigVersion,
       "dev.zio"              %% "zio-config-refined"  % zioConfigVersion,
       "dev.zio"              %% "zio-config-typesafe" % zioConfigVersion,
-      "dev.zio"              %% "zio-prelude"         % zioPreludeVersion,
       "io.d11"               %% "zhttp"               % zioHttpVersion,
       "ch.qos.logback"       % "logback-classic"      % logbackVersion,
       "org.reactivestreams"  % "reactive-streams"     % reactiveVersion
