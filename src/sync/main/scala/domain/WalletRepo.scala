@@ -5,6 +5,9 @@ import domain.model.WalletAddress
 
 import zio.{ Has, Ref, UIO, ZIO, ZLayer }
 
+/**
+ * @deprecated
+ */
 trait WalletRepo {
   protected def walletCache: Ref[Set[WalletAddress]]
 

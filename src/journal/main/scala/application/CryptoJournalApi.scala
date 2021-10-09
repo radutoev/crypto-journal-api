@@ -10,7 +10,7 @@ import domain.position.Position.PositionId
 import domain.position._
 import domain.position.error.PositionError
 import domain.wallet.error.WalletError
-import domain.wallet.model.WalletImportState
+import domain.wallet.model.WalletImportStatus
 import domain.wallet.{ Wallet, WalletService }
 import vo.filter.{ KpiFilter, PositionFilter }
 
@@ -60,8 +60,8 @@ object CryptoJournalApi {
       wallets <- ZIO.serviceWith[WalletService](_.getWallets(userId))
     } yield wallets
 
-  def getWalletImportState(address: WalletAddress): ZIO[Has[WalletService], WalletError, WalletImportState] =
-    ZIO.serviceWith[WalletService](_.getImportState(address))
+  def getWalletImportState(address: WalletAddress): ZIO[Has[WalletService], WalletError, WalletImportStatus] =
+    ZIO.serviceWith[WalletService](_.getImportStatus(address))
 
   def saveJournalEntry(
     positionId: PositionId,

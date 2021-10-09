@@ -42,7 +42,7 @@ final case class DatastoreUserWalletRepo(
         .setFilter(PropertyFilter.eq("userId", userId.value))
         .build()
     Task(datastore.run(query, Seq.empty[ReadOption]: _*)).mapBoth(
-      { t: Throwable => WalletsFetchError(userId, t) },
+      { t: Throwable => WalletsFetchError(t) },
       results => results.asScala.toList.map(entityToWallet).collect { case Right(wallet) => wallet }
     )
   }

@@ -4,7 +4,7 @@ package domain.wallet
 import domain.model.{ UserId, WalletAddress }
 import domain.position.PositionService
 import domain.wallet.error.WalletError
-import domain.wallet.model.WalletImportState
+import domain.wallet.model.WalletImportStatus
 
 import zio.logging.{ Logger, Logging }
 import zio.{ Has, IO, URLayer }
@@ -16,7 +16,7 @@ trait WalletService {
 
   def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit]
 
-  def getImportState(address: WalletAddress): IO[WalletError, WalletImportState]
+  def getImportStatus(address: WalletAddress): IO[WalletError, WalletImportStatus]
 }
 
 final case class LiveWalletService(
@@ -48,8 +48,8 @@ final case class LiveWalletService(
   override def removeWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
     userWalletRepo.removeWallet(userId, address)
 
-  override def getImportState(address: WalletAddress): IO[WalletError, WalletImportState] =
-    walletRepo.getImportState(address)
+  override def getImportStatus(address: WalletAddress): IO[WalletError, WalletImportStatus] =
+    walletRepo.getImportStatus(address)
 }
 
 object LiveWalletService {

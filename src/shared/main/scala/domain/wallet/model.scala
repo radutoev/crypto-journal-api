@@ -2,13 +2,13 @@ package io.softwarechain.cryptojournal
 package domain.wallet
 
 object model {
-  sealed trait WalletImportState
-  final case object Importing    extends WalletImportState
-  final case object ImportDone   extends WalletImportState
-  final case object ImportFailed extends WalletImportState
+  sealed trait WalletImportStatus
+  final case object Importing    extends WalletImportStatus
+  final case object ImportDone   extends WalletImportStatus
+  final case object ImportFailed extends WalletImportStatus
 
-  object WalletImportState {
-    def unsafeApply(value: String): WalletImportState = value.toLowerCase match {
+  object WalletImportStatus {
+    def unsafeApply(value: String): WalletImportStatus = value.toLowerCase match {
       case "Importing"    => Importing
       case "ImportDone"   => ImportDone
       case "ImportFailed" => ImportFailed

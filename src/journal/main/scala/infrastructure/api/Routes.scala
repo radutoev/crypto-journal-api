@@ -546,7 +546,7 @@ object Routes {
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "WalletFetchError").toResponsePayload()
       )
-    case WalletsFetchError(userId, throwable) =>
+    case WalletsFetchError(throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
