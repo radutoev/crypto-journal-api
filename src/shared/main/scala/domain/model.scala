@@ -89,6 +89,9 @@ object model {
   type UserIdPredicate = NonEmpty
   type UserId          = String Refined UserIdPredicate
 
+  type ContextIdPredicate = NonEmpty
+  type ContextId          = String Refined ContextIdPredicate
+
   type TradeCountPredicate = NonNegative
   type TradeCount          = Int Refined TradeCountPredicate
 

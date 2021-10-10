@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package application
 
-import domain.account.UserContext
+import domain.account.RequestContext
 import domain.market.error.MarketError
 import domain.market.{ MarketService, Ohlcv }
 import domain.model.WalletAddress
@@ -20,43 +20,43 @@ object CryptoJournalApi {
   def getPositions(
     address: WalletAddress,
     filter: PositionFilter
-  ): ZIO[Has[PositionService] with Has[UserContext], PositionError, Positions] =
+  ): ZIO[Has[PositionService] with Has[RequestContext], PositionError, Positions] =
     for {
-      userId    <- UserContext.userId
+      userId    <- RequestContext.userId
       positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address))(filter))
     } yield positions
 
   def getPosition(
     positionId: PositionId
-  ): ZIO[Has[PositionService] with Has[UserContext], PositionError, Position] =
+  ): ZIO[Has[PositionService] with Has[RequestContext], PositionError, Position] =
     for {
-      userId   <- UserContext.userId
+      userId   <- RequestContext.userId
       position <- ZIO.serviceWith[PositionService](_.getPosition(userId, positionId))
     } yield position
 
   def getPortfolioKpis(
     address: WalletAddress
-  )(kpiFilter: KpiFilter): ZIO[Has[KpiService] with Has[UserContext], Throwable, PortfolioKpi] =
+  )(kpiFilter: KpiFilter): ZIO[Has[KpiService] with Has[RequestContext], Throwable, PortfolioKpi] =
     for {
-      userId       <- UserContext.userId
+      userId       <- RequestContext.userId
       portfolioKpi <- ZIO.serviceWith[KpiService](_.portfolioKpi(Wallet(userId, address))(kpiFilter))
     } yield portfolioKpi
 
-  def addWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[UserContext], WalletError, Unit] =
+  def addWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[RequestContext], WalletError, Unit] =
     for {
-      userId <- UserContext.userId
+      userId <- RequestContext.userId
       _      <- ZIO.serviceWith[WalletService](_.addWallet(userId, address))
     } yield ()
 
-  def removeWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[UserContext], WalletError, Unit] =
+  def removeWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[RequestContext], WalletError, Unit] =
     for {
-      userId <- UserContext.userId
+      userId <- RequestContext.userId
       _      <- ZIO.serviceWith[WalletService](_.removeWallet(userId, address))
     } yield ()
 
-  def getWallets(): ZIO[Has[WalletService] with Has[UserContext], WalletError, List[Wallet]] =
+  def getWallets: ZIO[Has[WalletService] with Has[RequestContext], WalletError, List[Wallet]] =
     for {
-      userId  <- UserContext.userId
+      userId  <- RequestContext.userId
       wallets <- ZIO.serviceWith[WalletService](_.getWallets(userId))
     } yield wallets
 
@@ -66,21 +66,21 @@ object CryptoJournalApi {
   def saveJournalEntry(
     positionId: PositionId,
     entry: JournalEntry
-  ): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
+  ): ZIO[Has[JournalingService] with Has[RequestContext], PositionError, Unit] =
     for {
-      userId <- UserContext.userId
+      userId <- RequestContext.userId
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntry(userId, positionId, entry))
     } yield ()
 
   def saveJournalEntries(
     positionEntries: List[PositionJournalEntry]
-  ): ZIO[Has[JournalingService] with Has[UserContext], PositionError, Unit] =
+  ): ZIO[Has[JournalingService] with Has[RequestContext], PositionError, Unit] =
     for {
-      userId <- UserContext.userId
+      userId <- RequestContext.userId
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntries(userId, positionEntries))
     } yield ()
 
-  def getHistoricalOhlcv(): ZIO[Has[MarketService], MarketError, List[Ohlcv]] =
+  def getHistoricalOhlcv: ZIO[Has[MarketService], MarketError, List[Ohlcv]] =
     for {
       data <- ZIO.serviceWith[MarketService](_.getHistoricalOhlcv())
     } yield data
