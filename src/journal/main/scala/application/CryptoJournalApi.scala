@@ -17,13 +17,23 @@ import vo.filter.{ KpiFilter, PositionFilter }
 import zio.{ Has, ZIO }
 
 object CryptoJournalApi {
+  def getLatestPositions(
+    address: WalletAddress,
+    filter: PositionFilter
+  ): ZIO[Has[PositionService] with Has[RequestContext], PositionError, Positions] =
+    for {
+      userId    <- RequestContext.userId
+      positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address), filter))
+    } yield positions
+
   def getPositions(
     address: WalletAddress,
     filter: PositionFilter
   ): ZIO[Has[PositionService] with Has[RequestContext], PositionError, Positions] =
     for {
       userId    <- RequestContext.userId
-      positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address))(filter))
+      contextId <- RequestContext.contextId
+      positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address), filter, contextId))
     } yield positions
 
   def getPosition(

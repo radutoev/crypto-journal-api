@@ -3,20 +3,23 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
+import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
 import domain.position.error._
-import domain.position.{ Position, PositionEntry, PositionRepo }
-import util.{ tryOrLeft, InstantOps }
+import domain.position.{Position, PositionEntry, PositionRepo, Positions}
+import util.{InstantOps, tryOrLeft}
 import vo.filter.PositionFilter
+import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
-import com.google.cloud.datastore._
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
+import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.refineV
+import eu.timepit.refined.types.numeric.PosLong
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -59,8 +62,9 @@ final case class DatastorePositionRepo(
   }
 
   override def getPositions(
-    address: WalletAddress
-  )(positionFilter: PositionFilter): IO[PositionError, List[Position]] = {
+    address: WalletAddress,
+    positionFilter: PositionFilter
+  ): IO[PositionError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.position)
@@ -76,6 +80,105 @@ final case class DatastorePositionRepo(
       .build()
     doFetchPositions(address, query)
   }
+
+  override def getPositions(
+    address: WalletAddress,
+    filter: PositionFilter,
+    contextId: ContextId
+  ): IO[PositionError, Page[Positions]] = {
+    @inline
+    def filterHasChanged(existentFilterHash: PosLong): Boolean =
+      existentFilterHash.value != filter.hashCode()
+
+    @inline
+    def generatePage(query: EntityQuery): IO[PositionError, (Page[Positions], Option[PaginationContext])] =
+      executeQuery(query)
+        .map(Some(_))
+        .mapBoth(
+          _ => PositionsFetchError(address),
+          resultsOpt =>
+            resultsOpt.fold[(Page[Positions], Option[PaginationContext])](
+              (Page(Positions(List.empty), None), None)
+            ) { results =>
+              val nextCursor = results.getCursorAfter
+              val paginationContext = if (nextCursor.toUrlSafe.nonEmpty) {
+                Some(
+                  PaginationContext(
+                    contextId,
+                    refineV[CursorPredicate].unsafeFrom(nextCursor.toUrlSafe),
+                    PosLong.unsafeFrom(filter.hashCode())
+                  )
+                )
+              } else None
+              val positions = Positions(results.asScala.toList.map(entityToPosition).collect {
+                case Right(position) => position
+              })
+              (Page(positions, Some(contextId)), paginationContext)
+            }
+        )
+
+    @inline
+    def generatePageAndSavePaginationContext(query: EntityQuery): IO[PositionError, Page[Positions]] =
+      for {
+        (page, maybeContext) <- generatePage(query)
+        _                    <- maybeContext.fold[IO[PositionError, Unit]](UIO.unit)(ctx => savePaginationContext(ctx).unit)
+      } yield page
+
+    logger.info(s"Fetching positions for ${address.value}. Interval: ${filter.interval.start} - ${filter.interval.end}") *>
+    getPaginationContext(contextId).flatMap { positionContext =>
+      val query = if (filterHasChanged(positionContext.filterHash)) {
+        positionsQuery(address, filter).build()
+      } else {
+        positionsQuery(address, filter)
+          .setStartCursor(PaginationCursor.fromUrlSafe(positionContext.cursor.value))
+          .build()
+      }
+      logger.info("Using pagination cursor") *> generatePageAndSavePaginationContext(query)
+    }.catchSome {
+      case PaginationContextNotFoundError(_) =>
+        generatePageAndSavePaginationContext(positionsQuery(address, filter).build())
+    }
+  }
+
+  private def positionsQuery(address: WalletAddress, positionFilter: PositionFilter) =
+    Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.position)
+      .setFilter(
+        CompositeFilter.and(
+          PropertyFilter.eq("address", address.value),
+          PropertyFilter.le("openedAt", positionFilter.interval.end.toDatastoreTimestamp())
+        )
+      )
+      .addOrderBy(OrderBy.desc("openedAt"))
+      .setLimit(positionFilter.count)
+
+  private def getPaginationContext(contextId: ContextId): IO[PositionError, PaginationContext] = {
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.paginationContext).newKey(contextId.value)
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.paginationContext)
+      .setFilter(PropertyFilter.eq("__key__", key))
+      .setLimit(1)
+      .build()
+
+    executeQuery(query)
+      .orElseFail(PaginationContextFetchError(contextId))
+      .flatMap { results =>
+        val list = results.asScala.toList
+        if (list.nonEmpty) {
+          ZIO.fromEither(entityAsPaginationContext(list.head))
+        } else {
+          ZIO.fail(PaginationContextNotFoundError(contextId))
+        }
+      }
+  }
+
+  private def savePaginationContext(context: PaginationContext): IO[PositionError, Unit] =
+    Task(datastore.put(paginationContextAsEntity(context)))
+      .tapError(err => logger.warn(err.toString))
+      .orElseFail(PaginationContextSaveError(context))
+      .unit
 
   override def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]] = {
     val query = Query
@@ -280,6 +383,32 @@ final case class DatastorePositionRepo(
       id = Some(id)
     )
   }
+
+  private def paginationContextAsEntity(context: PaginationContext): Entity =
+    Entity
+      .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.position).newKey(context.contextId.value))
+      .set("cursor", context.cursor.value)
+      .set("positionFilterHash", context.filterHash.value)
+      .build()
+
+  private def entityAsPaginationContext(entity: Entity): Either[InvalidRepresentation, PaginationContext] =
+    for {
+      ctxId <- tryOrLeft(entity.getKey().getName, InvalidRepresentation("Entry has no key name"))
+                .flatMap(rawIdStr =>
+                  refined
+                    .refineV[ContextIdPredicate](rawIdStr)
+                    .left
+                    .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
+                )
+      cursor <- tryOrLeft(entity.getString("cursor"), InvalidRepresentation("Invalid cursor representation"))
+                 .flatMap(rawCursor =>
+                   refineV[CursorPredicate](rawCursor).left.map(_ =>
+                     InvalidRepresentation(s"Invalid format for cursor $rawCursor")
+                   )
+                 )
+      hash <- tryOrLeft(entity.getLong("positionFilterHash"), InvalidRepresentation("Invalid filter hash"))
+               .map(rawHash => refineV[Positive].unsafeFrom(rawHash))
+    } yield PaginationContext(ctxId, cursor, hash)
 }
 
 object DatastorePositionRepo {

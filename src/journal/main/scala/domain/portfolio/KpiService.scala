@@ -19,7 +19,7 @@ final case class LiveKpiService(positionService: PositionService, clock: Clock.S
       .orElseFail(new RuntimeException("Invalid position filter"))
       .flatMap { filter =>
         positionService
-          .getPositions(userWallet)(filter)
+          .getPositions(userWallet, filter)
           .mapBoth(_ => new RuntimeException("failed"), new PortfolioKpi(_, filter.interval))
       }
 }

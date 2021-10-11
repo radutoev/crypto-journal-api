@@ -139,6 +139,20 @@ object Routes {
   }
 
   private def positions(userId: UserId, contextId: ContextId) = HttpApp.collectM {
+    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "latest-positions" =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+
+        filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
+
+        response <- CryptoJournalApi
+          .getPositions(address, filter)
+          .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
+          .fold(positionErrorToHttpResponse, _.asResponse(contextId))
+      } yield response
+
     case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "positions" =>
       for {
         address <- ZIO

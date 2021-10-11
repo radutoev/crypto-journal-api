@@ -19,7 +19,9 @@ import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 import java.time.Instant
 
 trait PositionService {
-  def getPositions(userWallet: Wallet)(filter: PositionFilter): IO[PositionError, Positions]
+  def getPositions(userWallet: Wallet, filter: PositionFilter): IO[PositionError, Positions]
+
+  def getPositions(userWallet: Wallet, filter: PositionFilter, contextId: ContextId): IO[PositionError, Positions]
 
   def getPosition(userId: UserId, positionId: PositionId): IO[PositionError, Position]
 
@@ -41,7 +43,7 @@ object PositionService {
   def getPositions(
     userWallet: Wallet
   )(filter: PositionFilter): ZIO[Has[PositionService], PositionError, Positions] =
-    ZIO.serviceWith[PositionService](_.getPositions(userWallet)(filter))
+    ZIO.serviceWith[PositionService](_.getPositions(userWallet, filter))
 }
 
 final case class LivePositionService(
@@ -51,15 +53,10 @@ final case class LivePositionService(
   journalingRepo: JournalingRepo,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: Wallet)(positionFilter: PositionFilter): IO[PositionError, Positions] = {
-    def withJournalEntries(positions: List[Position], entries: List[JournalEntry]): List[Position] = {
-      val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
-      positions.map(position => position.copy(journal = position.id.flatMap(positionToEntryMap.get)))
-    }
-
+  override def getPositions(userWallet: Wallet, positionFilter: PositionFilter): IO[PositionError, Positions] = {
     for {
       positions <- positionRepo
-                    .getPositions(userWallet.address)(positionFilter)
+                    .getPositions(userWallet.address, positionFilter)
                     .flatMap(enrichPositions)
                     .orElseFail(PositionsFetchError(userWallet.address))
       journalEntries <- journalingRepo.getEntries(
@@ -67,6 +64,24 @@ final case class LivePositionService(
                          positions.map(_.id).collect { case Some(id) => id }
                        )
     } yield Positions(withJournalEntries(positions, journalEntries))
+  }
+
+  override def getPositions(userWallet: Wallet, filter: PositionFilter, contextId: ContextId): IO[PositionError, Positions] = {
+    for {
+      positions <- positionRepo
+        .getPositions(userWallet.address, filter, contextId)
+        .flatMap(page => enrichPositions(page.data.items))
+        .orElseFail(PositionsFetchError(userWallet.address))
+      journalEntries <- journalingRepo.getEntries(
+        userWallet.userId,
+        positions.map(_.id).collect { case Some(id) => id }
+      )
+    } yield Positions(withJournalEntries(positions, journalEntries))
+  }
+
+  private def withJournalEntries(positions: List[Position], entries: List[JournalEntry]): List[Position] = {
+    val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
+    positions.map(position => position.copy(journal = position.id.flatMap(positionToEntryMap.get)))
   }
 
   private def enrichPositions(positions: List[Position]): IO[PositionError, List[Position]] = {

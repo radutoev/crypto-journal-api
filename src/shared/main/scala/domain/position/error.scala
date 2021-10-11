@@ -1,8 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ UserId, WalletAddress }
+import domain.model.{ContextId, UserId, WalletAddress}
 import domain.position.Position.PositionId
+import vo.pagination.PaginationContext
 
 object error {
   sealed trait PositionError
@@ -12,6 +13,10 @@ object error {
 
   final case class PositionNotFound(positionId: PositionId)                         extends PositionError
   final case class PositionFetchError(positionId: PositionId, throwable: Throwable) extends PositionError
+
+  final case class PaginationContextSaveError(context: PaginationContext) extends PositionError
+  final case class PaginationContextNotFoundError(contextId: ContextId) extends PositionError
+  final case class PaginationContextFetchError(contextId: ContextId) extends PositionError
 
   final case class PriceQuotesError(throwable: Throwable) extends PositionError
 
