@@ -1,7 +1,7 @@
 import com.typesafe.sbt.packager.docker._
 
 val auth0Version          = "0.19.0"
-val datastoreVersion      = "2.1.2"
+val datastoreVersion      = "2.1.1"
 val jwtVersion            = "9.0.1"
 val logbackVersion        = "1.2.6"
 val reactiveVersion       = "1.0.3"

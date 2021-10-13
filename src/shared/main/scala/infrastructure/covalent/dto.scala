@@ -1,15 +1,11 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import io.softwarechain.cryptojournal.domain.blockchain.{
-  Decoded => DomainDecoded,
-  LogEvent => DomainLogEvent,
-  Param => DomainParam,
-  Transaction => DomainTransaction
-}
+import domain.blockchain.{Decoded => DomainDecoded, LogEvent => DomainLogEvent, Param => DomainParam, Transaction => DomainTransaction}
+
 import zio.json.ast.Json
 import zio.json.ast.Json.Obj
-import zio.json.{ jsonField, DeriveJsonDecoder, JsonDecoder }
+import zio.json.{DeriveJsonDecoder, JsonDecoder, jsonField}
 
 object dto {
   final case class TransactionQueryResponse(
@@ -101,14 +97,18 @@ object dto {
     }
   }
 
-  final case class Decoded(name: String, signature: String, params: List[Param])
+  final case class Decoded(name: String, signature: String, params: Option[List[Param]])
 
   object Decoded {
     implicit val encoder: JsonDecoder[Decoded] = DeriveJsonDecoder.gen[Decoded]
 
     implicit class DecodedOps(decoded: Decoded) {
       def toDomain() =
-        DomainDecoded(name = decoded.name, signature = decoded.signature, params = decoded.params.map(_.toDomain()))
+        DomainDecoded(
+          name = decoded.name,
+          signature = decoded.signature,
+          params = decoded.params.fold[List[DomainParam]](List.empty)(_.map(_.toDomain()))
+        )
     }
   }
 
@@ -122,6 +122,7 @@ object dto {
 
   object Param {
     implicit val paramDecoder: JsonDecoder[Param] = Obj.decoder.map { json =>
+//      println(json.toString())
       (for {
         name      <- json.fields.find(_._1 == "name").flatMap(_._2.as[String].toOption)
         paramType <- json.fields.find(_._1 == "type").flatMap(_._2.as[String].toOption)
@@ -130,6 +131,7 @@ object dto {
         value <- json.fields.find(_._1 == "value").map(_._2).map {
                   case Json.Arr(elements) => elements.headOption.flatMap(_.as[String].toOption).getOrElse("")
                   case Json.Str(value)    => value
+                  case Json.Bool(bool)    => bool.toString
                 }
       } yield Param(name, paramType, indexed, decoded, value)).get
     }

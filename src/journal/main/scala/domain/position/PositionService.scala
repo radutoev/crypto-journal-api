@@ -53,7 +53,7 @@ final case class LivePositionService(
   journalingRepo: JournalingRepo,
   logger: Logger[String]
 ) extends PositionService {
-  override def getPositions(userWallet: Wallet, positionFilter: PositionFilter): IO[PositionError, Positions] = {
+  override def getPositions(userWallet: Wallet, positionFilter: PositionFilter): IO[PositionError, Positions] =
     for {
       positions <- positionRepo
                     .getPositions(userWallet.address, positionFilter)
@@ -64,20 +64,22 @@ final case class LivePositionService(
                          positions.map(_.id).collect { case Some(id) => id }
                        )
     } yield Positions(withJournalEntries(positions, journalEntries))
-  }
 
-  override def getPositions(userWallet: Wallet, filter: PositionFilter, contextId: ContextId): IO[PositionError, Positions] = {
+  override def getPositions(
+    userWallet: Wallet,
+    filter: PositionFilter,
+    contextId: ContextId
+  ): IO[PositionError, Positions] =
     for {
       positions <- positionRepo
-        .getPositions(userWallet.address, filter, contextId)
-        .flatMap(page => enrichPositions(page.data.items))
-        .orElseFail(PositionsFetchError(userWallet.address))
+                    .getPositions(userWallet.address, filter, contextId)
+                    .flatMap(page => enrichPositions(page.data.items))
+                    .orElseFail(PositionsFetchError(userWallet.address))
       journalEntries <- journalingRepo.getEntries(
-        userWallet.userId,
-        positions.map(_.id).collect { case Some(id) => id }
-      )
+                         userWallet.userId,
+                         positions.map(_.id).collect { case Some(id) => id }
+                       )
     } yield Positions(withJournalEntries(positions, journalEntries))
-  }
 
   private def withJournalEntries(positions: List[Position], entries: List[JournalEntry]): List[Position] = {
     val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
@@ -120,7 +122,8 @@ final case class LivePositionService(
   }
 
   override def importPositions(userWallet: Wallet): IO[PositionError, Unit] =
-    importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
+    logger.info(s"Importing positions for ${userWallet.address}") *>
+      importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
 
   override def importPositions(userWallet: Wallet, startFrom: Instant): IO[PositionError, Unit] =
     importPositions(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)

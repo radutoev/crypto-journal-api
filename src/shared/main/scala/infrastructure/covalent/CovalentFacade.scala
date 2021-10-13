@@ -68,7 +68,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
           if (pageNumber > 0) {
             executeRequest(
               refineV[Url].unsafeFrom(
-                s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=20"
+                s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=60"
               )
             ).tapError(err => logger.warn("Covalent request failed: " + err.message))
               .mapError(Some(_))
@@ -88,27 +88,31 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
     }
 
   private def executeRequest(url: String Refined Url) =
-    httpClient
-      .send(
-        basicRequest
-          .get(uri"${url.value}")
-          .response(asString)
-      )
-      .mapError(err => TransactionsGetError(err.getMessage))
-      .flatMap(response =>
-        ZIO.fromEither(response.body.map(_.fromJson[TransactionQueryResponse])).mapError(TransactionsGetError)
-      )
-      .flatMap(either =>
-        either.fold(
-          m => ZIO.fail(TransactionsGetError(m)),
-          response =>
-            if (response.error) {
-              ZIO.fail(TransactionsGetError(s"Failure fetching transactions: ${response.errorCode}"))
-            } else {
-              UIO(response.data)
-            }
+    logger.info(s"Fetching data from ${url.value}") *>
+      httpClient
+        .send(
+          basicRequest
+            .get(uri"${url.value}")
+            .response(asString)
         )
-      )
+        .tapError(err => logger.warn(s"Transactions fetch failed for ${url.value}. Error: ${err.getMessage}"))
+        .mapError(err => TransactionsGetError(err.getMessage))
+        .flatMap(response =>
+          ZIO.fromEither(response.body.map(_.fromJson[TransactionQueryResponse]))
+            .tapError(err => logger.warn(s"Decode failed for ${response.body}. Error: $err"))
+            .mapError(TransactionsGetError)
+        )
+        .flatMap(either =>
+          either.fold(
+            m => ZIO.fail(TransactionsGetError(m)),
+            response =>
+              if (response.error) {
+                ZIO.fail(TransactionsGetError(s"Failure fetching transactions: ${response.errorCode}"))
+              } else {
+                UIO(response.data)
+              }
+          )
+        )
 
   override def fetchTransaction(txHash: TransactionHash): Task[Transaction] =
     for {

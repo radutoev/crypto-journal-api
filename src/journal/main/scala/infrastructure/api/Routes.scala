@@ -148,7 +148,7 @@ object Routes {
         filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-          .getPositions(address, filter)
+          .getLatestPositions(address, filter)
           .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
           .fold(positionErrorToHttpResponse, _.asResponse(contextId))
       } yield response
@@ -443,6 +443,7 @@ object Routes {
       val headers = Header("Content-Type", "application/json") :: Header("X-CoinLogger-ContextId", contextId.value) :: Nil
 
       positions.items match {
+        case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)
         case list =>
           Response.http(
             status = Status.OK,
@@ -451,7 +452,6 @@ object Routes {
               Chunk.fromArray(list.map(fromPosition).toJson.getBytes(HTTP_CHARSET))
             )
           )
-        case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)
       }
     }
   }

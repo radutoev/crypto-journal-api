@@ -1,13 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
-import domain.model.{ UserId, WalletAddress }
+import domain.model.{UserId, WalletAddress}
 import domain.position.PositionService
 import domain.wallet.error.WalletError
-import domain.wallet.model.WalletImportStatus
+import domain.wallet.model.{ImportDone, WalletImportStatus}
 
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, URLayer}
 
 trait WalletService {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]
@@ -36,6 +36,7 @@ final case class LiveWalletService(
             positionService
               .importPositions(userWallet)
               .tapError(_ => logger.error(s"Unable to import positions for $address"))
+              .zipRight(walletRepo.updateImportStatus(address, ImportDone))
               .ignore
               .forkDaemon
           )
