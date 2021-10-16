@@ -21,6 +21,8 @@ import java.time.{ DayOfWeek, Duration, Month }
 final case class PortfolioKpi(positions: Positions, interval: TimeInterval, referencePositions: Positions) {
   lazy val netReturn: NetReturn = NetReturn(positions)
 
+  lazy val balance: AccountBalance = AccountBalance(positions)
+
   lazy val tradeCount: Int = positions.closedPositions.size
 
   lazy val openTradesCount: Int = positions.openPositions.size
@@ -48,25 +50,6 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
     } else {
       0f
     }
-
-//  lazy val netReturn: FungibleData = {
-//    positions.closedPositions.map(_.fiatReturn()).sumFungibleData()
-//  }
-
-  /**
-   * Account balance derived from provided positions.
-   */
-  lazy val balance: FungibleData = {
-    positions.items.map(_.fiatValue()).sumFungibleData()
-  }
-
-  lazy val balanceTrend: List[FungibleData] = {
-    positions.trend(_.fiatValue())
-  }
-
-  lazy val netReturnTrend: List[FungibleData] = {
-    positions.trend(_.fiatReturn())
-  }
 
   /**
    * Sum all fees of positions

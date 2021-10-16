@@ -1,25 +1,20 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.market.{ Ohlcv => CJOhlcv }
-import domain.model.{ MistakePredicate, TagPredicate, FungibleData => CJFungibleData }
-import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi, NetReturn => CJNetReturn }
-import domain.position.{
-  JournalEntry => CJJournalEntry,
-  Position => CJPosition,
-  PositionEntry => CJPositionEntry,
-  PositionJournalEntry => CJPositionJournalEntry
-}
+import domain.market.{Ohlcv => CJOhlcv}
+import domain.model.{MistakePredicate, TagPredicate, FungibleData => CJFungibleData}
+import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
+import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry}
 import domain.position.Position.PositionIdPredicate
-import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
-import domain.wallet.{ Wallet => CJWallet }
-import vo.{ PeriodDistribution => CJPeriodDistribution }
+import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
+import domain.wallet.{Wallet => CJWallet}
+import vo.{PeriodDistribution => CJPeriodDistribution}
 
 import dto.Position._
 import eu.timepit.refined.refineV
-import zio.json.{ DeriveJsonCodec, JsonCodec }
+import zio.json.{DeriveJsonCodec, JsonCodec}
 
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
 
 object dto {
   final case class Positions(positions: List[Position], lastSync: Option[Instant])
@@ -125,14 +120,12 @@ object dto {
   }
 
   final case class PortfolioKpi(
-    accountBalance: FungibleData,
+    accountBalance: ValueTrendComparison,
     tradeCount: Int,
     winRate: Float,
     loseRate: Float,
-    netReturn: NetReturn,
-    avgDailyTradeCount: Float,
-    balanceTrend: List[BigDecimal],
-    netReturnTrend: List[BigDecimal]
+    netReturn: ValueTrendComparison,
+    avgDailyTradeCount: Float
   )
 
   object PortfolioKpi {
@@ -140,24 +133,26 @@ object dto {
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi =
       new PortfolioKpi(
-        kpi.balance.asJson,
+        ValueTrendComparison.fromAccountBalance(kpi.balance, AccountBalance(kpi.referencePositions)),
         kpi.tradeCount,
         kpi.winRate,
         kpi.loseRate,
-        NetReturn(kpi.netReturn, CJNetReturn(kpi.referencePositions)),
+        ValueTrendComparison.fromNetReturn(kpi.netReturn, NetReturn(kpi.referencePositions)),
         kpi.avgDailyTradeCount,
-        kpi.balanceTrend.map(_.amount),
-        kpi.netReturnTrend.map(_.amount)
       )
   }
 
-  final case class NetReturn(value: FungibleData, trend: List[FungibleData], performance: String)
+  final case class ValueTrendComparison(value: FungibleData, trend: List[BigDecimal], performance: String)
 
-  object NetReturn {
-    implicit val netReturnCodec: JsonCodec[NetReturn] = DeriveJsonCodec.gen[NetReturn]
+  object ValueTrendComparison {
+    implicit val valueTrendComparison: JsonCodec[ValueTrendComparison] = DeriveJsonCodec.gen[ValueTrendComparison]
 
-    def apply(netReturn: CJNetReturn, compareWith: CJNetReturn): NetReturn = {
-      new NetReturn(netReturn.value.asJson, netReturn.trend.map(_.asJson), netReturn.performance(compareWith).toString)
+    def fromNetReturn(netReturn: NetReturn, compareWith: NetReturn): ValueTrendComparison = {
+      new ValueTrendComparison(netReturn.value.asJson, netReturn.trend.map(_.amount), netReturn.performance(compareWith).toString)
+    }
+
+    def fromAccountBalance(balance: AccountBalance, compareWith: AccountBalance): ValueTrendComparison = {
+      new ValueTrendComparison(balance.value.asJson, balance.trend.map(_.amount), balance.performance(compareWith).toString)
     }
   }
 

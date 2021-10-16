@@ -3,7 +3,7 @@ package domain.portfolio
 
 import domain.model.FungibleData
 import domain.model.FungibleData.{Bigger, Equal, Lower}
-import domain.portfolio.NetReturn._
+import domain.portfolio.model._
 import domain.position.Positions
 
 final case class NetReturn(positions: Positions) {
@@ -20,12 +20,5 @@ final case class NetReturn(positions: Positions) {
         case Lower  => Decrease
       }
   }
-}
-
-object NetReturn {
-  sealed trait PositionPerformance
-  final case object Increase extends PositionPerformance
-  final case object Decrease extends PositionPerformance
-  final case object NoChange extends PositionPerformance
 }
 
