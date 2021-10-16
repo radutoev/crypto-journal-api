@@ -14,9 +14,7 @@ import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
-import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.refineV
-import eu.timepit.refined.types.numeric.PosLong
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, UIO, URLayer, ZIO}
@@ -65,20 +63,7 @@ final case class DatastorePositionRepo(
     address: WalletAddress,
     positionFilter: PositionFilter
   ): IO[PositionError, List[Position]] = {
-    val query = Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.position)
-      .setFilter(
-        CompositeFilter.and(
-          PropertyFilter.eq("address", address.value),
-//          PropertyFilter.ge("openedAt", positionFilter.interval.start.toDatastoreTimestamp()), //doesn't work because datastore filters.
-          PropertyFilter.le("openedAt", positionFilter.interval.end.toDatastoreTimestamp())
-        )
-      )
-      .addOrderBy(OrderBy.desc("openedAt"))
-      .setLimit(positionFilter.count)
-      .build()
-    doFetchPositions(address, query)
+    doFetchPositions(address, positionsQuery(address, positionFilter).build())
   }
 
   override def getPositions(
@@ -100,6 +85,9 @@ final case class DatastorePositionRepo(
             resultsOpt.fold[(Page[Positions], Option[PaginationContext])](
               (Page(Positions(List.empty), None), None)
             ) { results =>
+              val positions = Positions(results.asScala.toList.map(entityToPosition).collect {
+                case Right(position) if position.entries.nonEmpty => position
+              })
               val nextCursor = results.getCursorAfter
               val paginationContext = if (nextCursor.toUrlSafe.nonEmpty) {
                 Some(
@@ -110,9 +98,6 @@ final case class DatastorePositionRepo(
                   )
                 )
               } else None
-              val positions = Positions(results.asScala.toList.map(entityToPosition).collect {
-                case Right(position) if position.entries.nonEmpty => position
-              })
               (Page(positions, Some(contextId)), paginationContext)
             }
         )
@@ -133,7 +118,7 @@ final case class DatastorePositionRepo(
           .setStartCursor(PaginationCursor.fromUrlSafe(positionContext.cursor.value))
           .build()
       }
-      logger.info("Using pagination cursor") *> generatePageAndSavePaginationContext(query)
+      generatePageAndSavePaginationContext(query)
     }.catchSome {
       case PaginationContextNotFoundError(_) =>
         generatePageAndSavePaginationContext(positionsQuery(address, filter).build())

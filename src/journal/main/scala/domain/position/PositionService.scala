@@ -30,10 +30,10 @@ trait PositionService {
   def importPositions(userWallet: Wallet, startingFrom: Instant): IO[PositionError, Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
-    val timestamps = positions.flatMap(_.entries).map(_.timestamp)
+    val timestamps = positions.flatMap(_.entries).map(_.timestamp).sorted
     timestamps match {
       case head :: Nil  => Some(TimeInterval(head))
-      case head :: tail => Some(TimeInterval(tail.last, head))
+      case head :: tail => Some(TimeInterval(head, tail.last))
       case Nil          => None
     }
   }
