@@ -73,7 +73,7 @@ object CryptoJournal extends App {
     lazy val walletServiceLayer =
       userWalletRepo ++ walletRepo ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
 
-    lazy val kpiServiceLayer = (positionServiceLayer ++ Clock.live) >>> LiveKpiService.layer
+    lazy val kpiServiceLayer = (positionServiceLayer ++ Clock.live ++ loggingLayer) >>> LiveKpiService.layer
 
     lazy val journalServiceLayer = journalRepoLayer >>> LiveJournalingService.layer
 

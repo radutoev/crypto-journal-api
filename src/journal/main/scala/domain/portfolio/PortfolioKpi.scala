@@ -11,9 +11,16 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
-import java.time.{ DayOfWeek, Duration, Instant, Month }
+import java.time.{ DayOfWeek, Duration, Month }
 
-final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
+/**
+ * @param positions source to compute the KPIs for
+ * @param interval timeInterval does not have to be an exact match with the interval of the given positions.
+ * @param referencePositions positions compares against referencePosition to generate performance.
+ */
+final case class PortfolioKpi(positions: Positions, interval: TimeInterval, referencePositions: Positions) {
+  lazy val netReturn: NetReturn = NetReturn(positions)
+
   lazy val tradeCount: Int = positions.closedPositions.size
 
   lazy val openTradesCount: Int = positions.openPositions.size
@@ -42,9 +49,9 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
       0f
     }
 
-  lazy val netReturn: FungibleData = {
-    positions.closedPositions.map(_.fiatReturn()).sumFungibleData()
-  }
+//  lazy val netReturn: FungibleData = {
+//    positions.closedPositions.map(_.fiatReturn()).sumFungibleData()
+//  }
 
   /**
    * Account balance derived from provided positions.

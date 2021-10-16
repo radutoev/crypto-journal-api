@@ -1,9 +1,11 @@
 package io.softwarechain.cryptojournal
 package domain
 
+import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
+
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.{ NonEmpty, Size }
+import eu.timepit.refined.collection.{NonEmpty, Size}
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
@@ -15,6 +17,10 @@ object model {
 
   object Currency {
     def unsafeFrom(str: String): Refined[String, CurrencyPredicate] = refineV[CurrencyPredicate].unsafeFrom(str)
+  }
+
+  implicit class CurrencyOps(currency: Currency) {
+    def sameCurrency(other: Currency): Boolean = currency.value == other.value
   }
 
   type NumberOfDaysPredicate = NonNegative
@@ -55,6 +61,19 @@ object model {
     def negate(): FungibleData = copy(amount = -amount)
 
     def divide(denominator: Int): FungibleData = copy(amount = amount / denominator)
+
+    def compare(other: FungibleData): Either[FungibleDataError, ComparisonResult] =
+      if (other.currency.sameCurrency(currency)) {
+        Left(DifferentCurrencies)
+      } else {
+        Right {
+          other.amount.compare(amount) match {
+            case -1 => Lower
+            case 0 => FungibleData.Equal
+            case 1 => Bigger
+          }
+        }
+      }
   }
 
   object FungibleData {
@@ -65,6 +84,14 @@ object model {
     //`Ordering[A]` is not contravariant => the declaration
     // must be type-parametrized for implicit ordering of subclasses of `FungibleData`.
     implicit def orderingByAmount[A <: FungibleData]: Ordering[A] = Ordering.by(_.amount)
+
+    sealed trait ComparisonResult
+    final case object Equal  extends ComparisonResult
+    final case object Bigger extends ComparisonResult
+    final case object Lower  extends ComparisonResult
+
+    sealed trait FungibleDataError
+    final case object DifferentCurrencies extends FungibleDataError
   }
 
   type Fee = FungibleData

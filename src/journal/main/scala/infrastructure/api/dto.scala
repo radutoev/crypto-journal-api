@@ -3,7 +3,7 @@ package infrastructure.api
 
 import domain.market.{ Ohlcv => CJOhlcv }
 import domain.model.{ MistakePredicate, TagPredicate, FungibleData => CJFungibleData }
-import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
+import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi, NetReturn => CJNetReturn }
 import domain.position.{
   JournalEntry => CJJournalEntry,
   Position => CJPosition,
@@ -129,7 +129,7 @@ object dto {
     tradeCount: Int,
     winRate: Float,
     loseRate: Float,
-    netReturn: FungibleData,
+    netReturn: NetReturn,
     avgDailyTradeCount: Float,
     balanceTrend: List[BigDecimal],
     netReturnTrend: List[BigDecimal]
@@ -144,11 +144,21 @@ object dto {
         kpi.tradeCount,
         kpi.winRate,
         kpi.loseRate,
-        kpi.netReturn.asJson,
+        NetReturn(kpi.netReturn, CJNetReturn(kpi.referencePositions)),
         kpi.avgDailyTradeCount,
         kpi.balanceTrend.map(_.amount),
         kpi.netReturnTrend.map(_.amount)
       )
+  }
+
+  final case class NetReturn(value: FungibleData, trend: List[FungibleData], performance: String)
+
+  object NetReturn {
+    implicit val netReturnCodec: JsonCodec[NetReturn] = DeriveJsonCodec.gen[NetReturn]
+
+    def apply(netReturn: CJNetReturn, compareWith: CJNetReturn): NetReturn = {
+      new NetReturn(netReturn.value.asJson, netReturn.trend.map(_.asJson), netReturn.performance(compareWith).toString)
+    }
   }
 
   final case class PortfolioStats(
@@ -197,7 +207,7 @@ object dto {
 
     def apply(portfolio: CJPortfolioKpi): KpiDistinctValues =
       new KpiDistinctValues(
-        portfolio.netReturn.amount,
+        portfolio.netReturn.value.amount,
         portfolio.biggestWin.map(_.asJson),
         portfolio.biggestLoss.map(_.asJson),
         portfolio.winRate,
