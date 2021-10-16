@@ -111,7 +111,7 @@ final case class DatastorePositionRepo(
                 )
               } else None
               val positions = Positions(results.asScala.toList.map(entityToPosition).collect {
-                case Right(position) => position
+                case Right(position) if position.entries.nonEmpty => position
               })
               (Page(positions, Some(contextId)), paginationContext)
             }
@@ -223,7 +223,7 @@ final case class DatastorePositionRepo(
         _ => PositionsFetchError(address),
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty)(results =>
-            results.asScala.toList.map(entityToPosition).collect { case Right(position) => position }
+            results.asScala.toList.map(entityToPosition).collect { case Right(position) if position.entries.nonEmpty => position }
           )
       )
 
@@ -272,10 +272,11 @@ final case class DatastorePositionRepo(
 
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {
+      val id = UUID.randomUUID().toString
       val entries = position.entries.map { entry =>
         EntityValue.of(
           Entity
-            .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
+            .newBuilder(datastore.newKeyFactory().addAncestor(PathElement.of(kind, id)).setKind("PositionEntry").newKey(UUID.randomUUID().toString))
             .set("type", StringValue.of(entry.`type`.toString))
             .set("value", DoubleValue.of(entry.value.amount.doubleValue))
             .set("valueCurrency", StringValue.of(entry.value.currency.value))
@@ -292,7 +293,7 @@ final case class DatastorePositionRepo(
       }
 
       var builder = Entity
-        .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
+        .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(id))
         .set("address", StringValue.of(address.value))
         .set("currency", StringValue.of(position.currency.value))
         .set("state", StringValue.of(position.state.toString))
@@ -315,7 +316,6 @@ final case class DatastorePositionRepo(
     }
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
-
     for {
       id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
              .flatMap(rawIdStr =>
