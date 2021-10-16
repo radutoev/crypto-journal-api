@@ -87,8 +87,8 @@ final case class DatastorePositionRepo(
     contextId: ContextId
   ): IO[PositionError, Page[Positions]] = {
     @inline
-    def filterHasChanged(existentFilterHash: PosLong): Boolean =
-      existentFilterHash.value != filter.hashCode()
+    def filterHasChanged(existentFilterHash: Int): Boolean =
+      existentFilterHash != filter.hashCode()
 
     @inline
     def generatePage(query: EntityQuery): IO[PositionError, (Page[Positions], Option[PaginationContext])] =
@@ -106,7 +106,7 @@ final case class DatastorePositionRepo(
                   PaginationContext(
                     contextId,
                     refineV[CursorPredicate].unsafeFrom(nextCursor.toUrlSafe),
-                    PosLong.unsafeFrom(filter.hashCode())
+                    filter.hashCode()
                   )
                 )
               } else None
@@ -174,11 +174,12 @@ final case class DatastorePositionRepo(
       }
   }
 
-  private def savePaginationContext(context: PaginationContext): IO[PositionError, Unit] =
+  private def savePaginationContext(context: PaginationContext): IO[PositionError, Unit] = {
     Task(datastore.put(paginationContextAsEntity(context)))
       .tapError(err => logger.warn(err.toString))
       .orElseFail(PaginationContextSaveError(context))
       .unit
+  }
 
   override def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]] = {
     val query = Query
@@ -386,9 +387,9 @@ final case class DatastorePositionRepo(
 
   private def paginationContextAsEntity(context: PaginationContext): Entity =
     Entity
-      .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.position).newKey(context.contextId.value))
+      .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.paginationContext).newKey(context.contextId.value))
       .set("cursor", context.cursor.value)
-      .set("positionFilterHash", context.filterHash.value)
+      .set("positionFilterHash", context.filterHash)
       .build()
 
   private def entityAsPaginationContext(entity: Entity): Either[InvalidRepresentation, PaginationContext] =
@@ -407,7 +408,7 @@ final case class DatastorePositionRepo(
                    )
                  )
       hash <- tryOrLeft(entity.getLong("positionFilterHash"), InvalidRepresentation("Invalid filter hash"))
-               .map(rawHash => refineV[Positive].unsafeFrom(rawHash))
+               .map(rawHash => rawHash.toInt)
     } yield PaginationContext(ctxId, cursor, hash)
 }
 
