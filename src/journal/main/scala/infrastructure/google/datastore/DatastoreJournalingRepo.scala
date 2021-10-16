@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{ MistakePredicate, SetupPredicate, UserId, UserIdPredicate }
+import domain.model.{ MistakePredicate, TagPredicate, UserId, UserIdPredicate }
 import domain.position.Position.{ PositionId, PositionIdPredicate }
 import domain.position.error._
 import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
@@ -80,7 +80,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
         datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, positionId))
       )
       .set("notes", entry.notes.getOrElse(""))
-      .set("setups", entry.setups.map(_.value).map(StringValue.of).asJava)
+      .set("tags", entry.tags.map(_.value).map(StringValue.of).asJava)
       .set("mistakes", entry.mistakes.map(_.value).map(StringValue.of).asJava)
       .build()
   }
@@ -111,20 +111,20 @@ object DatastoreJournalingRepo {
                 if (entity.contains("notes")) entity.getString("notes") else "",
                 InvalidRepresentation("Invalid notes representation")
               ).map(rawNotesStr => if (rawNotesStr.nonEmpty) Some(rawNotesStr) else None)
-      setups <- tryOrLeft(
-                 if (entity.contains("setups")) entity.getList[StringValue]("setups") else List.empty.asJava,
-                 InvalidRepresentation("Invalid setups representation")
-               ).map(rawSetups =>
-                 rawSetups.asScala.map(strValue => refined.refineV[SetupPredicate].unsafeFrom(strValue.get())).toList
+      tags <- tryOrLeft(
+                 if (entity.contains("tags")) entity.getList[StringValue]("tags") else List.empty.asJava,
+                 InvalidRepresentation("Invalid tags representation")
+               ).map(rawTags =>
+                 rawTags.asScala.map(strValue => refined.refineV[TagPredicate].unsafeFrom(strValue.get())).toList
                )
       mistakes <- tryOrLeft(
                    if (entity.contains("mistakes")) entity.getList[StringValue]("mistakes") else List.empty.asJava,
                    InvalidRepresentation("Invalid mistakes representation")
-                 ).map(rawSetups =>
-                   rawSetups.asScala
+                 ).map(rawTags =>
+                   rawTags.asScala
                      .map(strValue => refined.refineV[MistakePredicate].unsafeFrom(strValue.get()))
                      .toList
                  )
-    } yield JournalEntry(notes, setups, mistakes, Some(userId), Some(positionId))
+    } yield JournalEntry(notes, tags, mistakes, Some(userId), Some(positionId))
   }
 }

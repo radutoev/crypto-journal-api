@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{ Currency, FungibleData, Mistake, Setup }
+import domain.model.{ Currency, FungibleData, Mistake, Tag }
 import domain.portfolio.PortfolioKpi.FungibleDataOps
 import domain.position.{ Position, Positions }
 import util.InstantOps
@@ -217,12 +217,12 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
     )
   }
 
-  lazy val setupContributions: Map[Setup, FungibleData] =
+  lazy val tagContribution: Map[Tag, FungibleData] =
     positions.items.collect {
       case p if p.journal.isDefined => p.journal.get -> p
     }.flatMap {
       case (journal, p) =>
-        journal.setups.map(s => s -> p.fiatReturn().getOrElse(FungibleData.zero(USDCurrency)))
+        journal.tags.map(s => s -> p.fiatReturn().getOrElse(FungibleData.zero(USDCurrency)))
     }.sumByKey()
 
   lazy val mistakeContributions: Map[Mistake, FungibleData] =

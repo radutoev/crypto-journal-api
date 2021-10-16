@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import domain.market.{ Ohlcv => CJOhlcv }
-import domain.model.{ MistakePredicate, SetupPredicate, FungibleData => CJFungibleData }
+import domain.model.{ MistakePredicate, TagPredicate, FungibleData => CJFungibleData }
 import domain.portfolio.{ PortfolioKpi => CJPortfolioKpi }
 import domain.position.{
   JournalEntry => CJJournalEntry,
@@ -234,7 +234,7 @@ object dto {
       )
   }
 
-  final case class TagDistribution(mistakes: Map[String, FungibleData], setups: Map[String, FungibleData])
+  final case class TagDistribution(mistakes: Map[String, FungibleData], tags: Map[String, FungibleData])
 
   object TagDistribution {
     implicit val tagDistributionCodec: JsonCodec[TagDistribution] = DeriveJsonCodec.gen[TagDistribution]
@@ -242,7 +242,7 @@ object dto {
     def apply(portfolioKpi: CJPortfolioKpi): TagDistribution =
       new TagDistribution(mistakes = portfolioKpi.mistakeContributions.map {
         case (mistake, fungibleData) => mistake.value -> fungibleData.asJson
-      }, setups = portfolioKpi.setupContributions.map {
+      }, tags = portfolioKpi.tagContribution.map {
         case (setup, fungibleData) => setup.value -> fungibleData.asJson
       })
   }
@@ -264,7 +264,7 @@ object dto {
       )
   }
 
-  final case class JournalEntry(notes: Option[String], setups: List[String], mistakes: List[String])
+  final case class JournalEntry(notes: Option[String], tags: List[String], mistakes: List[String])
 
   object JournalEntry {
     implicit val journalEntryCodec: JsonCodec[JournalEntry] = DeriveJsonCodec.gen[JournalEntry]
@@ -273,7 +273,7 @@ object dto {
       def toDomainModel: CJJournalEntry =
         CJJournalEntry(
           entry.notes,
-          setups = entry.setups.map(refineV[SetupPredicate](_)).collect { case Right(setup)         => setup },
+          tags = entry.tags.map(refineV[TagPredicate](_)).collect { case Right(setup)         => setup },
           mistakes = entry.mistakes.map(refineV[MistakePredicate](_)).collect { case Right(mistake) => mistake }
         )
     }
@@ -281,7 +281,7 @@ object dto {
 
   implicit class DomainJournalEntryOps(entry: CJJournalEntry) {
     def toDto: JournalEntry =
-      JournalEntry(entry.notes, entry.setups.map(_.value), entry.mistakes.map(_.value))
+      JournalEntry(entry.notes, entry.tags.map(_.value), entry.mistakes.map(_.value))
   }
 
   final case class PositionJournalEntry(positionId: String, entry: JournalEntry)

@@ -93,7 +93,7 @@ paths:
             properties:
               notes:
                 type: string
-              setups:
+              tags:
                 type: array
                 items:
                   type: string

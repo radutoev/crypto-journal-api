@@ -95,8 +95,8 @@ object model {
   type TradeCountPredicate = NonNegative
   type TradeCount          = Int Refined TradeCountPredicate
 
-  type SetupPredicate = NonEmpty
-  type Setup          = String Refined SetupPredicate
+  type TagPredicate = NonEmpty
+  type Tag          = String Refined TagPredicate
 
   type MistakePredicate = NonEmpty
   type Mistake          = String Refined MistakePredicate

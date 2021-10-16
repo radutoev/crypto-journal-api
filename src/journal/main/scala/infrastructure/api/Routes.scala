@@ -60,7 +60,7 @@ object Routes {
       authenticate(forbidden, userId => contextId(badRequest, clientId => positions(userId, clientId))) +++
       authenticate(forbidden, userId => contextId(badRequest, clientId => portfolio(userId, clientId))) +++
       authenticate(forbidden, userId => contextId(badRequest, clientId => market(userId))) +++
-      authenticate(forbidden, userId => contextId(badRequest, clientId => setups(userId))) +++
+      authenticate(forbidden, userId => contextId(badRequest, clientId => tags(userId))) +++
       authenticate(forbidden, userId => contextId(badRequest, clientId => mistakes(userId))),
     config = CORSConfig(anyOrigin = true)
   )
@@ -297,8 +297,8 @@ object Routes {
       } yield response
   }
 
-  private def setups(userId: UserId) = HttpApp.collectM {
-    case Method.GET -> Root / "setups" => UIO(Response.jsonString(List("Presale", "Fair Launch").toJson))
+  private def tags(userId: UserId) = HttpApp.collectM {
+    case Method.GET -> Root / "tags" => UIO(Response.jsonString(List("Presale", "Fair Launch").toJson))
   }
 
   private def mistakes(userId: UserId) = HttpApp.collectM {
@@ -327,7 +327,7 @@ object Routes {
     case Method.OPTIONS -> Root / "portfolio" / rawWalletAddress / "kpi"                => allowCorsRequestsResponse
     case Method.OPTIONS -> Root / "portfolio" / rawWalletAddress / "stats"              => allowCorsRequestsResponse
     case Method.OPTIONS -> Root / "mistakes"                                            => allowCorsRequestsResponse
-    case Method.OPTIONS -> Root / "setups"                                              => allowCorsRequestsResponse
+    case Method.OPTIONS -> Root / "tags"                                                => allowCorsRequestsResponse
   }
 
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {
