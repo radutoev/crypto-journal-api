@@ -1,9 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.account
 
-import domain.model.{ContextId, UserId}
+import domain.model.{ ContextId, UserId }
 
-import zio.{Has, UIO, ZIO}
+import zio.{ Has, UIO, ZIO }
 
 trait RequestContext {
   def userId: UIO[UserId]

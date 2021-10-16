@@ -3,19 +3,19 @@ package application
 
 import domain.account.RequestContext
 import domain.market.error.MarketError
-import domain.market.{MarketService, Ohlcv}
+import domain.market.{ MarketService, Ohlcv }
 import domain.model.WalletAddress
 import domain.portfolio.error.PortfolioError
-import domain.portfolio.{KpiService, PortfolioKpi}
+import domain.portfolio.{ KpiService, PortfolioKpi }
 import domain.position.Position.PositionId
 import domain.position._
 import domain.position.error.PositionError
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
-import domain.wallet.{Wallet, WalletService}
-import vo.filter.{KpiFilter, PositionFilter}
+import domain.wallet.{ Wallet, WalletService }
+import vo.filter.{ KpiFilter, PositionFilter }
 
-import zio.{Has, ZIO}
+import zio.{ Has, ZIO }
 
 object CryptoJournalApi {
   def getLatestPositions(

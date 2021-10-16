@@ -1,11 +1,11 @@
 package io.softwarechain.cryptojournal
 package domain
 
-import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
+import domain.model.FungibleData.{ Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.{NonEmpty, Size}
+import eu.timepit.refined.collection.{ NonEmpty, Size }
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
@@ -69,8 +69,8 @@ object model {
         Right {
           other.amount.compare(amount) match {
             case -1 => Lower
-            case 0 => FungibleData.Equal
-            case 1 => Bigger
+            case 0  => FungibleData.Equal
+            case 1  => Bigger
           }
         }
       }

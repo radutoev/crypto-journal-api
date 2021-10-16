@@ -3,21 +3,21 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.{PositionEntryIdPredicate, PositionId, PositionIdPredicate}
+import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
 import domain.position.error._
-import domain.position.{Position, PositionEntry, PositionRepo, Positions}
-import util.{InstantOps, tryOrLeft}
+import domain.position.{ Position, PositionEntry, PositionRepo, Positions }
+import util.{ tryOrLeft, InstantOps }
 import vo.filter.PositionFilter
-import vo.pagination.{CursorPredicate, Page, PaginationContext}
+import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
-import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -62,9 +62,8 @@ final case class DatastorePositionRepo(
   override def getPositions(
     address: WalletAddress,
     positionFilter: PositionFilter
-  ): IO[PositionError, List[Position]] = {
+  ): IO[PositionError, List[Position]] =
     doFetchPositions(address, positionsQuery(address, positionFilter).build())
-  }
 
   override def getPositions(
     address: WalletAddress,
@@ -159,12 +158,11 @@ final case class DatastorePositionRepo(
       }
   }
 
-  private def savePaginationContext(context: PaginationContext): IO[PositionError, Unit] = {
+  private def savePaginationContext(context: PaginationContext): IO[PositionError, Unit] =
     Task(datastore.put(paginationContextAsEntity(context)))
       .tapError(err => logger.warn(err.toString))
       .orElseFail(PaginationContextSaveError(context))
       .unit
-  }
 
   override def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]] = {
     val query = Query
@@ -209,7 +207,9 @@ final case class DatastorePositionRepo(
         _ => PositionsFetchError(address),
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty)(results =>
-            results.asScala.toList.map(entityToPosition).collect { case Right(position) if position.entries.nonEmpty => position }
+            results.asScala.toList.map(entityToPosition).collect {
+              case Right(position) if position.entries.nonEmpty => position
+            }
           )
       )
 
@@ -262,7 +262,13 @@ final case class DatastorePositionRepo(
       val entries = position.entries.map { entry =>
         EntityValue.of(
           Entity
-            .newBuilder(datastore.newKeyFactory().addAncestor(PathElement.of(kind, id)).setKind("PositionEntry").newKey(UUID.randomUUID().toString))
+            .newBuilder(
+              datastore
+                .newKeyFactory()
+                .addAncestor(PathElement.of(kind, id))
+                .setKind("PositionEntry")
+                .newKey(UUID.randomUUID().toString)
+            )
             .set("type", StringValue.of(entry.`type`.toString))
             .set("value", DoubleValue.of(entry.value.amount.doubleValue))
             .set("valueCurrency", StringValue.of(entry.value.currency.value))

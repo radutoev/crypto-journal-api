@@ -112,11 +112,11 @@ object DatastoreJournalingRepo {
                 InvalidRepresentation("Invalid notes representation")
               ).map(rawNotesStr => if (rawNotesStr.nonEmpty) Some(rawNotesStr) else None)
       tags <- tryOrLeft(
-                 if (entity.contains("tags")) entity.getList[StringValue]("tags") else List.empty.asJava,
-                 InvalidRepresentation("Invalid tags representation")
-               ).map(rawTags =>
-                 rawTags.asScala.map(strValue => refined.refineV[TagPredicate].unsafeFrom(strValue.get())).toList
-               )
+               if (entity.contains("tags")) entity.getList[StringValue]("tags") else List.empty.asJava,
+               InvalidRepresentation("Invalid tags representation")
+             ).map(rawTags =>
+               rawTags.asScala.map(strValue => refined.refineV[TagPredicate].unsafeFrom(strValue.get())).toList
+             )
       mistakes <- tryOrLeft(
                    if (entity.contains("mistakes")) entity.getList[StringValue]("mistakes") else List.empty.asJava,
                    InvalidRepresentation("Invalid mistakes representation")

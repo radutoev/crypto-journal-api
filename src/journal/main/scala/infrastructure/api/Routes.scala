@@ -2,11 +2,11 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ContextId, ContextIdPredicate, UserId, WalletAddressPredicate}
+import domain.model.{ ContextId, ContextIdPredicate, UserId, WalletAddressPredicate }
 import domain.portfolio.KpiService
 import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{JournalingService, PositionService, Positions}
+import domain.position.{ JournalingService, PositionService, Positions }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.JournalEntry._
@@ -18,22 +18,30 @@ import infrastructure.api.dto.PositionJournalEntry._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
+import infrastructure.api.dto.{
+  JournalEntry,
+  Ohlcv,
+  PortfolioKpi,
+  PortfolioStats,
+  PositionJournalEntry,
+  TagDistribution,
+  TradeSummary
+}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
-import vo.filter.{KpiFilter, PositionCount, PositionFilter}
+import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
 
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
-import pdi.jwt.{Jwt, JwtAlgorithm}
+import pdi.jwt.{ Jwt, JwtAlgorithm }
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{Header, _}
+import zhttp.http.{ Header, _ }
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{LocalDate, ZoneId, ZoneOffset}
+import java.time.{ LocalDate, ZoneId, ZoneOffset }
 import java.util.UUID
 import scala.util.Try
 
@@ -108,8 +116,7 @@ object Routes {
       } yield response
 
     case Method.GET -> Root / "wallets" =>
-      CryptoJournalApi
-        .getWallets
+      CryptoJournalApi.getWallets
         .provideSomeLayer[Has[WalletService]](JwtRequestContext.layer(userId, contextId))
         .fold(
           _ => Response.status(Status.INTERNAL_SERVER_ERROR), {
@@ -142,15 +149,15 @@ object Routes {
     case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "latest-positions" =>
       for {
         address <- ZIO
-          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-          .orElseFail(BadRequest("Invalid address"))
+                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+                    .orElseFail(BadRequest("Invalid address"))
 
         filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-          .getLatestPositions(address, filter)
-          .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
-          .fold(positionErrorToHttpResponse, _.asResponse(contextId))
+                     .getLatestPositions(address, filter)
+                     .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
+                     .fold(positionErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
     case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "positions" =>
@@ -308,8 +315,7 @@ object Routes {
   private def market(userId: UserId) = HttpApp.collectM {
     case Method.GET -> Root / "markets" / "ohlcv" =>
       for {
-        response <- CryptoJournalApi
-                     .getHistoricalOhlcv
+        response <- CryptoJournalApi.getHistoricalOhlcv
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        data => Response.jsonString(data.map(o => Ohlcv(o)).toJson)
@@ -349,15 +355,17 @@ object Routes {
 
   def contextId[R, E](fail: HttpApp[R, E], success: ContextId => HttpApp[R, E]): HttpApp[R, E] = {
     @inline
-    def makeContextId(rawClientId: String): Either[String, ContextId] = {
+    def makeContextId(rawClientId: String): Either[String, ContextId] =
       refineV[ContextIdPredicate](rawClientId.trim)
-    }
 
     Http.flatten {
       HttpApp.fromFunction { req =>
-        req.getHeader("X-CoinLogger-ContextId")
+        req
+          .getHeader("X-CoinLogger-ContextId")
           .orElse(req.getHeader("x-coinlogger-contextid"))
-          .fold[Either[String, ContextId]](makeContextId(UUID.randomUUID().toString))(contextId => makeContextId(contextId.value.toString.trim))
+          .fold[Either[String, ContextId]](makeContextId(UUID.randomUUID().toString))(contextId =>
+            makeContextId(contextId.value.toString.trim)
+          )
           .fold(_ => fail, success)
       }
     }
@@ -440,7 +448,8 @@ object Routes {
 
   implicit class PositionsResponseOps(positions: Positions) {
     def asResponse(contextId: ContextId): UResponse = {
-      val headers = Header("Content-Type", "application/json") :: Header("X-CoinLogger-ContextId", contextId.value) :: Nil
+      val headers =
+        Header("Content-Type", "application/json") :: Header("X-CoinLogger-ContextId", contextId.value) :: Nil
 
       positions.items match {
         case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)
@@ -467,8 +476,8 @@ object Routes {
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
-        content = ApiError(`type` = "PositionsFetchError", s"Error retrieving positions for address: $address")
-          .toResponsePayload
+        content =
+          ApiError(`type` = "PositionsFetchError", s"Error retrieving positions for address: $address").toResponsePayload
       )
     case PositionNotFound(_) =>
       Response.http(
@@ -543,8 +552,7 @@ object Routes {
     case WalletAddressExists(address) =>
       Response.http(
         status = Status.CONFLICT,
-        content =
-          ApiError(`type` = "WalletAddressExists", s"Wallet ${address.value} already defined").toResponsePayload
+        content = ApiError(`type` = "WalletAddressExists", s"Wallet ${address.value} already defined").toResponsePayload
       )
     case UnableToAddWallet(address) =>
       Response.http(
@@ -589,7 +597,8 @@ object Routes {
     def apply(`type`: String) = new ApiError(`type`, None)
 
     implicit class ApiErrorOps(apiError: ApiError) {
-      def toResponsePayload: HttpData.CompleteData = HttpData.CompleteData(Chunk.fromArray(apiError.toJson.getBytes(HTTP_CHARSET)))
+      def toResponsePayload: HttpData.CompleteData =
+        HttpData.CompleteData(Chunk.fromArray(apiError.toJson.getBytes(HTTP_CHARSET)))
     }
   }
 

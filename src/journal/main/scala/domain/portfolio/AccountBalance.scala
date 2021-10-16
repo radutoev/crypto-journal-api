@@ -2,8 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.FungibleData
-import domain.model.FungibleData.{Bigger, Equal, Lower}
-import domain.portfolio.model.{Decrease, Increase, NoChange, PositionPerformance}
+import domain.model.FungibleData.{ Bigger, Equal, Lower }
+import domain.portfolio.model.{ Decrease, Increase, NoChange, PositionPerformance }
 import domain.position.Positions
 
 case class AccountBalance(positions: Positions) {

@@ -98,7 +98,8 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
         .tapError(err => logger.warn(s"Transactions fetch failed for ${url.value}. Error: ${err.getMessage}"))
         .mapError(err => TransactionsGetError(err.getMessage))
         .flatMap(response =>
-          ZIO.fromEither(response.body.map(_.fromJson[TransactionQueryResponse]))
+          ZIO
+            .fromEither(response.body.map(_.fromJson[TransactionQueryResponse]))
             .tapError(err => logger.warn(s"Decode failed for ${response.body}. Error: $err"))
             .mapError(TransactionsGetError)
         )
