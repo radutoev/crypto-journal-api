@@ -54,18 +54,12 @@ final class PortfolioKpi(positions: Positions, interval: TimeInterval) {
   }
 
   lazy val balanceTrend: List[FungibleData] = {
-    trend(_.fiatValue())
+    positions.trend(_.fiatValue())
   }
 
   lazy val netReturnTrend: List[FungibleData] = {
-    trend(_.fiatReturn())
+    positions.trend(_.fiatReturn())
   }
-
-  private def trend(of: Position => Option[FungibleData]): List[FungibleData] =
-    positions.items.headOption.map(_.openedAt).fold[List[FungibleData]](List.empty) { openedAt =>
-      val interval = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
-      interval.days().map(day => positions.filter(TimeInterval(interval.start, day)).items.map(of).sumFungibleData())
-    }
 
   /**
    * Sum all fees of positions

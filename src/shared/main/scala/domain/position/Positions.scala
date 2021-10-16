@@ -2,7 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{ Buy, Currency, Sell, TransactionHash, TransactionType, Unknown }
+import domain.model.{Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown}
+import util.InstantOps
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -49,6 +50,12 @@ final case class Positions(items: List[Position]) {
 
   def filter(interval: TimeInterval): Positions =
     Positions(items.filter(_.inInterval(interval)))
+
+  def trend(of: Position => Option[FungibleData]): List[FungibleData] =
+    items.headOption.map(_.openedAt).fold[List[FungibleData]](List.empty) { openedAt =>
+      val interval = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
+      interval.days().map(day => filter(TimeInterval(interval.start, day)).items.map(of).sumFungibleData())
+    }
 }
 
 object Positions {
