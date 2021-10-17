@@ -40,7 +40,7 @@ final case class DatastorePositionRepo(
             txn.put(list: _*)
             txn.delete(addressLockKey)
             txn.commit()
-          }
+          } *> logger.info(s"Imported ${list.size} positions for ${address.value}")
         }
         .tapError(throwable =>
           logger.error(s"Error saving positions for ${address.value}") *> logger.error(throwable.getMessage)
