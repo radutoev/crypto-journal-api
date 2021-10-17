@@ -264,7 +264,7 @@ object Routes {
                      .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi => Response.jsonString(PortfolioStats(portfolioKpi).toJson)
+                       portfolioKpi => Response.jsonString(PortfolioStats(portfolioKpi, kpiFilter.count).toJson)
                      )
       } yield response
 
@@ -281,7 +281,7 @@ object Routes {
                      .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi => Response.jsonString(TradeSummary(portfolioKpi).toJson)
+                       portfolioKpi => Response.jsonString(TradeSummary(portfolioKpi, kpiFilter.count).toJson)
                      )
       } yield response
 

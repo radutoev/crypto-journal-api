@@ -1,25 +1,21 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.market.{ Ohlcv => CJOhlcv }
-import domain.model.{ MistakePredicate, TagPredicate, FungibleData => CJFungibleData }
-import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
-import domain.position.{
-  JournalEntry => CJJournalEntry,
-  Position => CJPosition,
-  PositionEntry => CJPositionEntry,
-  PositionJournalEntry => CJPositionJournalEntry
-}
+import domain.market.{Ohlcv => CJOhlcv}
+import domain.model.{MistakePredicate, TagPredicate, FungibleData => CJFungibleData}
+import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
+import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry}
 import domain.position.Position.PositionIdPredicate
-import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
-import domain.wallet.{ Wallet => CJWallet }
-import vo.{ PeriodDistribution => CJPeriodDistribution }
+import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
+import domain.wallet.{Wallet => CJWallet}
+import vo.{PeriodDistribution => CJPeriodDistribution}
+import vo.filter.Count
 
 import dto.Position._
 import eu.timepit.refined.refineV
-import zio.json.{ DeriveJsonCodec, JsonCodec }
+import zio.json.{DeriveJsonCodec, JsonCodec}
 
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
 
 object dto {
   final case class Positions(positions: List[Position], lastSync: Option[Instant])
@@ -177,10 +173,10 @@ object dto {
   object PortfolioStats {
     implicit val portfolioStatsCodec: JsonCodec[PortfolioStats] = DeriveJsonCodec.gen[PortfolioStats]
 
-    def apply(portfolioKpi: CJPortfolioKpi): PortfolioStats =
+    def apply(portfolioKpi: CJPortfolioKpi, count: Count): PortfolioStats =
       new PortfolioStats(
         distinctValues = KpiDistinctValues(portfolioKpi),
-        TradeSummary(portfolioKpi),
+        TradeSummary(portfolioKpi, count),
         PeriodDistribution(portfolioKpi.periodReturn()),
         TagDistribution(portfolioKpi)
       )
@@ -243,10 +239,10 @@ object dto {
   object TradeSummary {
     implicit val tradeSummaryCodec: JsonCodec[TradeSummary] = DeriveJsonCodec.gen[TradeSummary]
 
-    def apply(portfolio: CJPortfolioKpi): TradeSummary =
+    def apply(portfolio: CJPortfolioKpi, count: Count): TradeSummary =
       new TradeSummary(
-        wins = portfolio.coinWins.map(t => CoinToFungiblePair(t._1.value, t._2.asJson)),
-        loses = portfolio.coinLoses.map(t => CoinToFungiblePair(t._1.value, t._2.asJson))
+        wins = portfolio.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson)),
+        loses = portfolio.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson))
       )
   }
 

@@ -1,17 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{ Currency, FungibleData, Mistake, Tag }
+import domain.model.{Currency, FungibleData, Mistake, Tag}
 import domain.portfolio.PortfolioKpi.FungibleDataOps
-import domain.position.{ Position, Positions }
+import domain.position.{Position, Positions}
 import util.InstantOps
-import vo.{ PeriodDistribution, TimeInterval }
+import vo.filter.Count
+import vo.{PeriodDistribution, TimeInterval}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
-import java.time.{ DayOfWeek, Duration, Month }
+import java.time.{DayOfWeek, Duration, Month}
 
 /**
  * @param positions source to compute the KPIs for
@@ -161,14 +162,14 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
     }.minOption
   }
 
-  lazy val coinWins: List[(Currency, FungibleData)] = {
+  def coinWins(count: Count): List[(Currency, FungibleData)] = {
     val wins = coinContributions.filter(_._2.amount > 0)
-    wins.slice(0, Math.min(8, wins.size))
+    wins.slice(0, Math.min(count, wins.size))
   }
 
-  lazy val coinLoses: List[(Currency, FungibleData)] = {
+  def coinLoses(count: Count): List[(Currency, FungibleData)] = {
     val loses = coinContributions.filter(_._2.amount < 0).reverse
-    loses.slice(0, Math.min(8, loses.size))
+    loses.slice(0, Math.min(count, loses.size))
   }
 
   lazy val coinContributions: List[(Currency, FungibleData)] = {
