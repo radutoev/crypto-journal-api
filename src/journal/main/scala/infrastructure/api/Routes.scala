@@ -29,7 +29,7 @@ import infrastructure.api.dto.{
 }
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PositionCount, PositionFilter }
+import vo.filter.{ Count, KpiFilter, PositionFilter }
 
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
@@ -41,7 +41,7 @@ import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{ LocalDate, ZoneId, ZoneOffset }
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 import java.util.UUID
 import scala.util.Try
 
@@ -416,7 +416,7 @@ object Routes {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
 
       Validation.validateWith(
-        getInt("count", 30)(qParams).flatMap(cnt => PositionCount.make(cnt)),
+        url.countFilter(),
         url.intervalFilter()
       ) {
         case (count, interval) =>
@@ -427,7 +427,13 @@ object Routes {
 
   implicit class KpiQParamsOps(url: URL) {
     def kpiFilter(): Validation[String, KpiFilter] =
-      url.intervalFilter().map(KpiFilter)
+      Validation.validateWith(
+        url.countFilter(),
+        Validation.succeed(url.intervalFilter().fold[Option[TimeInterval]](_ => None, Some(_)))
+      ) {
+        case (count, maybeInterval) =>
+          KpiFilter(count, maybeInterval)
+      }
   }
 
   implicit class IntervalQParamsOps(url: URL) {
@@ -443,6 +449,14 @@ object Routes {
       } catch {
         case _: Exception => Validation.fail("Invalid time interval")
       }
+    }
+  }
+
+  implicit class CountQParamOps(url: URL) extends QParamsOps {
+    def countFilter(): Validation[String, Count] = {
+      val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
+
+      getInt("count", 30)(qParams).flatMap(Count.make)
     }
   }
 
