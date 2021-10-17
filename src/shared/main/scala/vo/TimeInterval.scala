@@ -22,6 +22,16 @@ final case class TimeInterval(start: Instant, end: Instant) {
     years(startYear).takeWhile(y => y <= endYear).toList
   }
 
+  /**
+   * Shifts the interval to an earlier interval
+   * @param days Number of days before to move the start and end values of the interval
+   * @return New TimeInterval
+   */
+  def minus(days: NumberOfDays): TimeInterval = {
+    val seconds = days.value * 86400
+    TimeInterval(start.minusSeconds(seconds), end.minusSeconds(seconds))
+  }
+
   private def days(from: Instant): LazyList[Instant] =
     from #:: days(from.plus(1, ChronoUnit.DAYS))
 

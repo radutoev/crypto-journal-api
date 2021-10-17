@@ -63,7 +63,7 @@ final case class DatastorePositionRepo(
     address: WalletAddress,
     positionFilter: PositionFilter
   ): IO[PositionError, List[Position]] =
-    doFetchPositions(address, positionsQuery(address, positionFilter).build())
+    doFetchPositions(address, positionsQuery(address, positionFilter).build(), Some(positionFilter.interval.start))
 
   override def getPositions(
     address: WalletAddress,
@@ -197,7 +197,8 @@ final case class DatastorePositionRepo(
     doFetchPositions(address, query)
   }
 
-  private def doFetchPositions(address: WalletAddress, query: EntityQuery): IO[PositionsFetchError, List[Position]] =
+  private def doFetchPositions(address: WalletAddress, query: EntityQuery,
+                               startDateFilter: Option[Instant] = None): IO[PositionsFetchError, List[Position]] =
     executeQuery(query)
       .map(Some(_))
       .catchSome {
@@ -206,11 +207,15 @@ final case class DatastorePositionRepo(
       .mapBoth(
         _ => PositionsFetchError(address),
         resultsOpt =>
-          resultsOpt.fold[List[Position]](List.empty)(results =>
-            results.asScala.toList.map(entityToPosition).collect {
+          resultsOpt.fold[List[Position]](List.empty)(results => {
+            var list = results.asScala.toList
+            if(startDateFilter.isDefined) {
+              list = list.filter(e => moreRecentThan(e, startDateFilter.get))
+            }
+            list.map(entityToPosition).collect {
               case Right(position) if position.entries.nonEmpty => position
             }
-          )
+          })
       )
 
   override def getPosition(positionId: PositionId): IO[PositionError, Position] = {
@@ -401,6 +406,13 @@ final case class DatastorePositionRepo(
       hash <- tryOrLeft(entity.getLong("positionFilterHash"), InvalidRepresentation("Invalid filter hash"))
                .map(rawHash => rawHash.toInt)
     } yield PaginationContext(ctxId, cursor, hash)
+
+  private def moreRecentThan(entity: Entity, timestamp: Instant): Boolean = {
+    tryOrLeft(
+      Instant.ofEpochSecond(entity.getTimestamp("openedAt").getSeconds),
+      InvalidRepresentation("Invalid openedAt representation")
+    ).fold(_ => false, openedAt => openedAt.isAfter(timestamp))
+  }
 }
 
 object DatastorePositionRepo {

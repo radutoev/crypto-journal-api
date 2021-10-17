@@ -16,6 +16,14 @@ package object util {
         .withSecond(0)
         .toInstant(ZoneOffset.UTC)
 
+    def atEndOfDay(): Instant = instant
+      .atZone(ZoneId.of(ZoneOffset.UTC.getId))
+      .toLocalDateTime
+      .withHour(23)
+      .withMinute(59)
+      .withSecond(59)
+      .toInstant(ZoneOffset.UTC)
+
     def toLocalDate(): LocalDate =
       LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))
 
@@ -24,7 +32,7 @@ package object util {
   }
 
   implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {
-    def mapLeft(left: Left => Left2) = either.left.map(left)
+    def mapLeft(left: Left => Left2): Either[Left2, Right] = either.left.map(left)
   }
 
   def tryOrLeft[T, E](f: => T, fail: E): Either[E, T] =
