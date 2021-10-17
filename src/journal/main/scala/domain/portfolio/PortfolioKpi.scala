@@ -19,7 +19,7 @@ import java.time.{DayOfWeek, Duration, Month}
  * @param interval timeInterval does not have to be an exact match with the interval of the given positions.
  * @param referencePositions positions compares against referencePosition to generate performance.
  */
-final case class PortfolioKpi(positions: Positions, interval: TimeInterval, referencePositions: Positions) {
+final case class PortfolioKpi(positions: Positions, interval: TimeInterval, referencePositions: Positions = Positions.empty()) {
   lazy val netReturn: NetReturn = NetReturn(positions)
 
   lazy val balance: AccountBalance = AccountBalance(positions)
