@@ -1,11 +1,11 @@
 package io.softwarechain.cryptojournal
 package domain
 
-import domain.model.FungibleData.{ Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower }
+import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.{ NonEmpty, Size }
+import eu.timepit.refined.collection.{NonEmpty, Size}
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
@@ -62,18 +62,37 @@ object model {
 
     def divide(denominator: Int): FungibleData = copy(amount = amount / denominator)
 
-    def compare(other: FungibleData): Either[FungibleDataError, ComparisonResult] =
-      if (other.currency.sameCurrency(currency)) {
-        Left(DifferentCurrencies)
-      } else {
-        Right {
-          other.amount.compare(amount) match {
-            case -1 => Lower
-            case 0  => FungibleData.Equal
-            case 1  => Bigger
-          }
+    def compare(other: FungibleData): Either[FungibleDataError, ComparisonResult] = {
+      fnOnFungibleData((f1, f2) => {
+        f2.amount.compare(f1.amount) match {
+          case -1 => Lower
+          case 0  => FungibleData.Equal
+          case 1  => Bigger
         }
+      }, other)
+    }
+
+    def difference(other: FungibleData): Either[FungibleDataError, BigDecimal] = {
+      fnOnFungibleData((f1, f2) => {
+        f1.amount - f2.amount
+      }, other)
+    }
+
+    def percentageDifference(other: FungibleData): Either[FungibleDataError, BigDecimal] = {
+      fnOnFungibleData((f1, f2) => {
+        (f1.amount * 100) / f2.amount
+      }, other)
+    }
+
+    private def fnOnFungibleData[T](fn: (FungibleData, FungibleData) => T, other: FungibleData): Either[FungibleDataError, T] = {
+      if(other.currency.sameCurrency(currency)) {
+        Right {
+          fn(this, other)
+        }
+      } else {
+        Left(DifferentCurrencies)
       }
+    }
   }
 
   object FungibleData {

@@ -210,7 +210,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
         journal.tags.map(s => s -> p.fiatReturn().getOrElse(FungibleData.zero(USDCurrency)))
     }.sumByKey()
 
-  lazy val mistakeContributions: Map[Mistake, FungibleData] =
+  lazy val mistakeContribution: Map[Mistake, FungibleData] =
     positions.items.collect {
       case p if p.journal.isDefined => p.journal.get -> p
     }.flatMap {

@@ -252,7 +252,7 @@ object dto {
     implicit val tagDistributionCodec: JsonCodec[TagDistribution] = DeriveJsonCodec.gen[TagDistribution]
 
     def apply(portfolioKpi: CJPortfolioKpi): TagDistribution =
-      new TagDistribution(mistakes = portfolioKpi.mistakeContributions.map {
+      new TagDistribution(mistakes = portfolioKpi.mistakeContribution.map {
         case (mistake, fungibleData) => mistake.value -> fungibleData.asJson
       }, tags = portfolioKpi.tagContribution.map {
         case (setup, fungibleData) => setup.value -> fungibleData.asJson
