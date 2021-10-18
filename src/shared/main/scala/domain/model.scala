@@ -64,7 +64,7 @@ object model {
 
     def compare(other: FungibleData): Either[FungibleDataError, ComparisonResult] = {
       fnOnFungibleData((f1, f2) => {
-        f2.amount.compare(f1.amount) match {
+        f1.amount.compare(f2.amount) match {
           case -1 => Lower
           case 0  => FungibleData.Equal
           case 1  => Bigger
@@ -78,9 +78,17 @@ object model {
       }, other)
     }
 
+    /**
+     * Formula used: x1,x2 where x2 after x1, then the percentage difference is:
+     * ((x2 - x1) / x1) * 100.
+     */
     def percentageDifference(other: FungibleData): Either[FungibleDataError, BigDecimal] = {
-      fnOnFungibleData((f1, f2) => {
-        (f1.amount * 100) / f2.amount
+      fnOnFungibleData((f, fPrev) => {
+        if(fPrev.amount != 0) {
+          ((f.amount - fPrev.amount) / fPrev.amount) * 100
+        } else {
+          if(f.amount > 0) 100 else -100
+        }
       }, other)
     }
 

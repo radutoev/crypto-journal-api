@@ -1,8 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{ Mistake, Tag }
-import domain.portfolio.model.{ FungibleDataPerformance, Performance }
+import domain.model.{Mistake, Tag}
+import domain.portfolio.model.{FungibleDataPerformance, NoChange, Performance}
 
 final case class TagDistribution(
   mistakes: Map[Mistake, FungibleDataPerformance],
@@ -24,7 +24,8 @@ object TagDistribution {
               .map(data =>
                 Performance(
                   absolute = fungibleData.difference(data).getOrElse(BigDecimal(0)),
-                  percentage = fungibleData.percentageDifference(data).getOrElse(BigDecimal(0))
+                  percentage = fungibleData.percentageDifference(data).getOrElse(BigDecimal(0)),
+                  trend = NoChange
                 )
               )
           )
@@ -38,7 +39,8 @@ object TagDistribution {
               .map(data =>
                 Performance(
                   absolute = fungibleData.difference(data).getOrElse(BigDecimal(0)),
-                  percentage = fungibleData.percentageDifference(data).getOrElse(BigDecimal(0))
+                  percentage = fungibleData.percentageDifference(data).getOrElse(BigDecimal(0)),
+                  trend = NoChange
                 )
               )
           )
