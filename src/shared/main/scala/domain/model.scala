@@ -10,6 +10,7 @@ import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 import eu.timepit.refined.string.MatchesRegex
+import util.math
 
 object model {
   type CurrencyPredicate = NonEmpty
@@ -84,11 +85,7 @@ object model {
      */
     def percentageDifference(other: FungibleData): Either[FungibleDataError, BigDecimal] = {
       fnOnFungibleData((f, fPrev) => {
-        if(fPrev.amount != 0) {
-          ((f.amount - fPrev.amount) / fPrev.amount) * 100
-        } else {
-          if(f.amount > 0) 100 else -100
-        }
+        math.percentageDiff(f.amount, fPrev.amount)
       }, other)
     }
 

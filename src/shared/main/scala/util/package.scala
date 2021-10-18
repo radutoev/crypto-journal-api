@@ -31,7 +31,7 @@ package object util {
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)
   }
 
-  val BeginningOfCrypto = Instant.parse("2017-07-01T00:00:00.000Z") //June 2017 Binance launched.
+  val BeginningOfCrypto: Instant = Instant.parse("2017-07-01T00:00:00.000Z") //June 2017 Binance launched.
 
   implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {
     def mapLeft(left: Left => Left2): Either[Left2, Right] = either.left.map(left)

@@ -69,6 +69,20 @@ final case class Position(
     }
 
   /**
+   * Percentage difference calculated as:
+   * ((fiatReturn - totalCost) / totalCost) * 100.
+   */
+  def fiatReturnPercentage(): Option[BigDecimal] =
+    if (state == Open) {
+      None
+    } else {
+      for {
+        fiatValue  <- fiatValue()
+        fiatReturn <- fiatReturn()
+      } yield util.math.percentageDiff(fiatValue.amount, fiatReturn.amount)
+    }
+
+  /**
    * @return Total number of coins that were bought within this position
    */
   def totalCoins(): FungibleData =
