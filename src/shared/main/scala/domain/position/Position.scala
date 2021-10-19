@@ -77,9 +77,9 @@ final case class Position(
       None
     } else {
       for {
-        fiatValue  <- fiatValue()
+        totalCost  <- totalCost()
         fiatReturn <- fiatReturn()
-      } yield util.math.percentageDiff(fiatValue.amount, fiatReturn.amount)
+      } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount + totalCost.amount)
     }
 
   /**

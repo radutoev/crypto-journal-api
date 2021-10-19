@@ -162,22 +162,26 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
     }.minOption
   }
 
-  def coinWins(count: Count): List[(Currency, FungibleData)] = {
+  def coinWins(count: Count): List[(Currency, FungibleData, Percentage)] = {
     val wins = coinContributions.filter(_._2.amount > 0)
     wins.slice(0, Math.min(count, wins.size))
   }
 
-  def coinLoses(count: Count): List[(Currency, FungibleData)] = {
+  def coinLoses(count: Count): List[(Currency, FungibleData, Percentage)] = {
     val loses = coinContributions.filter(_._2.amount < 0).reverse
     loses.slice(0, Math.min(count, loses.size))
   }
 
-  lazy val coinContributions: List[(Currency, FungibleData)] = {
+  lazy val coinContributions: List[(Currency, FungibleData, Percentage)] = {
     positions.closedPositions
       .groupBy(_.currency)
       .map {
         case (currency, listOfPositions) =>
-          currency -> listOfPositions.map(_.fiatReturn().getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData()
+          (
+            currency,
+            listOfPositions.map(_.fiatReturn().getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
+            listOfPositions.map(_.fiatReturnPercentage().getOrElse(BigDecimal(0))).sum
+          )
       }
       .toList
       .sortBy(_._2)(Ordering[FungibleData].reverse)

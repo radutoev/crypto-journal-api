@@ -238,7 +238,7 @@ object dto {
       )
   }
 
-  final case class CoinToFungiblePair(currency: String, fungibleData: FungibleData)
+  final case class CoinToFungiblePair(currency: String, fungibleData: FungibleData, percentage: BigDecimal)
 
   object CoinToFungiblePair {
     implicit val xCodec: JsonCodec[CoinToFungiblePair] = DeriveJsonCodec.gen[CoinToFungiblePair]
@@ -251,8 +251,8 @@ object dto {
 
     def apply(portfolio: CJPortfolioKpi, count: Count): TradeSummary =
       new TradeSummary(
-        wins = portfolio.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson)),
-        loses = portfolio.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson))
+        wins = portfolio.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
+        loses = portfolio.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
       )
   }
 
