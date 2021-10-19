@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{Currency, FungibleData, Mistake, Tag}
+import domain.model.{Currency, FungibleData, Mistake, Percentage, Tag}
 import domain.portfolio.PortfolioKpi.FungibleDataOps
 import domain.position.{Position, Positions}
 import util.InstantOps
@@ -19,7 +19,7 @@ import java.time.{DayOfWeek, Duration, Month}
  * @param interval timeInterval does not have to be an exact match with the interval of the given positions.
  * @param referencePositions positions compares against referencePosition to generate performance.
  */
-final case class PortfolioKpi(positions: Positions, interval: TimeInterval, referencePositions: Positions) {
+final case class PortfolioKpi(positions: Positions, interval: TimeInterval, referencePositions: Positions = Positions.empty()) {
   lazy val netReturn: NetReturn = NetReturn(positions)
 
   lazy val balance: AccountBalance = AccountBalance(positions)
@@ -162,22 +162,26 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
     }.minOption
   }
 
-  def coinWins(count: Count): List[(Currency, FungibleData)] = {
+  def coinWins(count: Count): List[(Currency, FungibleData, Percentage)] = {
     val wins = coinContributions.filter(_._2.amount > 0)
     wins.slice(0, Math.min(count, wins.size))
   }
 
-  def coinLoses(count: Count): List[(Currency, FungibleData)] = {
+  def coinLoses(count: Count): List[(Currency, FungibleData, Percentage)] = {
     val loses = coinContributions.filter(_._2.amount < 0).reverse
     loses.slice(0, Math.min(count, loses.size))
   }
 
-  lazy val coinContributions: List[(Currency, FungibleData)] = {
+  lazy val coinContributions: List[(Currency, FungibleData, Percentage)] = {
     positions.closedPositions
       .groupBy(_.currency)
       .map {
         case (currency, listOfPositions) =>
-          currency -> listOfPositions.map(_.fiatReturn().getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData()
+          (
+            currency,
+            listOfPositions.map(_.fiatReturn().getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
+            listOfPositions.map(_.fiatReturnPercentage().getOrElse(BigDecimal(0))).sum
+          )
       }
       .toList
       .sortBy(_._2)(Ordering[FungibleData].reverse)
@@ -202,21 +206,44 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
     )
   }
 
-  lazy val tagContribution: Map[Tag, FungibleData] =
-    positions.items.collect {
+  lazy val tagContribution: Map[Tag, (FungibleData, Percentage)] = {
+    val journaledPositions = positions.items.collect {
       case p if p.journal.isDefined => p.journal.get -> p
-    }.flatMap {
+    }
+    val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
         journal.tags.map(s => s -> p.fiatReturn().getOrElse(FungibleData.zero(USDCurrency)))
     }.sumByKey()
 
-  lazy val mistakeContributions: Map[Mistake, FungibleData] =
-    positions.items.collect {
+    val positionToReturnPercentage = journaledPositions.flatMap {
+      case (journal, p) =>
+        journal.tags.map(s => s -> p.fiatReturnPercentage().getOrElse(BigDecimal(0)))
+    }.groupBy(_._1).view.mapValues(_.map(_._2).sum).toMap
+
+    positionToFiatReturn.view.map { case (tag, fungibleData) =>
+      tag -> (fungibleData, positionToReturnPercentage(tag))
+    }.toMap
+  }
+
+  lazy val mistakeContribution: Map[Mistake, (FungibleData, Percentage)] = {
+    val journaledPositions = positions.items.collect {
       case p if p.journal.isDefined => p.journal.get -> p
-    }.flatMap {
+    }
+
+    val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
         journal.mistakes.map(s => s -> p.fiatReturn().getOrElse(FungibleData.zero(USDCurrency)))
     }.sumByKey()
+
+    val positionToReturnPercentage = journaledPositions.flatMap {
+      case (journal, p) =>
+        journal.tags.map(s => s -> p.fiatReturnPercentage().getOrElse(BigDecimal(0)))
+    }.groupBy(_._1).view.mapValues(_.map(_._2).sum).toMap
+
+    positionToFiatReturn.view.map { case (tag, fungibleData) =>
+      tag -> (fungibleData, positionToReturnPercentage(tag))
+    }.toMap
+  }
 
   private val USDCurrency: Currency = refineV.unsafeFrom("USD")
 }

@@ -4,6 +4,7 @@ package infrastructure.api
 import domain.market.{Ohlcv => CJOhlcv}
 import domain.model.{MistakePredicate, TagPredicate, FungibleData => CJFungibleData}
 import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
+import domain.portfolio.model.{Performance => CJPerformance}
 import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry}
 import domain.position.Position.PositionIdPredicate
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
@@ -143,7 +144,7 @@ object dto {
       )
   }
 
-  final case class ValueTrendComparison(value: FungibleData, trend: List[BigDecimal], performance: String)
+  final case class ValueTrendComparison(value: FungibleData, trend: List[BigDecimal], performance: Performance)
 
   object ValueTrendComparison {
     implicit val valueTrendComparison: JsonCodec[ValueTrendComparison] = DeriveJsonCodec.gen[ValueTrendComparison]
@@ -152,15 +153,24 @@ object dto {
       new ValueTrendComparison(
         netReturn.value.asJson,
         netReturn.trend.map(_.amount),
-        netReturn.performance(compareWith).toString
+        Performance(netReturn.performance(compareWith))
       )
 
     def fromAccountBalance(balance: AccountBalance, compareWith: AccountBalance): ValueTrendComparison =
       new ValueTrendComparison(
         balance.value.asJson,
         balance.trend.map(_.amount),
-        balance.performance(compareWith).toString
+        Performance(balance.performance(compareWith))
       )
+  }
+
+  final case class Performance(absolute: BigDecimal, percentage: BigDecimal, trend: String)
+
+  object Performance {
+    implicit val performanceCodec: JsonCodec[Performance] = DeriveJsonCodec.gen[Performance]
+
+    def apply(p: CJPerformance): Performance =
+      new Performance(p.absolute, p.percentage, p.trend.toString)
   }
 
   final case class PortfolioStats(
@@ -228,7 +238,7 @@ object dto {
       )
   }
 
-  final case class CoinToFungiblePair(currency: String, fungibleData: FungibleData)
+  final case class CoinToFungiblePair(currency: String, fungibleData: FungibleData, percentage: BigDecimal)
 
   object CoinToFungiblePair {
     implicit val xCodec: JsonCodec[CoinToFungiblePair] = DeriveJsonCodec.gen[CoinToFungiblePair]
@@ -241,22 +251,33 @@ object dto {
 
     def apply(portfolio: CJPortfolioKpi, count: Count): TradeSummary =
       new TradeSummary(
-        wins = portfolio.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson)),
-        loses = portfolio.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson))
+        wins = portfolio.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
+        loses = portfolio.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
       )
   }
 
-  final case class TagDistribution(mistakes: Map[String, FungibleData], tags: Map[String, FungibleData])
+  final case class TagDistribution(mistakes: Map[String, FungibleDataAndPercentage], tags: Map[String, FungibleDataAndPercentage])
 
   object TagDistribution {
     implicit val tagDistributionCodec: JsonCodec[TagDistribution] = DeriveJsonCodec.gen[TagDistribution]
 
     def apply(portfolioKpi: CJPortfolioKpi): TagDistribution =
-      new TagDistribution(mistakes = portfolioKpi.mistakeContributions.map {
-        case (mistake, fungibleData) => mistake.value -> fungibleData.asJson
-      }, tags = portfolioKpi.tagContribution.map {
-        case (setup, fungibleData) => setup.value -> fungibleData.asJson
-      })
+      new TagDistribution(
+        mistakes = portfolioKpi.mistakeContribution.map {
+          case (mistake, (fungibleData, percentage)) =>
+            mistake.value -> FungibleDataAndPercentage(FungibleData(fungibleData.amount, fungibleData.currency.value), percentage)
+        },
+        tags = portfolioKpi.tagContribution.map {
+          case (setup, (fungibleData, percentage)) =>
+            setup.value -> FungibleDataAndPercentage(FungibleData(fungibleData.amount, fungibleData.currency.value), percentage)
+        }
+      )
+  }
+
+  final case class FungibleDataAndPercentage(fungibleData: FungibleData, percentage: BigDecimal)
+
+  object FungibleDataAndPercentage {
+    implicit val fungibleDataAndPercentageCodec: JsonCodec[FungibleDataAndPercentage] = DeriveJsonCodec.gen[FungibleDataAndPercentage]
   }
 
   final case class PeriodDistribution(
