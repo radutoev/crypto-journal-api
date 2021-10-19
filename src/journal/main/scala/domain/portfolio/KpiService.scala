@@ -14,12 +14,8 @@ import zio.clock.Clock
 import zio.logging.{ Logger, Logging }
 import zio.{ Has, IO, UIO, URLayer }
 
-import java.time.Instant
-
 trait KpiService {
   def portfolioKpi(userWallet: Wallet)(kpiFilter: KpiFilter): IO[PortfolioError, PortfolioKpi]
-
-//  def tagDistribution(wallet: Wallet, kpiFilter: KpiFilter): IO[PortfolioError, TagDistribution]
 }
 
 final case class LiveKpiService(positionService: PositionService, clock: Clock.Service, logger: Logger[String])
@@ -41,21 +37,6 @@ final case class LiveKpiService(positionService: PositionService, clock: Clock.S
                                .mapError(portfolioErrorMapper)
                            } else UIO(Positions.empty())
     } yield new PortfolioKpi(positions, filter.interval, referencePositions)
-
-//  override def tagDistribution(wallet: Wallet, kpiFilter: KpiFilter): IO[PortfolioError, TagDistribution] = {
-//    for {
-//      portfolioKpi <- getPortfolioKpi(wallet, kpiFilter)
-//      portfolioKpiForComparison <-
-//    } yield ()
-//  }
-
-  private def getPortfolioKpi(wallet: Wallet, kpiFilter: KpiFilter) =
-    for {
-      now          <- clock.instant
-      timeInterval = kpiFilter.interval.getOrElse(TimeInterval(BeginningOfCrypto, now))
-      filter       <- UIO(PositionFilter(kpiFilter.count, timeInterval))
-      positions    <- positionService.getPositions(wallet, filter).mapError(portfolioErrorMapper)
-    } yield PortfolioKpi(positions, filter.interval, Positions.empty())
 
   /**
    * Creates a new timestamp to be used for retrieving positions that will be used for performance generation.

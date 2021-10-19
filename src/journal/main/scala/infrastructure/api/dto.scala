@@ -256,17 +256,28 @@ object dto {
       )
   }
 
-  final case class TagDistribution(mistakes: Map[String, FungibleData], tags: Map[String, FungibleData])
+  final case class TagDistribution(mistakes: Map[String, FungibleDataAndPercentage], tags: Map[String, FungibleDataAndPercentage])
 
   object TagDistribution {
     implicit val tagDistributionCodec: JsonCodec[TagDistribution] = DeriveJsonCodec.gen[TagDistribution]
 
     def apply(portfolioKpi: CJPortfolioKpi): TagDistribution =
-      new TagDistribution(mistakes = portfolioKpi.mistakeContribution.map {
-        case (mistake, fungibleData) => mistake.value -> fungibleData.asJson
-      }, tags = portfolioKpi.tagContribution.map {
-        case (setup, fungibleData) => setup.value -> fungibleData.asJson
-      })
+      new TagDistribution(
+        mistakes = portfolioKpi.mistakeContribution.map {
+          case (mistake, (fungibleData, percentage)) =>
+            mistake.value -> FungibleDataAndPercentage(FungibleData(fungibleData.amount, fungibleData.currency.value), percentage)
+        },
+        tags = portfolioKpi.tagContribution.map {
+          case (setup, (fungibleData, percentage)) =>
+            setup.value -> FungibleDataAndPercentage(FungibleData(fungibleData.amount, fungibleData.currency.value), percentage)
+        }
+      )
+  }
+
+  final case class FungibleDataAndPercentage(fungibleData: FungibleData, percentage: BigDecimal)
+
+  object FungibleDataAndPercentage {
+    implicit val fungibleDataAndPercentageCodec: JsonCodec[FungibleDataAndPercentage] = DeriveJsonCodec.gen[FungibleDataAndPercentage]
   }
 
   final case class PeriodDistribution(

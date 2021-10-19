@@ -152,6 +152,8 @@ object model {
   type MistakePredicate = NonEmpty
   type Mistake          = String Refined MistakePredicate
 
+  type Percentage = BigDecimal
+
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData =
       list.foldLeft(FungibleData(BigDecimal(0), refineV[NonEmpty]("USD").right.get)) { (acc, value) =>
