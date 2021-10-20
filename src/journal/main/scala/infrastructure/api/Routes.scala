@@ -285,7 +285,6 @@ object Routes {
                      )
       } yield response
 
-//      Tag = mistake or setup
     case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" / "tag-distribution" =>
       for {
         address <- ZIO
