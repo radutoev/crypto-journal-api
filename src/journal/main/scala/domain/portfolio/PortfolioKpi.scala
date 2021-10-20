@@ -1,8 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{Currency, FungibleData, Mistake, Percentage, Tag}
+import domain.model.{Currency, FungibleData, Mistake, Percentage, Tag, TradeCountPredicate}
 import domain.portfolio.PortfolioKpi.FungibleDataOps
+import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
 import domain.position.{Position, Positions}
 import util.InstantOps
 import vo.filter.Count
@@ -12,7 +13,8 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
-import java.time.{DayOfWeek, Duration, Month}
+import java.time.format.DateTimeFormatter
+import java.time.{DayOfWeek, Duration, Month, ZoneId}
 
 /**
  * @param positions source to compute the KPIs for
@@ -245,7 +247,23 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
     }.toMap
   }
 
+  lazy val dailyContribution: Map[DayFormat, DailyTradeData] = {
+    positions.closedPositions
+      .filter(p => interval.contains(p.closedAt().get))
+      .map(p => p.closedAt().get.atBeginningOfDay() -> p)
+      .groupBy(_._1)
+      .map { case (day, list) =>
+        val dailyPositions = list.map(_._2)
+        val dailyTradeData = DailyTradeData(NetReturn(Positions(dailyPositions)), refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size))
+        refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
+      }
+  }
+
   private val USDCurrency: Currency = refineV.unsafeFrom("USD")
+
+  private val DayFormatter = DateTimeFormatter
+    .ofPattern("yyyy-MM-dd")
+    .withZone(ZoneId.systemDefault())
 }
 
 object PortfolioKpi {

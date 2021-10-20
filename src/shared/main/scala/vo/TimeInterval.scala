@@ -32,6 +32,11 @@ final case class TimeInterval(start: Instant, end: Instant) {
     TimeInterval(start.minusSeconds(seconds), end.minusSeconds(seconds))
   }
 
+  def contains(timestamp: Instant): Boolean = {
+    if(timestamp == start || timestamp == end) true
+    else start.isBefore(timestamp) && end.isAfter(timestamp)
+  }
+
   private def days(from: Instant): LazyList[Instant] =
     from #:: days(from.plus(1, ChronoUnit.DAYS))
 

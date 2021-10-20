@@ -4,7 +4,7 @@ package infrastructure.api
 import domain.market.{Ohlcv => CJOhlcv}
 import domain.model.{MistakePredicate, TagPredicate, FungibleData => CJFungibleData}
 import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.portfolio.model.{Performance => CJPerformance}
+import domain.portfolio.model.{Performance => CJPerformance, DailyTradeData => CJDailyTradeData}
 import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry}
 import domain.position.Position.PositionIdPredicate
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
@@ -278,6 +278,16 @@ object dto {
 
   object FungibleDataAndPercentage {
     implicit val fungibleDataAndPercentageCodec: JsonCodec[FungibleDataAndPercentage] = DeriveJsonCodec.gen[FungibleDataAndPercentage]
+  }
+
+  final case class DailyTradeData(netReturn: BigDecimal, tradeCount: Int)
+
+  object DailyTradeData {
+    implicit val dailyTradeDataCodec: JsonCodec[DailyTradeData] = DeriveJsonCodec.gen[DailyTradeData]
+
+    def apply(data: CJDailyTradeData): DailyTradeData = {
+      new DailyTradeData(data.netReturn.value.amount, data.tradeCount.value)
+    }
   }
 
   final case class PeriodDistribution(

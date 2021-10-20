@@ -9,6 +9,7 @@ import domain.position.error._
 import domain.position.{ JournalingService, PositionService, Positions }
 import domain.wallet.WalletService
 import domain.wallet.error._
+import infrastructure.api.dto.DailyTradeData._
 import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.Ohlcv._
 import infrastructure.api.dto.PortfolioKpi._
@@ -19,6 +20,7 @@ import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
 import infrastructure.api.dto.{
+  DailyTradeData,
   JournalEntry,
   Ohlcv,
   PortfolioKpi,
@@ -266,6 +268,26 @@ object Routes {
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        portfolioKpi => Response.jsonString(PortfolioStats(portfolioKpi, kpiFilter.count).toJson)
                      )
+      } yield response
+
+    case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "daily-distribution" =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+
+        kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
+
+        response <- CryptoJournalApi
+          .getPortfolioKpis(address)(kpiFilter)
+          .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
+          .fold(
+            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
+            portfolioKpi => Response.jsonString(
+              portfolioKpi.dailyContribution.map {
+                case (day, data) => day.value -> DailyTradeData(data)
+              }.toJson)
+          )
       } yield response
 
     case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "stats" / "trade-summary" =>
