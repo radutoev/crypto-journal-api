@@ -25,7 +25,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
   override def fetchTransactions(address: WalletAddress): Task[List[Transaction]] =
     for {
       _   <- logger.info(s"Fetching transactions for $address")
-      url = s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=1&page-size=60"
+      url = s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=1&page-size=20"
       response <- httpClient
                    .send(
                      basicRequest
@@ -68,7 +68,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
           if (pageNumber > 0) {
             executeRequest(
               refineV[Url].unsafeFrom(
-                s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=60"
+                s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=$pageNumber&page-size=20"
               )
             ).tapError(err => logger.warn("Covalent request failed: " + err.message))
               .mapError(Some(_))
