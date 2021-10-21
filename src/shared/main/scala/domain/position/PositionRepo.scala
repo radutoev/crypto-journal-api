@@ -20,7 +20,7 @@ trait PositionRepo {
     address: WalletAddress,
     filter: PositionFilter,
     contextId: ContextId
-  ): IO[PositionError, Page[Positions]] //TODO maye add a type Page.
+  ): IO[PositionError, Page[Positions]]
 
   def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]]
 
