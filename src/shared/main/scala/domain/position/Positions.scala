@@ -65,6 +65,7 @@ object Positions {
 
   val TransactionTypes = Vector(Buy, Sell)
 
+  //TODO I should return Positions here.
   def findPositions(transactions: List[Transaction]): List[Position] = {
     val transactionsByCoin = transactions
       .sortBy(_.instant)(Ordering[Instant])

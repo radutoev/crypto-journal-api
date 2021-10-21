@@ -6,6 +6,7 @@ import domain.position.Positions.findPositions
 import infrastructure.covalent.dto._
 
 import eu.timepit.refined
+import eu.timepit.refined.refineV
 import zio.json._
 import zio.test.Assertion._
 import zio.test._
@@ -38,6 +39,26 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
       assert(positions.size)(equalTo(18)) &&
       //I set empty entries so as not to initialize everything in this test. They are tested elsewhere.
       assert(positions.map(_.copy(entries = List.empty)))(hasSameElementsDistinct(expected))
+    },
+
+    test("Detect top-ups from transactions") {
+      val file         = readFile("/covalent/topUps.json").fromJson[List[Transaction]]
+      val transactions = file.right.get
+      val topUps       = findPositions(transactions.map(_.toDomain()))
+      val expected     = List(
+        TopUp(
+          timestamp = Instant.parse("2021-05-21T10:21:02Z"),
+          value = FungibleData(amount = BigDecimal(0.001), refineV[CurrencyPredicate].unsafeFrom("BNB")),
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("BNB")),
+        ),
+        TopUp(
+          timestamp = Instant.parse("2021-05-21T10:57:17Z"),
+          value = FungibleData(amount = BigDecimal(2.27), refineV[CurrencyPredicate].unsafeFrom("BNB")),
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("BNB")),
+        )
+      )
+      assert(topUps.size)(equalTo(2)) &&
+      assert(expected)(hasSameElementsDistinct(expected))
     }
   )
 

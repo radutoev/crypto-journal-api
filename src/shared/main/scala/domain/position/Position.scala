@@ -19,7 +19,7 @@ final case class Position(
   priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
   journal: Option[JournalEntry] = None,
   id: Option[PositionId] = None
-) {
+) extends MarketPlay {
   def timeInterval(): TimeInterval = closedAt().fold(TimeInterval(openedAt))(closed => TimeInterval(openedAt, closed))
 
   /**
