@@ -1,4 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-trait MarketPlay
+import java.time.Instant
+
+trait MarketPlay {
+  def openedAt: Instant
+}

@@ -5,7 +5,7 @@ import domain.blockchain.error._
 import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.model._
 import domain.position.Position._
-import domain.position.Positions.findPositions
+import domain.position.Positions.findMarketPlays
 import domain.position.error._
 import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
 import domain.wallet.Wallet
@@ -151,13 +151,14 @@ final case class LivePositionService(
       positions <- txStream.runCollect
                     .mapBoth(
                       error => PositionImportError(userWallet.address, new RuntimeException(error.message)),
-                      chunks => findPositions(chunks.toList)
+                      chunks => findMarketPlays(chunks.toList)
                     ) // TODO Try to optimize so as not to process the entire stream.
 
       _ <- if (positions.isEmpty) {
             noPositionsEffect
           } else {
-            handlePositionsImport(positions)
+            //TODO Pass in all positions, without the collect part.
+            handlePositionsImport(positions.collect { case p: Position => p })
           }
     } yield ()
   }

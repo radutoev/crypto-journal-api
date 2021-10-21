@@ -1,11 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ Currency, Fee, FungibleData }
+import domain.model.{ Fee, FungibleData, TransactionHash }
 import domain.position.Position.PositionId
 
 import java.time.Instant
 
 //TODO Change PositionId to PlayId.
-final case class TopUp(timestamp: Instant, value: FungibleData, fee: Fee, id: Option[PositionId] = None)
-    extends MarketPlay
+final case class TopUp(
+  txHash: TransactionHash,
+  value: FungibleData,
+  fee: Fee,
+  timestamp: Instant,
+  id: Option[PositionId] = None
+) extends MarketPlay {
+  override def openedAt: Instant = timestamp
+}

@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{ Buy, CurrencyPredicate, Fee, FungibleData, Sell, TransactionType, Unknown }
+import domain.model.{ Buy, CurrencyPredicate, Fee, FungibleData, Sell, TopUp, TransactionType, Unknown }
 
 import eu.timepit.refined
 
@@ -28,7 +28,7 @@ final case class Transaction(
   logEvents: List[LogEvent]
 ) {
 
-  lazy val transactionType: TransactionType = logEvents.headOption.fold[TransactionType](Unknown)(event =>
+  lazy val transactionType: TransactionType = logEvents.headOption.fold[TransactionType](TopUp)(event =>
     event.decoded.name match {
       case "Swap"       => Buy
       case "Withdrawal" => Sell
@@ -75,5 +75,13 @@ final case class Transaction(
         amount   = wadValue * Math.pow(10, -decimals)
       } yield FungibleData(amount, refined.refineV[CurrencyPredicate].unsafeFrom("WBNB")))
         .toRight("Unable to determine value of transaction")
+    case TopUp =>
+      Right(
+        FungibleData(
+          //I have no log events here, so assuming wei as ETH subunit with a default decimal count of -18 for the contract
+          amount = BigDecimal(rawValue) * Math.pow(10, -18),
+          currency = refined.refineV[CurrencyPredicate].unsafeFrom("WBNB")
+        )
+      )
   }
 }

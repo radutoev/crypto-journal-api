@@ -1,11 +1,11 @@
 package io.softwarechain.cryptojournal
 package domain
 
-import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
+import domain.model.FungibleData.{ Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.{NonEmpty, Size}
+import eu.timepit.refined.collection.{ NonEmpty, Size }
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
@@ -44,13 +44,15 @@ object model {
   final case object Unknown extends TransactionType //used as a fallback.
   final case object Buy     extends TransactionType
   final case object Sell    extends TransactionType
+  final case object TopUp   extends TransactionType
 
   object TransactionType {
     def apply(value: String): TransactionType =
       value.trim.toLowerCase match {
-        case "buy"  => Buy
-        case "sell" => Sell
-        case _      => Unknown
+        case "buy"   => Buy
+        case "sell"  => Sell
+        case "topup" => TopUp
+        case _       => Unknown
       }
   }
 
@@ -63,41 +65,38 @@ object model {
 
     def divide(denominator: Int): FungibleData = copy(amount = amount / denominator)
 
-    def compare(other: FungibleData): Either[FungibleDataError, ComparisonResult] = {
-      fnOnFungibleData((f1, f2) => {
-        f1.amount.compare(f2.amount) match {
-          case -1 => Lower
-          case 0  => FungibleData.Equal
-          case 1  => Bigger
-        }
-      }, other)
-    }
+    def compare(other: FungibleData): Either[FungibleDataError, ComparisonResult] =
+      fnOnFungibleData(
+        (f1, f2) =>
+          f1.amount.compare(f2.amount) match {
+            case -1 => Lower
+            case 0  => FungibleData.Equal
+            case 1  => Bigger
+          },
+        other
+      )
 
-    def difference(other: FungibleData): Either[FungibleDataError, BigDecimal] = {
-      fnOnFungibleData((f1, f2) => {
-        f1.amount - f2.amount
-      }, other)
-    }
+    def difference(other: FungibleData): Either[FungibleDataError, BigDecimal] =
+      fnOnFungibleData((f1, f2) => f1.amount - f2.amount, other)
 
     /**
      * Formula used: x1,x2 where x2 after x1, then the percentage difference is:
      * ((x2 - x1) / x1) * 100.
      */
-    def percentageDifference(other: FungibleData): Either[FungibleDataError, BigDecimal] = {
-      fnOnFungibleData((f, fPrev) => {
-        math.percentageDiff(f.amount, fPrev.amount)
-      }, other)
-    }
+    def percentageDifference(other: FungibleData): Either[FungibleDataError, BigDecimal] =
+      fnOnFungibleData((f, fPrev) => math.percentageDiff(f.amount, fPrev.amount), other)
 
-    private def fnOnFungibleData[T](fn: (FungibleData, FungibleData) => T, other: FungibleData): Either[FungibleDataError, T] = {
-      if(other.currency.sameCurrency(currency)) {
+    private def fnOnFungibleData[T](
+      fn: (FungibleData, FungibleData) => T,
+      other: FungibleData
+    ): Either[FungibleDataError, T] =
+      if (other.currency.sameCurrency(currency)) {
         Right {
           fn(this, other)
         }
       } else {
         Left(DifferentCurrencies)
       }
-    }
   }
 
   object FungibleData {

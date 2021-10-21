@@ -66,11 +66,17 @@ object Positions {
   val TransactionTypes = Vector(Buy, Sell)
 
   //TODO I should return Positions here.
-  def findPositions(transactions: List[Transaction]): List[Position] = {
-    val transactionsByCoin = transactions
+  def findMarketPlays(transactions: List[Transaction]): List[MarketPlay] = {
+    val successes = transactions
       .sortBy(_.instant)(Ordering[Instant])
       .filter(_.successful)
-      .filter(_.hasTransactionEvents)
+
+    val byEventPresence = successes.groupBy(_.hasTransactionEvents)
+
+    val txWithEvents = byEventPresence.getOrElse(true, List.empty)
+    val txWithoutEvents = byEventPresence.getOrElse(false, List.empty)
+
+    val transactionsByCoin = txWithEvents
       .filter(tx => TransactionTypes.contains(tx.transactionType))
       .groupBy(_.coin.get)
 
@@ -118,7 +124,11 @@ object Positions {
         }
     }.toList
 
-    positions.sortBy(_.openedAt)(Ordering[Instant].reverse)
+    val topUps = txWithoutEvents.map(transactionToTopUp).collect {
+      case Right(topUp) => topUp
+    }
+
+    (positions ++ topUps).sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
   val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {
@@ -132,4 +142,11 @@ object Positions {
     _.map(transactionToPositionEntry).collect {
       case Right(entry) => entry
     }
+
+  def transactionToTopUp(tx: Transaction): Either[String, TopUp] = {
+    for {
+      value <- tx.value
+      hash  <- TransactionHash(tx.hash)
+    } yield TopUp(hash, value, tx.fee, tx.instant)
+  }
 }

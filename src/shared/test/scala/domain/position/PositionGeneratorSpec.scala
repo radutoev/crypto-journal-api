@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.position.Positions.findPositions
+import domain.position.Positions.findMarketPlays
 import infrastructure.covalent.dto._
 
 import eu.timepit.refined
@@ -17,7 +17,7 @@ import scala.io.Source
 object PositionGeneratorSpec extends DefaultRunnableSpec {
   override def spec = suite("PositionGeneratorSpec")(
     test("No position if insufficient tranactions") {
-      assert(findPositions(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get.toDomain)))(
+      assert(findMarketPlays(List(readFile("/covalent/accept.json").fromJson[Transaction].right.get.toDomain)))(
         equalTo(List.empty)
       )
     },
@@ -25,7 +25,9 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
       val file         = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]
       val transactions = file.right.get
 
-      val positions = findPositions(transactions.map(_.toDomain()))
+      val positions = findMarketPlays(transactions.map(_.toDomain())).collect {
+        case p: Position => p
+      }
 
       val expected = ExpectedData.map { row =>
         val parts = row.split("[;]")
@@ -44,17 +46,21 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
     test("Detect top-ups from transactions") {
       val file         = readFile("/covalent/topUps.json").fromJson[List[Transaction]]
       val transactions = file.right.get
-      val topUps       = findPositions(transactions.map(_.toDomain()))
+      val topUps       = findMarketPlays(transactions.map(_.toDomain())).collect {
+        case t: domain.position.TopUp => t
+      }
       val expected     = List(
-        TopUp(
+        domain.position.TopUp(
+          txHash = refineV[TransactionHashPredicate].unsafeFrom("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),
           timestamp = Instant.parse("2021-05-21T10:21:02Z"),
-          value = FungibleData(amount = BigDecimal(0.001), refineV[CurrencyPredicate].unsafeFrom("BNB")),
-          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("BNB")),
+          value = FungibleData(amount = BigDecimal(0.001), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
         ),
-        TopUp(
+        domain.position.TopUp(
+          txHash = refineV[TransactionHashPredicate].unsafeFrom("0x5d7ec936bcefdaa9fbceef0fc7d6373b13756d6bc1ac91d72062cfe5c28d7e09"),
           timestamp = Instant.parse("2021-05-21T10:57:17Z"),
-          value = FungibleData(amount = BigDecimal(2.27), refineV[CurrencyPredicate].unsafeFrom("BNB")),
-          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("BNB")),
+          value = FungibleData(amount = BigDecimal(2.27), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
         )
       )
       assert(topUps.size)(equalTo(2)) &&
