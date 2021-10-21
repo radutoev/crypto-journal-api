@@ -7,7 +7,7 @@ import domain.position.Position.PositionId
 import java.time.Instant
 
 //TODO Change PositionId to PlayId.
-final case class TopUp(
+final case class TransferIn(
   txHash: TransactionHash,
   value: FungibleData,
   fee: Fee,

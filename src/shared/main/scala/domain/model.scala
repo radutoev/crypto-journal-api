@@ -41,18 +41,18 @@ object model {
   }
 
   sealed trait TransactionType
-  final case object Unknown extends TransactionType //used as a fallback.
-  final case object Buy     extends TransactionType
-  final case object Sell    extends TransactionType
-  final case object TopUp   extends TransactionType
+  final case object Unknown    extends TransactionType //used as a fallback.
+  final case object Buy        extends TransactionType
+  final case object Sell       extends TransactionType
+  final case object TransferIn extends TransactionType
 
   object TransactionType {
     def apply(value: String): TransactionType =
       value.trim.toLowerCase match {
-        case "buy"   => Buy
-        case "sell"  => Sell
-        case "topup" => TopUp
-        case _       => Unknown
+        case "buy"        => Buy
+        case "sell"       => Sell
+        case "transferin" => TransferIn
+        case _            => Unknown
       }
   }
 

@@ -44,19 +44,19 @@ object PositionGeneratorSpec extends DefaultRunnableSpec {
     },
 
     test("Detect top-ups from transactions") {
-      val file         = readFile("/covalent/topUps.json").fromJson[List[Transaction]]
+      val file         = readFile("/covalent/transferIn.json").fromJson[List[Transaction]]
       val transactions = file.right.get
       val topUps       = findMarketPlays(transactions.map(_.toDomain())).collect {
-        case t: domain.position.TopUp => t
+        case t: domain.position.TransferIn => t
       }
       val expected     = List(
-        domain.position.TopUp(
+        domain.position.TransferIn(
           txHash = refineV[TransactionHashPredicate].unsafeFrom("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),
           timestamp = Instant.parse("2021-05-21T10:21:02Z"),
           value = FungibleData(amount = BigDecimal(0.001), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
           fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
         ),
-        domain.position.TopUp(
+        domain.position.TransferIn(
           txHash = refineV[TransactionHashPredicate].unsafeFrom("0x5d7ec936bcefdaa9fbceef0fc7d6373b13756d6bc1ac91d72062cfe5c28d7e09"),
           timestamp = Instant.parse("2021-05-21T10:57:17Z"),
           value = FungibleData(amount = BigDecimal(2.27), refineV[CurrencyPredicate].unsafeFrom("WBNB")),

@@ -143,10 +143,10 @@ object Positions {
       case Right(entry) => entry
     }
 
-  def transactionToTopUp(tx: Transaction): Either[String, TopUp] = {
+  def transactionToTopUp(tx: Transaction): Either[String, TransferIn] = {
     for {
       value <- tx.value
       hash  <- TransactionHash(tx.hash)
-    } yield TopUp(hash, value, tx.fee, tx.instant)
+    } yield TransferIn(hash, value, tx.fee, tx.instant)
   }
 }
