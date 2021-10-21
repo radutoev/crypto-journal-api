@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.position.Position.{ PositionEntryId, PositionId }
+import domain.position.Position.PositionEntryId
 import domain.pricequote.{ PriceQuote, PriceQuotes }
 import vo.TimeInterval
 
@@ -18,7 +18,7 @@ final case class Position(
   entries: List[PositionEntry],
   priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
   journal: Option[JournalEntry] = None,
-  id: Option[PositionId] = None
+  id: Option[PlayId] = None
 ) extends MarketPlay {
   def timeInterval(): TimeInterval = closedAt().fold(TimeInterval(openedAt))(closed => TimeInterval(openedAt, closed))
 
@@ -149,9 +149,6 @@ final case class Position(
 }
 
 object Position {
-  type PositionIdPredicate = NonEmpty
-  type PositionId          = String Refined PositionIdPredicate
-
   type PositionEntryIdPredicate = NonEmpty
   type PositionEntryId          = String Refined PositionEntryIdPredicate
 }

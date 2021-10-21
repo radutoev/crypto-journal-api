@@ -3,11 +3,11 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.{ PositionEntryIdPredicate, PositionId, PositionIdPredicate }
+import domain.position.Position.PositionEntryIdPredicate
 import domain.position.error._
-import domain.position.{ Position, PositionEntry, PositionRepo, Positions }
+import domain.position.{ MarketPlay, MarketPlayRepo, Position, PositionEntry, Positions, TransferIn }
 import util.{ tryOrLeft, InstantOps }
-import vo.filter.PositionFilter
+import vo.filter.PlayFilter
 import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
 import com.google.cloud.Timestamp
@@ -23,13 +23,13 @@ import java.time.Instant
 import java.util.UUID
 import scala.jdk.CollectionConverters._
 
-final case class DatastorePositionRepo(
+final case class DatastoreMarketPlayRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
   logger: Logger[String]
-) extends PositionRepo {
+) extends MarketPlayRepo {
 
-  override def save(address: WalletAddress, positions: List[Position]): Task[Unit] = {
+  override def save(address: WalletAddress, marketPlays: List[MarketPlay]): Task[Unit] = {
     @inline
     def saveEntities(list: List[Entity]) =
       Task(datastore.newTransaction())
@@ -47,9 +47,9 @@ final case class DatastorePositionRepo(
         )
         .ignore //TODO handle transactions response when doing error handling.
 
-    val entities = positions.map(pos => positionToEntity(pos, address, datastoreConfig.position)).grouped(23).toList
+    val entities = marketPlays.map(play => marketPlayToEntity(play, address)).grouped(23).toList
 
-    if (positions.isEmpty) {
+    if (marketPlays.isEmpty) {
       logger.debug(s"No positions to save for ${address.value}")
     } else {
       for {
@@ -59,27 +59,27 @@ final case class DatastorePositionRepo(
     }
   }
 
-  override def getPositions(
+  override def getPlays(
     address: WalletAddress,
-    positionFilter: PositionFilter
-  ): IO[PositionError, List[Position]] =
+    positionFilter: PlayFilter
+  ): IO[MarketPlayError, List[Position]] =
     doFetchPositions(address, positionsQuery(address, positionFilter).build(), Some(positionFilter.interval.start))
 
   override def getPositions(
-    address: WalletAddress,
-    filter: PositionFilter,
-    contextId: ContextId
-  ): IO[PositionError, Page[Positions]] = {
+                             address: WalletAddress,
+                             filter: PlayFilter,
+                             contextId: ContextId
+  ): IO[MarketPlayError, Page[Positions]] = {
     @inline
     def filterHasChanged(existentFilterHash: Int): Boolean =
       existentFilterHash != filter.hashCode()
 
     @inline
-    def generatePage(query: EntityQuery): IO[PositionError, (Page[Positions], Option[PaginationContext])] =
+    def generatePage(query: EntityQuery): IO[MarketPlayError, (Page[Positions], Option[PaginationContext])] =
       executeQuery(query)
         .map(Some(_))
         .mapBoth(
-          _ => PositionsFetchError(address),
+          _ => MarketPlaysFetchError(address),
           resultsOpt =>
             resultsOpt.fold[(Page[Positions], Option[PaginationContext])](
               (Page(Positions(List.empty), None), None)
@@ -102,10 +102,10 @@ final case class DatastorePositionRepo(
         )
 
     @inline
-    def generatePageAndSavePaginationContext(query: EntityQuery): IO[PositionError, Page[Positions]] =
+    def generatePageAndSavePaginationContext(query: EntityQuery): IO[MarketPlayError, Page[Positions]] =
       for {
         (page, maybeContext) <- generatePage(query)
-        _                    <- maybeContext.fold[IO[PositionError, Unit]](UIO.unit)(ctx => savePaginationContext(ctx).unit)
+        _                    <- maybeContext.fold[IO[MarketPlayError, Unit]](UIO.unit)(ctx => savePaginationContext(ctx).unit)
       } yield page
 
     logger.info(s"Fetching positions for ${address.value}. Interval: ${filter.interval.start} - ${filter.interval.end}") *>
@@ -124,10 +124,10 @@ final case class DatastorePositionRepo(
     }
   }
 
-  private def positionsQuery(address: WalletAddress, positionFilter: PositionFilter) =
+  private def positionsQuery(address: WalletAddress, positionFilter: PlayFilter) =
     Query
       .newEntityQueryBuilder()
-      .setKind(datastoreConfig.position)
+      .setKind(datastoreConfig.marketPlay)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -137,7 +137,7 @@ final case class DatastorePositionRepo(
       .addOrderBy(OrderBy.desc("openedAt"))
       .setLimit(positionFilter.count)
 
-  private def getPaginationContext(contextId: ContextId): IO[PositionError, PaginationContext] = {
+  private def getPaginationContext(contextId: ContextId): IO[MarketPlayError, PaginationContext] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.paginationContext).newKey(contextId.value)
     val query = Query
       .newEntityQueryBuilder()
@@ -158,16 +158,16 @@ final case class DatastorePositionRepo(
       }
   }
 
-  private def savePaginationContext(context: PaginationContext): IO[PositionError, Unit] =
+  private def savePaginationContext(context: PaginationContext): IO[MarketPlayError, Unit] =
     Task(datastore.put(paginationContextAsEntity(context)))
       .tapError(err => logger.warn(err.toString))
       .orElseFail(PaginationContextSaveError(context))
       .unit
 
-  override def getPositions(address: WalletAddress, startFrom: Instant): IO[PositionError, List[Position]] = {
+  override def getPlays(address: WalletAddress, startFrom: Instant): IO[MarketPlayError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(datastoreConfig.position)
+      .setKind(datastoreConfig.marketPlay)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -182,10 +182,10 @@ final case class DatastorePositionRepo(
     doFetchPositions(address, query)
   }
 
-  override def getPositions(address: WalletAddress, state: State): IO[PositionError, List[Position]] = {
+  override def getPlays(address: WalletAddress, state: State): IO[MarketPlayError, List[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(datastoreConfig.position)
+      .setKind(datastoreConfig.marketPlay)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -197,50 +197,53 @@ final case class DatastorePositionRepo(
     doFetchPositions(address, query)
   }
 
-  private def doFetchPositions(address: WalletAddress, query: EntityQuery,
-                               startDateFilter: Option[Instant] = None): IO[PositionsFetchError, List[Position]] =
+  private def doFetchPositions(
+    address: WalletAddress,
+    query: EntityQuery,
+    startDateFilter: Option[Instant] = None
+  ): IO[MarketPlaysFetchError, List[Position]] =
     executeQuery(query)
       .map(Some(_))
       .catchSome {
         case e: DatastoreException if e.getMessage.contains("no matching index found") => UIO.none
       }
       .mapBoth(
-        _ => PositionsFetchError(address),
+        _ => MarketPlaysFetchError(address),
         resultsOpt =>
-          resultsOpt.fold[List[Position]](List.empty)(results => {
+          resultsOpt.fold[List[Position]](List.empty) { results =>
             var list = results.asScala.toList
-            if(startDateFilter.isDefined) {
+            if (startDateFilter.isDefined) {
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
             list.map(entityToPosition).collect {
               case Right(position) if position.entries.nonEmpty => position
             }
-          })
+          }
       )
 
-  override def getPosition(positionId: PositionId): IO[PositionError, Position] = {
-    val key = datastore.newKeyFactory().setKind(datastoreConfig.position).newKey(positionId.value)
+  override def getPlay(playId: PlayId): IO[MarketPlayError, Position] = {
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay).newKey(playId.value)
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(datastoreConfig.position)
+      .setKind(datastoreConfig.marketPlay)
       .setFilter(PropertyFilter.eq("__key__", key))
       .build()
     executeQuery(query)
-      .mapError(throwable => PositionFetchError(positionId, throwable))
+      .mapError(throwable => MarketPlayFetchError(playId, throwable))
       .flatMap { queryResult =>
         val results = queryResult.asScala
         if (results.nonEmpty) {
           ZIO.fromEither(entityToPosition(results.next()))
         } else {
-          ZIO.fail(PositionNotFound(positionId))
+          ZIO.fail(MarketPlayNotFound(playId))
         }
       }
   }
 
-  override def getLatestPosition(address: WalletAddress, currency: Currency): IO[PositionError, Option[Position]] = {
+  override def getLatestPlay(address: WalletAddress, currency: Currency): IO[MarketPlayError, Option[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
-      .setKind(datastoreConfig.position)
+      .setKind(datastoreConfig.marketPlay)
       .setFilter(
         CompositeFilter.and(
           PropertyFilter.eq("address", address.value),
@@ -252,7 +255,7 @@ final case class DatastorePositionRepo(
       .build()
 
     executeQuery(query).mapBoth(
-      throwable => PositionsFetchError(address),
+      throwable => MarketPlaysFetchError(address),
       results => results.asScala.toList.map(entityToPosition).collectFirst { case Right(value) => value }
     )
   }
@@ -260,6 +263,12 @@ final case class DatastorePositionRepo(
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
       .tapError(throwable => logger.warn(throwable.getMessage))
+
+  private def marketPlayToEntity(marketPlay: MarketPlay, address: WalletAddress): Entity =
+    marketPlay match {
+      case p: Position   => positionToEntity(p, address, datastoreConfig.marketPlay)
+      case t: TransferIn => transferInToEntity(t, address, datastoreConfig.marketPlay)
+    }
 
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {
@@ -312,12 +321,32 @@ final case class DatastorePositionRepo(
       builder.build()
     }
 
+  /**
+   * Converts a TransferIn to an Entity.
+   * I map the timestamp to openedAt, so that I could later on use it as a consistent filter attribute for the read operations.
+   */
+  private def transferInToEntity(transferIn: TransferIn, address: WalletAddress, kind: String): Entity =
+    Entity
+      .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
+      .set("address", address.value)
+      .set("hash", transferIn.txHash.value)
+      .set("value", DoubleValue.of(transferIn.value.amount.doubleValue))
+      .set("valueCurrency", StringValue.of(transferIn.value.currency.value))
+      .set("fee", DoubleValue.of(transferIn.fee.amount.doubleValue))
+      .set("feeCurrency", StringValue.of(transferIn.fee.currency.value))
+      .set(
+        "openedAt",
+        TimestampValue
+          .of(Timestamp.ofTimeSecondsAndNanos(transferIn.timestamp.getEpochSecond, transferIn.timestamp.getNano))
+      )
+      .build()
+
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
     for {
       id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
              .flatMap(rawIdStr =>
                refined
-                 .refineV[PositionIdPredicate](rawIdStr)
+                 .refineV[PlayIdPredicate](rawIdStr)
                  .left
                  .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
              )
@@ -407,15 +436,14 @@ final case class DatastorePositionRepo(
                .map(rawHash => rawHash.toInt)
     } yield PaginationContext(ctxId, cursor, hash)
 
-  private def moreRecentThan(entity: Entity, timestamp: Instant): Boolean = {
+  private def moreRecentThan(entity: Entity, timestamp: Instant): Boolean =
     tryOrLeft(
       Instant.ofEpochSecond(entity.getTimestamp("openedAt").getSeconds),
       InvalidRepresentation("Invalid openedAt representation")
     ).fold(_ => false, openedAt => openedAt.isAfter(timestamp))
-  }
 }
 
-object DatastorePositionRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[PositionRepo]] =
-    (DatastorePositionRepo(_, _, _)).toLayer
+object DatastoreMarketPlayRepo {
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[MarketPlayRepo]] =
+    (DatastoreMarketPlayRepo(_, _, _)).toLayer
 }

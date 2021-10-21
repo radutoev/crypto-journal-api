@@ -4,7 +4,7 @@ package config
 final case class DatastoreConfig(
   address: String,
   journal: String,
-  position: String,
+  marketPlay: String,
   paginationContext: String,
   priceQuote: String,
   userWallet: String,

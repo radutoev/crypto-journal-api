@@ -3,10 +3,10 @@ package domain.portfolio
 
 import domain.portfolio.error.{ PortfolioError, PortfolioKpiGenerationError }
 import domain.position.{ PositionService, Positions }
-import domain.position.error.PositionError
+import domain.position.error.MarketPlayError
 import domain.wallet.Wallet
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PositionFilter }
+import vo.filter.{ KpiFilter, PlayFilter }
 import util.{ BeginningOfCrypto, InstantOps }
 
 import eu.timepit.refined.refineV
@@ -26,7 +26,7 @@ final case class LiveKpiService(positionService: PositionService, clock: Clock.S
       now                       <- clock.instant
       timeInterval              = kpiFilter.interval.getOrElse(TimeInterval(BeginningOfCrypto, now))
       timeIntervalForComparison = intervalForComparePositions(timeInterval)
-      filter                    <- UIO(PositionFilter(kpiFilter.count, timeInterval))
+      filter                    <- UIO(PlayFilter(kpiFilter.count, timeInterval))
       positions                 <- positionService.getPositions(wallet, filter).mapError(portfolioErrorMapper)
       referencePositions <- if (timeInterval.start == BeginningOfCrypto) {
                              positionService
@@ -51,7 +51,7 @@ final case class LiveKpiService(positionService: PositionService, clock: Clock.S
     newInterval.copy(start = newStart, end = newInterval.end.atEndOfDay())
   }
 
-  private def portfolioErrorMapper(positionError: PositionError): PortfolioError =
+  private def portfolioErrorMapper(positionError: MarketPlayError): PortfolioError =
     PortfolioKpiGenerationError("Unable to generate KPIs")
 }
 

@@ -3,25 +3,24 @@ package application
 
 import domain.account.RequestContext
 import domain.market.error.MarketError
-import domain.market.{ MarketService, Ohlcv }
-import domain.model.WalletAddress
+import domain.market.{MarketService, Ohlcv}
+import domain.model.{PlayId, WalletAddress}
 import domain.portfolio.error.PortfolioError
-import domain.portfolio.{ KpiService, PortfolioKpi }
-import domain.position.Position.PositionId
+import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.position._
-import domain.position.error.PositionError
+import domain.position.error.MarketPlayError
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
-import domain.wallet.{ Wallet, WalletService }
-import vo.filter.{ KpiFilter, PositionFilter }
+import domain.wallet.{Wallet, WalletService}
+import vo.filter.{KpiFilter, PlayFilter}
 
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object CryptoJournalApi {
   def getLatestPositions(
     address: WalletAddress,
-    filter: PositionFilter
-  ): ZIO[Has[PositionService] with Has[RequestContext], PositionError, Positions] =
+    filter: PlayFilter
+  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, Positions] =
     for {
       userId    <- RequestContext.userId
       positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address), filter))
@@ -29,8 +28,8 @@ object CryptoJournalApi {
 
   def getPositions(
     address: WalletAddress,
-    filter: PositionFilter
-  ): ZIO[Has[PositionService] with Has[RequestContext], PositionError, Positions] =
+    filter: PlayFilter
+  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, Positions] =
     for {
       userId    <- RequestContext.userId
       contextId <- RequestContext.contextId
@@ -38,8 +37,8 @@ object CryptoJournalApi {
     } yield positions
 
   def getPosition(
-    positionId: PositionId
-  ): ZIO[Has[PositionService] with Has[RequestContext], PositionError, Position] =
+    positionId: PlayId
+  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, Position] =
     for {
       userId   <- RequestContext.userId
       position <- ZIO.serviceWith[PositionService](_.getPosition(userId, positionId))
@@ -75,9 +74,9 @@ object CryptoJournalApi {
     ZIO.serviceWith[WalletService](_.getImportStatus(address))
 
   def saveJournalEntry(
-    positionId: PositionId,
-    entry: JournalEntry
-  ): ZIO[Has[JournalingService] with Has[RequestContext], PositionError, Unit] =
+                        positionId: PlayId,
+                        entry: JournalEntry
+  ): ZIO[Has[JournalingService] with Has[RequestContext], MarketPlayError, Unit] =
     for {
       userId <- RequestContext.userId
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntry(userId, positionId, entry))
@@ -85,7 +84,7 @@ object CryptoJournalApi {
 
   def saveJournalEntries(
     positionEntries: List[PositionJournalEntry]
-  ): ZIO[Has[JournalingService] with Has[RequestContext], PositionError, Unit] =
+  ): ZIO[Has[JournalingService] with Has[RequestContext], MarketPlayError, Unit] =
     for {
       userId <- RequestContext.userId
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntries(userId, positionEntries))

@@ -1,6 +1,6 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.position.Position.PositionId
+import domain.model.PlayId
 
-final case class PositionJournalEntry(positionId: PositionId, entry: JournalEntry)
+final case class PositionJournalEntry(positionId: PlayId, entry: JournalEntry)

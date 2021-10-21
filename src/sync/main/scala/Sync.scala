@@ -3,13 +3,13 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
 import domain.model.{ Currency, TransactionHash, WalletAddress }
-import domain.position.error.PositionsFetchError
-import domain.position.{ PositionRepo, Positions }
+import domain.position.error.MarketPlaysFetchError
+import domain.position.{ MarketPlayRepo, Positions }
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.datastore.{ DatastorePositionRepo, DatastoreWalletImportRepo }
+import infrastructure.google.datastore.{ DatastoreMarketPlayRepo, DatastoreWalletImportRepo }
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{ Config, ConfigFactory }
@@ -46,16 +46,16 @@ object Sync extends App {
                     .mapM {
                       case (transaction, addresses) =>
                         ZIO.foreach(addresses)(address =>
-                          PositionRepo
-                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
-                            .collect(PositionsFetchError(address)) { case Some(position) => Positions(List(position)) }
+                          MarketPlayRepo
+                            .getLatestPlay(address, Currency.unsafeFrom(transaction.coin.get))
+                            .collect(MarketPlaysFetchError(address)) { case Some(position) => Positions(List(position)) }
                             .map(positions => address -> positions)
                         )
                     }
                     .foreach { newAddressPositions =>
                       ZIO.foreach(newAddressPositions) {
                         case (address, positions) =>
-                          PositionRepo.save(address, positions.items)
+                          MarketPlayRepo.save(address, positions.items)
                       }
                     }
                     .provideCustomLayer(listenerEnvironment(config))
@@ -100,7 +100,7 @@ object Sync extends App {
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
     lazy val positionsRepoLayer =
-      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastorePositionRepo.layer
+      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer
     lazy val walletRepoLayer =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 

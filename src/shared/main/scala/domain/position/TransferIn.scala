@@ -1,8 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ Fee, FungibleData, TransactionHash }
-import domain.position.Position.PositionId
+import domain.model.{Fee, FungibleData, PlayId, TransactionHash}
 
 import java.time.Instant
 
@@ -12,7 +11,7 @@ final case class TransferIn(
   value: FungibleData,
   fee: Fee,
   timestamp: Instant,
-  id: Option[PositionId] = None
+  id: Option[PlayId] = None
 ) extends MarketPlay {
   override def openedAt: Instant = timestamp
 }

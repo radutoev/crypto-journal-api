@@ -153,6 +153,9 @@ object model {
 
   type Percentage = BigDecimal
 
+  type PlayIdPredicate = NonEmpty
+  type PlayId          = String Refined PlayIdPredicate
+
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData =
       list.foldLeft(FungibleData(BigDecimal(0), refineV[NonEmpty]("USD").right.get)) { (acc, value) =>

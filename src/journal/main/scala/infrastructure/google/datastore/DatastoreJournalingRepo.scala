@@ -2,25 +2,24 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{ MistakePredicate, TagPredicate, UserId, UserIdPredicate }
-import domain.position.Position.{ PositionId, PositionIdPredicate }
+import domain.model.{MistakePredicate, PlayId, PlayIdPredicate, TagPredicate, UserId, UserIdPredicate}
 import domain.position.error._
-import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
-import infrastructure.google.datastore.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
+import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
+import infrastructure.google.datastore.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
 import util.tryOrLeft
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import scala.jdk.CollectionConverters._
 
 final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: DatastoreConfig, logger: Logger[String])
     extends JournalingRepo {
 
-  override def getEntry(userId: UserId, positionId: PositionId): IO[PositionError, JournalEntry] = {
+  override def getEntry(userId: UserId, positionId: PlayId): IO[MarketPlayError, JournalEntry] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, positionId))
     val query = Query
       .newEntityQueryBuilder()
@@ -39,7 +38,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       }
   }
 
-  override def getEntries(userId: UserId, ids: List[PositionId]): IO[PositionError, List[JournalEntry]] = {
+  override def getEntries(userId: UserId, ids: List[PlayId]): IO[MarketPlayError, List[JournalEntry]] = {
     val kind = datastore.newKeyFactory().setKind(datastoreConfig.journal)
     val keys = ids.map(id => kind.newKey(journalEntryKey(userId, id)))
     Task(datastore.get(keys: _*))
@@ -53,7 +52,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       )
   }
 
-  override def saveEntry(userId: UserId, positionId: PositionId, entry: JournalEntry): IO[JournalSaveError, Unit] =
+  override def saveEntry(userId: UserId, positionId: PlayId, entry: JournalEntry): IO[JournalSaveError, Unit] =
     Task(datastore.put(journalEntryToEntity(userId, positionId, entry)))
       .tapError(throwable => logger.error(s"Unable to save journal entry - ${throwable.getMessage}"))
       .mapError(throwable => JournalSaveError(throwable))
@@ -74,7 +73,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .unit
   }
 
-  val journalEntryToEntity: (UserId, PositionId, JournalEntry) => Entity = (userId, positionId, entry) => {
+  val journalEntryToEntity: (UserId, PlayId, JournalEntry) => Entity = (userId, positionId, entry) => {
     Entity
       .newBuilder(
         datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, positionId))
@@ -96,7 +95,7 @@ object DatastoreJournalingRepo {
 
   val KeyDelimiter = "#"
 
-  val journalEntryKey: (UserId, PositionId) => String = (uId, pId) => uId.value + KeyDelimiter + pId.value
+  val journalEntryKey: (UserId, PlayId) => String = (uId, pId) => uId.value + KeyDelimiter + pId.value
 
   val entityToJournalEntry: Entity => Either[InvalidRepresentation, JournalEntry] = entity => {
     for {
@@ -104,7 +103,7 @@ object DatastoreJournalingRepo {
       parts  = key.split(KeyDelimiter)
       userId <- refined.refineV[UserIdPredicate](parts.head).left.map(_ => InvalidRepresentation("Invalid user id"))
       positionId <- refined
-                     .refineV[PositionIdPredicate](parts.last)
+                     .refineV[PlayIdPredicate](parts.last)
                      .left
                      .map(_ => InvalidRepresentation("Invalid position id"))
       notes <- tryOrLeft(

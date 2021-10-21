@@ -2,11 +2,10 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ ContextId, ContextIdPredicate, UserId, WalletAddressPredicate }
+import domain.model.{ContextId, ContextIdPredicate, PlayIdPredicate, UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
-import domain.position.Position.PositionIdPredicate
 import domain.position.error._
-import domain.position.{ JournalingService, PositionService, Positions }
+import domain.position.{JournalingService, PositionService, Positions}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.DailyTradeData._
@@ -19,31 +18,22 @@ import infrastructure.api.dto.PositionJournalEntry._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{
-  DailyTradeData,
-  JournalEntry,
-  Ohlcv,
-  PortfolioKpi,
-  PortfolioStats,
-  PositionJournalEntry,
-  TagDistribution,
-  TradeSummary
-}
+import infrastructure.api.dto.{DailyTradeData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
-import vo.filter.{ Count, KpiFilter, PositionFilter }
+import vo.filter.{Count, KpiFilter, PlayFilter}
 
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
-import pdi.jwt.{ Jwt, JwtAlgorithm }
+import pdi.jwt.{Jwt, JwtAlgorithm}
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{ Header, _ }
+import zhttp.http.{Header, _}
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 import java.util.UUID
 import scala.util.Try
 
@@ -191,7 +181,7 @@ object Routes {
     case Method.GET -> Root / "positions" / rawPositionId =>
       for {
         positionId <- ZIO
-                       .fromEither(refineV[PositionIdPredicate](rawPositionId))
+                       .fromEither(refineV[PlayIdPredicate](rawPositionId))
                        .orElseFail(BadRequest("Invalid positionId"))
 
         response <- CryptoJournalApi
@@ -206,7 +196,7 @@ object Routes {
     case req @ Method.PUT -> Root / "positions" / rawPositionId / "journal" =>
       for {
         positionId <- ZIO
-                       .fromEither(refineV[PositionIdPredicate](rawPositionId))
+                       .fromEither(refineV[PlayIdPredicate](rawPositionId))
                        .orElseFail(BadRequest("Invalid positionId"))
 
         journalEntry <- ZIO
@@ -433,7 +423,7 @@ object Routes {
   }
 
   implicit class PositionsQParamsOps(url: URL) extends QParamsOps {
-    def positionFilter(): Validation[String, PositionFilter] = {
+    def positionFilter(): Validation[String, PlayFilter] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
 
       Validation.validateWith(
@@ -441,7 +431,7 @@ object Routes {
         url.intervalFilter()
       ) {
         case (count, interval) =>
-          new PositionFilter(count, interval)
+          new PlayFilter(count, interval)
       }
     }
   }
@@ -500,27 +490,27 @@ object Routes {
     }
   }
 
-  val positionErrorToHttpResponse: PositionError => UResponse = {
+  val positionErrorToHttpResponse: MarketPlayError => UResponse = {
     case InvalidRepresentation(message) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "InvalidRepresentation", message).toResponsePayload
       )
-    case PositionsFetchError(address) =>
+    case MarketPlaysFetchError(address) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
         content =
           ApiError(`type` = "PositionsFetchError", s"Error retrieving positions for address: $address").toResponsePayload
       )
-    case PositionNotFound(_) =>
+    case MarketPlayNotFound(_) =>
       Response.http(
         status = Status.NOT_FOUND,
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "PositionNotFound").toResponsePayload
       )
-    case PositionFetchError(positionId, throwable) =>
+    case MarketPlayFetchError(positionId, throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),
@@ -563,7 +553,7 @@ object Routes {
         headers = List(Header("Content-Type", "application/json")),
         content = ApiError(`type` = "JournalNotFound").toResponsePayload
       )
-    case PositionImportError(address, throwable) =>
+    case MarketPlayImportError(address, throwable) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,
         headers = List(Header("Content-Type", "application/json")),

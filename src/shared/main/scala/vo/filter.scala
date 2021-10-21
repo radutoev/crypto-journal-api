@@ -8,11 +8,11 @@ object filter {
   object Count extends SubtypeSmart[Int](isPositive)
   type Count = Count.Type
 
-  final case class PositionFilter(count: Count, interval: TimeInterval)
+  final case class PlayFilter(count: Count, interval: TimeInterval)
 
-  object PositionFilter {
-    def apply(count: Int, interval: TimeInterval): Validation[String, PositionFilter] =
-      Count.make(count).map(posCount => new PositionFilter(posCount, interval))
+  object PlayFilter {
+    def apply(count: Int, interval: TimeInterval): Validation[String, PlayFilter] =
+      Count.make(count).map(posCount => new PlayFilter(posCount, interval))
   }
 
   final case class KpiFilter(count: Count, interval: Option[TimeInterval])

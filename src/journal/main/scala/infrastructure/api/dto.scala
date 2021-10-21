@@ -2,11 +2,10 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import domain.market.{Ohlcv => CJOhlcv}
-import domain.model.{MistakePredicate, TagPredicate, FungibleData => CJFungibleData}
+import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
 import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.portfolio.model.{Performance => CJPerformance, DailyTradeData => CJDailyTradeData}
+import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
 import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry}
-import domain.position.Position.PositionIdPredicate
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
 import vo.{PeriodDistribution => CJPeriodDistribution}
@@ -336,7 +335,7 @@ object dto {
       //TODO Add validation.
       def toDomainModel: CJPositionJournalEntry =
         CJPositionJournalEntry(
-          positionId = refineV[PositionIdPredicate].unsafeFrom(posJournalEntry.positionId),
+          positionId = refineV[PlayIdPredicate].unsafeFrom(posJournalEntry.positionId),
           entry = posJournalEntry.entry.toDomainModel
         )
     }
