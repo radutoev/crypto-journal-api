@@ -37,6 +37,8 @@ package object util {
     lazy val positions: List[Position] = marketPlays.collect { case p: Position => p }
 
     lazy val transferIns: List[TransferIn] = marketPlays.collect { case t: TransferIn => t }
+
+    def mostRecentFirst(): List[MarketPlay] = marketPlays.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
   val BeginningOfCrypto: Instant = Instant.parse("2017-07-01T00:00:00.000Z") //June 2017 Binance launched.

@@ -63,7 +63,7 @@ final case class LiveMarketPlayService(
                          userWallet.userId,
                          marketPlays.map(_.id).collect { case Some(id) => id }
                        )
-    } yield MarketPlays(withJournalEntries(marketPlays, journalEntries))
+    } yield MarketPlays(withJournalEntries(marketPlays, journalEntries).mostRecentFirst())
 
   override def getPlays(
     userWallet: Wallet,
@@ -79,7 +79,7 @@ final case class LiveMarketPlayService(
                          userWallet.userId,
                          marketPlays.map(_.id).collect { case Some(id) => id }
                        )
-    } yield MarketPlays(withJournalEntries(marketPlays, journalEntries))
+    } yield MarketPlays(withJournalEntries(marketPlays, journalEntries).mostRecentFirst())
 
   private def withJournalEntries(plays: List[MarketPlay], entries: List[JournalEntry]): List[MarketPlay] = {
     val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
