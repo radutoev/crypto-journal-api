@@ -21,7 +21,7 @@ import java.time.{Duration, Instant}
 object dto {
   sealed trait MarketPlay
 
-  final case class TransferIn(value: FungibleData, fiatValue: Option[FungibleData], fee: FungibleData, totalFees: Option[FungibleData], timestamp: Instant) extends MarketPlay
+  final case class TransferIn(hash: String, value: FungibleData, fiatValue: Option[FungibleData], fee: FungibleData, totalFees: Option[FungibleData], timestamp: Instant) extends MarketPlay
 
   final case class Position(
     currency: String,
@@ -108,6 +108,7 @@ object dto {
 
     private def fromTransferIn(t: CJTransferIn): TransferIn =
       TransferIn(
+        hash = t.txHash.value,
         value = t.value.asJson,
         fiatValue = t.fiatValue().map(_.asJson),
         fee = t.fee.asJson,

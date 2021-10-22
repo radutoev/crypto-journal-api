@@ -2,8 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{ Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown }
-import util.{ InstantOps, MarketPlaysListOps }
+import domain.model.{Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress}
+import util.{InstantOps, MarketPlaysListOps}
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -70,8 +70,8 @@ object MarketPlays {
 
   val TransactionTypes = Vector(Buy, Sell)
 
-  //TODO I should return Positions here.
-  def findMarketPlays(transactions: List[Transaction]): List[MarketPlay] = {
+  //TODO I should return MarketPlays here.
+  def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): List[MarketPlay] = {
     val successes = transactions
       .sortBy(_.instant)(Ordering[Instant])
       .filter(_.successful)
@@ -129,9 +129,11 @@ object MarketPlays {
         }
     }.toList
 
-    val topUps = txWithoutEvents.map(transactionToTopUp).collect {
-      case Right(topUp) => topUp
-    }
+    val topUps = txWithoutEvents
+      .filter(_.toAddress == wallet.value)
+      .map(transactionToTopUp).collect {
+        case Right(topUp) => topUp
+      }
 
     (positions ++ topUps).sortBy(_.openedAt)(Ordering[Instant].reverse)
   }

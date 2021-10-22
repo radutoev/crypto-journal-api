@@ -136,12 +136,13 @@ final case class LiveMarketPlayService(
 
   override def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit] =
     logger.info(s"Importing positions for ${userWallet.address}") *>
-      importPlays(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
+      importPlays(userWallet.address, blockchainRepo.transactionsStream(userWallet.address))(userWallet)
 
   override def importPlays(userWallet: Wallet, startFrom: Instant): IO[MarketPlayError, Unit] =
-    importPlays(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
+    importPlays(userWallet.address, blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
 
   private def importPlays(
+    walletAddress: WalletAddress,
     txStream: ZStream[Any, TransactionsGetError, Transaction]
   )(userWallet: Wallet): IO[MarketPlayError, Unit] = {
     val noPlaysEffect = logger.info(s"No positions to import for ${userWallet.address}")
@@ -164,7 +165,7 @@ final case class LiveMarketPlayService(
       plays <- txStream.runCollect
                 .mapBoth(
                   error => MarketPlayImportError(userWallet.address, new RuntimeException(error.message)),
-                  chunks => findMarketPlays(chunks.toList)
+                  chunks => findMarketPlays(walletAddress, chunks.toList)
                 ) // TODO Try to optimize so as not to process the entire stream.
 
       _ <- if (plays.isEmpty) {
