@@ -12,7 +12,7 @@ import zio.test._
 
 import java.time.Instant
 
-object PositionsMergeSpec extends DefaultRunnableSpec {
+object MarketPlaysMergeSpec extends DefaultRunnableSpec {
   override def spec = suite("PositionsMergeSpec")(
     testM("Union the two sets if no common currency") {
       check(Gen.listOf(genPosition)) {
@@ -22,12 +22,12 @@ object PositionsMergeSpec extends DefaultRunnableSpec {
           if (uniqueCurrencyPositions.length > 1) {
             val random          = scala.util.Random.between(0, uniqueCurrencyPositions.length - 1)
             val (first, second) = uniqueCurrencyPositions.splitAt(random)
-            val firstPositions  = Positions(first)
-            val secondPositions = Positions(second)
+            val firstPositions  = MarketPlays(first)
+            val secondPositions = MarketPlays(second)
             val result          = firstPositions.merge(secondPositions)
-            assert(result.items)(hasSameElements(positions))
+            assert(result.plays)(hasSameElements(positions))
           } else {
-            assert(Positions(uniqueCurrencyPositions).merge(Positions.empty()).items)(
+            assert(MarketPlays(uniqueCurrencyPositions).merge(MarketPlays.empty()).plays)(
               hasSameElements(uniqueCurrencyPositions)
             )
           }
@@ -38,12 +38,12 @@ object PositionsMergeSpec extends DefaultRunnableSpec {
         (positions, closedEntry) =>
           if (positions.length > 1) {
             val (first, second) = positions.splitAt(scala.util.Random.between(0, positions.length - 1))
-            val result = Positions(first).merge(
-              Positions(second.map(pos => pos.copy(entries = List(closedEntry))))
+            val result = MarketPlays(first).merge(
+              MarketPlays(second.map(pos => pos.copy(entries = List(closedEntry))))
             )
-            assert(result.items.length)(equalTo(positions.length))
+            assert(result.plays.length)(equalTo(positions.length))
           } else {
-            assert(Positions(positions).merge(Positions.empty()).items)(hasSameElements(positions))
+            assert(MarketPlays(positions).merge(MarketPlays.empty()).plays)(hasSameElements(positions))
           }
       }
     },
@@ -53,12 +53,12 @@ object PositionsMergeSpec extends DefaultRunnableSpec {
         val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
 
         val p1 =
-          Positions(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
-        val p2 = Positions(List(positions.last.copy(currency = c1, entries = List(e2))))
+          MarketPlays(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
+        val p2 = MarketPlays(List(positions.last.copy(currency = c1, entries = List(e2))))
 
         val result = p2.merge(p1)
 
-        assert(result.items.length)(equalTo(2))
+        assert(result.plays.length)(equalTo(2))
       }
     },
     testM("Merge open positions for matching coins") {
@@ -67,12 +67,12 @@ object PositionsMergeSpec extends DefaultRunnableSpec {
         val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
 
         val p1 =
-          Positions(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
-        val p2 = Positions(List(positions.last.copy(currency = c1, entries = List(e2))))
+          MarketPlays(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
+        val p2 = MarketPlays(List(positions.last.copy(currency = c1, entries = List(e2))))
 
         val result = p2.merge(p1)
 
-        assert(result.items.length)(equalTo(2))
+        assert(result.plays.length)(equalTo(2))
       }
     },
     testM("Merge closed positions for matching coins") {
@@ -81,14 +81,14 @@ object PositionsMergeSpec extends DefaultRunnableSpec {
           val c1 = refineV[CurrencyPredicate].unsafeFrom("WBNB")
           val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
 
-          val p1 = Positions(
+          val p1 = MarketPlays(
             List(positions.head.copy(currency = c1, entries = List(e1, e2)), positions(1).copy(currency = c2))
           )
-          val p2 = Positions(List(positions.last.copy(currency = c1, entries = List(e3))))
+          val p2 = MarketPlays(List(positions.last.copy(currency = c1, entries = List(e3))))
 
           val result = p2.merge(p1)
 
-          assert(result.items.length)(equalTo(2))
+          assert(result.plays.length)(equalTo(2))
       }
     }
   )

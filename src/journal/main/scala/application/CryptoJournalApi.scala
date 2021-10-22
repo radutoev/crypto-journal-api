@@ -17,19 +17,19 @@ import vo.filter.{KpiFilter, PlayFilter}
 import zio.{Has, ZIO}
 
 object CryptoJournalApi {
-  def getLatestPositions(
+  def getLatestPlays(
     address: WalletAddress,
     filter: PlayFilter
-  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, Positions] =
+  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, MarketPlays] =
     for {
       userId    <- RequestContext.userId
       positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address), filter))
     } yield positions
 
-  def getPositions(
+  def getPlays(
     address: WalletAddress,
     filter: PlayFilter
-  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, Positions] =
+  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, MarketPlays] =
     for {
       userId    <- RequestContext.userId
       contextId <- RequestContext.contextId

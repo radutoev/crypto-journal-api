@@ -5,12 +5,12 @@ import domain.model.FungibleData
 import domain.model.FungibleData.{ Bigger, Equal, Lower }
 import domain.portfolio.model.Performance.NoChangeInPerformance
 import domain.portfolio.model._
-import domain.position.Positions
+import domain.position.MarketPlays
 
-final case class NetReturn(positions: Positions) {
-  lazy val value: FungibleData = positions.closedPositions.map(_.fiatReturn()).sumFungibleData()
+final case class NetReturn(marketPlays: MarketPlays) {
+  lazy val value: FungibleData = marketPlays.closedPositions.map(_.fiatReturn()).sumFungibleData()
 
-  lazy val trend: List[FungibleData] = positions.trend(_.fiatReturn())
+  lazy val trend: List[FungibleData] = marketPlays.trend(_.fiatReturn())
 
   def performance(relativeTo: NetReturn): Performance =
     value.compare(relativeTo.value) match {
@@ -20,14 +20,14 @@ final case class NetReturn(positions: Positions) {
           case Equal => NoChangeInPerformance
           case Bigger =>
             Performance(
-              absolute = value.difference(relativeTo.value).right.get,
-              percentage = value.percentageDifference(relativeTo.value).right.get,
+              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
+              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
               trend = Increase
             )
           case Lower =>
             Performance(
-              absolute = value.difference(relativeTo.value).right.get,
-              percentage = value.percentageDifference(relativeTo.value).right.get,
+              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
+              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
               trend = Decrease
             )
         }

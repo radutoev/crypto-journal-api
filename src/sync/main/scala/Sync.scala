@@ -4,7 +4,7 @@ import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
 import domain.model.{ Currency, TransactionHash, WalletAddress }
 import domain.position.error.MarketPlaysFetchError
-import domain.position.{ MarketPlayRepo, Positions }
+import domain.position.{ MarketPlayRepo, MarketPlays }
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
 import infrastructure.binance.BnbListener
@@ -47,15 +47,15 @@ object Sync extends App {
                       case (transaction, addresses) =>
                         ZIO.foreach(addresses)(address =>
                           MarketPlayRepo
-                            .getLatestPlay(address, Currency.unsafeFrom(transaction.coin.get))
-                            .collect(MarketPlaysFetchError(address)) { case Some(position) => Positions(List(position)) }
-                            .map(positions => address -> positions)
+                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
+                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
+                            .map(marketPlays => address -> marketPlays)
                         )
                     }
-                    .foreach { newAddressPositions =>
-                      ZIO.foreach(newAddressPositions) {
-                        case (address, positions) =>
-                          MarketPlayRepo.save(address, positions.items)
+                    .foreach { newAddressMarketPlays =>
+                      ZIO.foreach(newAddressMarketPlays) {
+                        case (address, marketPlays) =>
+                          MarketPlayRepo.save(address, marketPlays.positions)
                       }
                     }
                     .provideCustomLayer(listenerEnvironment(config))

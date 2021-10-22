@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.position.Positions.findMarketPlays
+import domain.position.MarketPlays.findMarketPlays
 import infrastructure.covalent.dto._
 
 import eu.timepit.refined

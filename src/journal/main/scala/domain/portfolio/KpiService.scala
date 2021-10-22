@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.portfolio.error.{ PortfolioError, PortfolioKpiGenerationError }
-import domain.position.{ PositionService, Positions }
+import domain.position.{ PositionService, MarketPlays }
 import domain.position.error.MarketPlayError
 import domain.wallet.Wallet
 import vo.TimeInterval
@@ -35,7 +35,7 @@ final case class LiveKpiService(positionService: PositionService, clock: Clock.S
                                  filter.copy(interval = timeIntervalForComparison)
                                )
                                .mapError(portfolioErrorMapper)
-                           } else UIO(Positions.empty())
+                           } else UIO(MarketPlays.empty())
     } yield new PortfolioKpi(positions, filter.interval, referencePositions)
 
   /**

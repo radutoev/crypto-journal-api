@@ -4,8 +4,8 @@ package domain.portfolio
 import domain.model.{Currency, FungibleData, Mistake, Percentage, Tag, TradeCountPredicate}
 import domain.portfolio.PortfolioKpi.FungibleDataOps
 import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
-import domain.position.{Position, Positions}
-import util.InstantOps
+import domain.position.{MarketPlays, Position}
+import util.{InstantOps, MarketPlaysListOps}
 import vo.filter.Count
 import vo.{PeriodDistribution, TimeInterval}
 
@@ -17,25 +17,25 @@ import java.time.format.DateTimeFormatter
 import java.time.{DayOfWeek, Duration, Month, ZoneId}
 
 /**
- * @param positions source to compute the KPIs for
+ * @param marketPlays source to compute the KPIs for
  * @param interval timeInterval does not have to be an exact match with the interval of the given positions.
- * @param referencePositions positions compares against referencePosition to generate performance.
+ * @param referenceMarketPlays marketPlays compares against referenceMarketPlays to generate performance.
  */
-final case class PortfolioKpi(positions: Positions, interval: TimeInterval, referencePositions: Positions = Positions.empty()) {
-  lazy val netReturn: NetReturn = NetReturn(positions)
+final case class PortfolioKpi(marketPlays: MarketPlays, interval: TimeInterval, referenceMarketPlays: MarketPlays = MarketPlays.empty()) {
+  lazy val netReturn: NetReturn = NetReturn(marketPlays)
 
-  lazy val balance: AccountBalance = AccountBalance(positions)
+  lazy val balance: AccountBalance = AccountBalance(marketPlays)
 
-  lazy val tradeCount: Int = positions.closedPositions.size
+  lazy val tradeCount: Int = marketPlays.closedPositions.size
 
-  lazy val openTradesCount: Int = positions.openPositions.size
+  lazy val openTradesCount: Int = marketPlays.openPositions.size
 
   lazy val winRate: Float = {
-    winRate(positions.closedPositions)
+    winRate(marketPlays.closedPositions)
   }
 
   lazy val loseRate: Float = {
-    if (positions.closedPositions.nonEmpty) {
+    if (marketPlays.closedPositions.nonEmpty) {
       1 - winRate
     } else {
       0f
@@ -58,7 +58,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
    * Sum all fees of positions
    */
   lazy val totalFees: FungibleData = {
-    positions.items
+    marketPlays.plays
       .map(_.totalFees())
       .collect {
         case Some(fee) => fee
@@ -70,15 +70,15 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
    * Uses the given time interval to derive the average trade count.
    */
   lazy val avgDailyTradeCount: Float = {
-    positions.closedPositions.size.toFloat / interval.dayCount.value
+    marketPlays.closedPositions.size.toFloat / interval.dayCount.value
   }
 
   lazy val totalWins: Int Refined NonNegative = {
-    refineV.unsafeFrom(positions.closedPositions.count(_.isWin().get))
+    refineV.unsafeFrom(marketPlays.closedPositions.count(_.isWin().get))
   }
 
   lazy val totalLoses: Int Refined NonNegative = {
-    refineV.unsafeFrom(positions.closedPositions.size - totalWins.value)
+    refineV.unsafeFrom(marketPlays.closedPositions.size - totalWins.value)
   }
 
   lazy val maxConsecutiveWins: Int Refined NonNegative = {
@@ -90,7 +90,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
       streak = 0
     }
 
-    positions.closedPositions.foreach { p =>
+    marketPlays.closedPositions.foreach { p =>
       p.isWin() match {
         case Some(value) =>
           if (value) {
@@ -114,7 +114,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
       streak = 0
     }
 
-    positions.closedPositions.foreach { p =>
+    marketPlays.closedPositions.foreach { p =>
       p.isWin() match {
         case Some(value) =>
           if (value) {
@@ -129,16 +129,17 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
     refineV.unsafeFrom(max)
   }
 
+  //TODO Do I need to include TransferIns?
   lazy val totalCoins: BigDecimal = {
-    positions.items.map(_.numberOfCoins()).sum
+    marketPlays.positions.map(_.numberOfCoins()).sum
   }
 
   lazy val avgWinningHoldTime: Duration = {
-    Duration.ofSeconds(avgHoldTime(positions.items.filter(p => p.isWin().isDefined && p.isWin().get)))
+    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isWin().isDefined && p.isWin().get)))
   }
 
   lazy val avgLosingHoldTime: Duration = {
-    Duration.ofSeconds(avgHoldTime(positions.items.filter(p => p.isLoss().isDefined && p.isLoss().get)))
+    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isLoss().isDefined && p.isLoss().get)))
   }
 
   def avgHoldTime(items: List[Position]): Long = {
@@ -153,13 +154,13 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
   }
 
   lazy val biggestWin: Option[FungibleData] = {
-    positions.closedPositions.collect {
+    marketPlays.closedPositions.collect {
       case p: Position if p.fiatReturn().isDefined => p.fiatReturn().get
     }.maxOption
   }
 
   lazy val biggestLoss: Option[FungibleData] = {
-    positions.closedPositions.collect {
+    marketPlays.closedPositions.collect {
       case p: Position if p.fiatReturn().isDefined => p.fiatReturn().get
     }.minOption
   }
@@ -175,7 +176,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
   }
 
   lazy val coinContributions: List[(Currency, FungibleData, Percentage)] = {
-    positions.closedPositions
+    marketPlays.closedPositions
       .groupBy(_.currency)
       .map {
         case (currency, listOfPositions) =>
@@ -190,7 +191,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
   }
 
   def periodReturn(): PeriodDistribution = {
-    val returnByDate = positions.closedPositions
+    val returnByDate = marketPlays.closedPositions
       .map(p => p.closedAt().get.toLocalDate().atStartOfDay() -> p.fiatReturn().get)
       .groupBy(_._1)
       .view
@@ -209,7 +210,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
   }
 
   lazy val tagContribution: Map[Tag, (FungibleData, Percentage)] = {
-    val journaledPositions = positions.items.collect {
+    val journaledPositions = marketPlays.positions.collect {
       case p if p.journal.isDefined => p.journal.get -> p
     }
     val positionToFiatReturn = journaledPositions.flatMap {
@@ -228,7 +229,7 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
   }
 
   lazy val mistakeContribution: Map[Mistake, (FungibleData, Percentage)] = {
-    val journaledPositions = positions.items.collect {
+    val journaledPositions = marketPlays.positions.collect {
       case p if p.journal.isDefined => p.journal.get -> p
     }
 
@@ -248,13 +249,13 @@ final case class PortfolioKpi(positions: Positions, interval: TimeInterval, refe
   }
 
   lazy val dailyContribution: Map[DayFormat, DailyTradeData] = {
-    positions.closedPositions
+    marketPlays.closedPositions
       .filter(p => interval.contains(p.closedAt().get))
       .map(p => p.closedAt().get.atBeginningOfDay() -> p)
       .groupBy(_._1)
       .map { case (day, list) =>
         val dailyPositions = list.map(_._2)
-        val dailyTradeData = DailyTradeData(NetReturn(Positions(dailyPositions)), refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size))
+        val dailyTradeData = DailyTradeData(NetReturn(MarketPlays(dailyPositions)), refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size))
         refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
       }
   }

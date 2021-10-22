@@ -3,7 +3,7 @@ package domain.position
 
 import domain.blockchain.Transaction
 import domain.model.{ Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown }
-import util.InstantOps
+import util.{ InstantOps, MarketPlaysListOps }
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -13,24 +13,26 @@ import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 
 //most recent items first.
-final case class Positions(items: List[Position]) {
-  lazy val closedPositions: List[Position] = items.filter(_.isClosed())
-  lazy val openPositions: List[Position]   = items.filter(_.isOpen())
+final case class MarketPlays(plays: List[MarketPlay]) {
+  lazy val positions: List[Position]       = plays.positions
+  lazy val transferIns: List[TransferIn]   = plays.transferIns
+  lazy val closedPositions: List[Position] = positions.filter(_.isClosed())
+  lazy val openPositions: List[Position]   = positions.filter(_.isOpen())
 
-  def merge(other: Positions): Positions = {
+  def merge(other: MarketPlays): MarketPlays = {
     var currencyPositionMap = Map.empty[Currency, Position]
-    val otherItems          = ArrayBuffer.empty[Position]
+    val otherPositions      = ArrayBuffer.empty[Position]
 
-    other.items.foreach { position =>
+    other.positions.foreach { position =>
       if (currencyPositionMap.contains(position.currency)) {
-        otherItems.addOne(position)
+        otherPositions.addOne(position)
       } else {
         currencyPositionMap += position.currency -> position
       }
     }
 
     //oldest first
-    val merged = items.reverse.map { position =>
+    val merged = positions.reverse.map { position =>
       if (currencyPositionMap.contains(position.currency)) {
         val oldPosition = currencyPositionMap(position.currency)
         oldPosition.copy(
@@ -45,23 +47,26 @@ final case class Positions(items: List[Position]) {
 
     val notCorrelated = currencyPositionMap.values.toList
 
-    Positions((otherItems.toList ::: notCorrelated ::: merged).sortBy(_.openedAt)(Ordering[Instant]))
+    MarketPlays(
+      (otherPositions.toList ::: notCorrelated ::: merged ::: transferIns ::: other.transferIns)
+        .sortBy(_.openedAt)(Ordering[Instant])
+    )
   }
 
-  def filter(interval: TimeInterval): Positions =
-    Positions(items.filter(_.inInterval(interval)))
+  def filter(interval: TimeInterval): MarketPlays =
+    MarketPlays(positions.filter(_.inInterval(interval)))
 
   def trend(of: Position => Option[FungibleData]): List[FungibleData] =
-    items.headOption.map(_.openedAt).fold[List[FungibleData]](List.empty) { openedAt =>
+    positions.headOption.map(_.openedAt).fold[List[FungibleData]](List.empty) { openedAt =>
       val interval = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
-      interval.days().map(day => filter(TimeInterval(interval.start, day)).items.map(of).sumFungibleData())
+      interval.days().map(day => filter(TimeInterval(interval.start, day)).positions.map(of).sumFungibleData())
     }
 }
 
-object Positions {
-  def apply(items: List[Position]): Positions = new Positions(items)
+object MarketPlays {
+  def apply(items: List[MarketPlay]): MarketPlays = new MarketPlays(items)
 
-  def empty(): Positions = Positions(List.empty)
+  def empty(): MarketPlays = MarketPlays(List.empty)
 
   val TransactionTypes = Vector(Buy, Sell)
 
@@ -73,7 +78,7 @@ object Positions {
 
     val byEventPresence = successes.groupBy(_.hasTransactionEvents)
 
-    val txWithEvents = byEventPresence.getOrElse(true, List.empty)
+    val txWithEvents    = byEventPresence.getOrElse(true, List.empty)
     val txWithoutEvents = byEventPresence.getOrElse(false, List.empty)
 
     val transactionsByCoin = txWithEvents
@@ -143,10 +148,9 @@ object Positions {
       case Right(entry) => entry
     }
 
-  def transactionToTopUp(tx: Transaction): Either[String, TransferIn] = {
+  def transactionToTopUp(tx: Transaction): Either[String, TransferIn] =
     for {
       value <- tx.value
       hash  <- TransactionHash(tx.hash)
     } yield TransferIn(hash, value, tx.fee, tx.instant)
-  }
 }

@@ -5,7 +5,7 @@ import domain.market.{Ohlcv => CJOhlcv}
 import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
 import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
 import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
-import domain.position.{JournalEntry => CJJournalEntry, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry}
+import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TransferIn => CJTransferIn}
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
 import vo.{PeriodDistribution => CJPeriodDistribution}
@@ -18,7 +18,9 @@ import zio.json.{DeriveJsonCodec, JsonCodec}
 import java.time.{Duration, Instant}
 
 object dto {
-  final case class Positions(positions: List[Position], lastSync: Option[Instant])
+  sealed trait MarketPlay
+
+  final case class TransferIn(value: FungibleData, fee: FungibleData, timestamp: Instant) extends MarketPlay
 
   final case class Position(
     currency: String,
@@ -39,7 +41,7 @@ object dto {
     entries: List[PositionEntry],
     id: Option[String],
     journalEntry: JournalEntry
-  )
+  ) extends MarketPlay
 
   final case class PositionEntry(
     `type`: String,
@@ -55,11 +57,20 @@ object dto {
 
   final case class PriceQuote(price: Float, timestamp: Instant)
 
-  object Position {
+  object MarketPlay {
     implicit val priceQuoteCodec: JsonCodec[PriceQuote]       = DeriveJsonCodec.gen[PriceQuote]
     implicit val feeCodec: JsonCodec[FungibleData]            = DeriveJsonCodec.gen[FungibleData]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
+    implicit val transferInCodec: JsonCodec[TransferIn]       = DeriveJsonCodec.gen[TransferIn]
+    implicit val marketPlayCodec: JsonCodec[MarketPlay]       = DeriveJsonCodec.gen[MarketPlay]
+
+    def fromMarketPlay(m: CJMarketPlay): MarketPlay = {
+      m match {
+        case pos: CJPosition => fromPosition(pos)
+        case t: CJTransferIn => fromTransferIn(t)
+      }
+    }
 
     def fromPosition(position: CJPosition): Position =
       Position(
@@ -83,7 +94,7 @@ object dto {
         position.journal.map(_.toDto).getOrElse(JournalEntry(None, List.empty, List.empty))
       )
 
-    def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry =
+    private def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry =
       PositionEntry(
         entry.`type`.toString,
         entry.value.asJson,
@@ -92,6 +103,13 @@ object dto {
         entry.fiatFee.map(_.asJson),
         entry.timestamp,
         entry.id.map(_.value)
+      )
+
+    private def fromTransferIn(t: CJTransferIn): TransferIn =
+      TransferIn(
+        value = t.value.asJson,
+        fee = t.fee.asJson,
+        timestamp = t.timestamp
       )
   }
 
@@ -134,11 +152,11 @@ object dto {
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi =
       new PortfolioKpi(
-        ValueTrendComparison.fromAccountBalance(kpi.balance, AccountBalance(kpi.referencePositions)),
+        ValueTrendComparison.fromAccountBalance(kpi.balance, AccountBalance(kpi.referenceMarketPlays)),
         kpi.tradeCount,
         kpi.winRate,
         kpi.loseRate,
-        ValueTrendComparison.fromNetReturn(kpi.netReturn, NetReturn(kpi.referencePositions)),
+        ValueTrendComparison.fromNetReturn(kpi.netReturn, NetReturn(kpi.referenceMarketPlays)),
         kpi.avgDailyTradeCount
       )
   }

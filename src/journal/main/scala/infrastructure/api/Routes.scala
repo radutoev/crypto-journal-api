@@ -5,7 +5,7 @@ import application.CryptoJournalApi
 import domain.model.{ContextId, ContextIdPredicate, PlayIdPredicate, UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.error._
-import domain.position.{JournalingService, PositionService, Positions}
+import domain.position.{JournalingService, PositionService, MarketPlays}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.DailyTradeData._
@@ -13,12 +13,12 @@ import infrastructure.api.dto.JournalEntry._
 import infrastructure.api.dto.Ohlcv._
 import infrastructure.api.dto.PortfolioKpi._
 import infrastructure.api.dto.PortfolioStats._
-import infrastructure.api.dto.Position._
+import infrastructure.api.dto.MarketPlay._
 import infrastructure.api.dto.PositionJournalEntry._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{DailyTradeData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
+import infrastructure.api.dto.{DailyTradeData, JournalEntry, MarketPlay, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
 import vo.filter.{Count, KpiFilter, PlayFilter}
@@ -138,7 +138,7 @@ object Routes {
   }
 
   private def positions(userId: UserId, contextId: ContextId) = HttpApp.collectM {
-    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "latest-positions" =>
+    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "latest-plays" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
@@ -147,12 +147,12 @@ object Routes {
         filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getLatestPositions(address, filter)
+                     .getLatestPlays(address, filter)
                      .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
-                     .fold(positionErrorToHttpResponse, _.asResponse(contextId))
+                     .fold(marketPlayErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
-    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "positions" =>
+    case req @ Method.GET -> Root / "addresses" / rawWalletAddress / "plays" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
@@ -161,9 +161,9 @@ object Routes {
         filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPositions(address, filter)
+                     .getPlays(address, filter)
                      .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
-                     .fold(positionErrorToHttpResponse, _.asResponse(contextId))
+                     .fold(marketPlayErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
 //    case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
@@ -188,7 +188,7 @@ object Routes {
                      .getPosition(positionId)
                      .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
-                       positionErrorToHttpResponse,
+                       marketPlayErrorToHttpResponse,
                        position => Response.jsonString(fromPosition(position).toJson)
                      )
       } yield response
@@ -207,7 +207,7 @@ object Routes {
         response <- CryptoJournalApi
                      .saveJournalEntry(positionId, journalEntry.toDomainModel)
                      .provideSomeLayer[Has[JournalingService]](JwtRequestContext.layer(userId, contextId))
-                     .fold(positionErrorToHttpResponse, _ => Response.status(Status.OK))
+                     .fold(marketPlayErrorToHttpResponse, _ => Response.status(Status.OK))
       } yield response
 
     case req @ Method.PUT -> Root / "journal" =>
@@ -221,7 +221,7 @@ object Routes {
         response <- CryptoJournalApi
                      .saveJournalEntries(entries)
                      .provideSomeLayer[Has[JournalingService]](JwtRequestContext.layer(userId, contextId))
-                     .fold(positionErrorToHttpResponse, _ => Response.status(Status.OK))
+                     .fold(marketPlayErrorToHttpResponse, _ => Response.status(Status.OK))
       } yield response
   }
 
@@ -471,26 +471,26 @@ object Routes {
     }
   }
 
-  implicit class PositionsResponseOps(positions: Positions) {
+  implicit class PositionsResponseOps(marketPlays: MarketPlays) {
     def asResponse(contextId: ContextId): UResponse = {
       val headers =
         Header("Content-Type", "application/json") :: Header("X-CoinLogger-ContextId", contextId.value) :: Nil
 
-      positions.items match {
+      marketPlays.plays match {
         case Nil => Response.http(status = Status.NO_CONTENT, headers = headers)
         case list =>
           Response.http(
             status = Status.OK,
             headers = headers,
             content = HttpData.CompleteData(
-              Chunk.fromArray(list.map(fromPosition).toJson.getBytes(HTTP_CHARSET))
+              Chunk.fromArray(list.map(fromMarketPlay).toJson.getBytes(HTTP_CHARSET))
             )
           )
       }
     }
   }
 
-  val positionErrorToHttpResponse: MarketPlayError => UResponse = {
+  val marketPlayErrorToHttpResponse: MarketPlayError => UResponse = {
     case InvalidRepresentation(message) =>
       Response.http(
         status = Status.INTERNAL_SERVER_ERROR,

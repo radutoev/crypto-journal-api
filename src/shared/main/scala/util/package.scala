@@ -1,8 +1,10 @@
 package io.softwarechain.cryptojournal
 
+import domain.position.{MarketPlay, Position, TransferIn}
+
 import com.google.cloud.Timestamp
 
-import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 import scala.util.Try
 
 package object util {
@@ -29,6 +31,12 @@ package object util {
 
     def toDatastoreTimestamp(): Timestamp =
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)
+  }
+
+  implicit class MarketPlaysListOps(marketPlays: List[MarketPlay]) {
+    lazy val positions: List[Position] = marketPlays.collect { case p: Position => p }
+
+    lazy val transferIns: List[TransferIn] = marketPlays.collect { case t: TransferIn => t }
   }
 
   val BeginningOfCrypto: Instant = Instant.parse("2017-07-01T00:00:00.000Z") //June 2017 Binance launched.

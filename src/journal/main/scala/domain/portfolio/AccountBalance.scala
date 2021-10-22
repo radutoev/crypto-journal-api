@@ -5,12 +5,13 @@ import domain.model.FungibleData
 import domain.model.FungibleData.{Bigger, Equal, Lower}
 import domain.portfolio.model.Performance.NoChangeInPerformance
 import domain.portfolio.model.{Decrease, Increase, Performance}
-import domain.position.Positions
+import domain.position.MarketPlays
 
-case class AccountBalance(positions: Positions) {
-  lazy val value: FungibleData = positions.items.map(_.fiatValue()).sumFungibleData()
+case class AccountBalance(marketPlays: MarketPlays) {
+  //TODO Should the value for the account balance take into consideration the fees as well?
+  lazy val value: FungibleData = marketPlays.plays.map(_.fiatValue()).sumFungibleData()
 
-  lazy val trend: List[FungibleData] = positions.trend(_.fiatValue())
+  lazy val trend: List[FungibleData] = marketPlays.trend(_.fiatValue())
 
   def performance(relativeTo: AccountBalance): Performance =
     value.compare(relativeTo.value) match {
@@ -20,14 +21,14 @@ case class AccountBalance(positions: Positions) {
           case Equal => NoChangeInPerformance
           case Bigger =>
             Performance(
-              absolute = value.difference(relativeTo.value).right.get,
-              percentage = value.percentageDifference(relativeTo.value).right.get,
+              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
+              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
               trend = Increase
             )
           case Lower =>
             Performance(
-              absolute = value.difference(relativeTo.value).right.get,
-              percentage = value.percentageDifference(relativeTo.value).right.get,
+              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
+              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
               trend = Decrease
             )
         }
