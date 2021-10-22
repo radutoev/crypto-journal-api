@@ -18,16 +18,16 @@ import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 
-trait PositionService {
-  def getPositions(userWallet: Wallet, filter: PlayFilter): IO[MarketPlayError, MarketPlays]
+trait MarketPlayService {
+  def getPlays(userWallet: Wallet, filter: PlayFilter): IO[MarketPlayError, MarketPlays]
 
-  def getPositions(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
+  def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
 
-  def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, Position]
+  def getPosition(userId: UserId, playId: PlayId): IO[MarketPlayError, Position]
 
-  def importPositions(userWallet: Wallet): IO[MarketPlayError, Unit]
+  def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit]
 
-  def importPositions(userWallet: Wallet, startingFrom: Instant): IO[MarketPlayError, Unit]
+  def importPlays(userWallet: Wallet, startingFrom: Instant): IO[MarketPlayError, Unit]
 
   def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
     val timestamps = positions.flatMap(_.entries).map(_.timestamp).sorted
@@ -39,21 +39,21 @@ trait PositionService {
   }
 }
 
-object PositionService {
-  def getPositions(
+object MarketPlayService {
+  def getPlays(
     userWallet: Wallet
-  )(filter: PlayFilter): ZIO[Has[PositionService], MarketPlayError, MarketPlays] =
-    ZIO.serviceWith[PositionService](_.getPositions(userWallet, filter))
+  )(filter: PlayFilter): ZIO[Has[MarketPlayService], MarketPlayError, MarketPlays] =
+    ZIO.serviceWith[MarketPlayService](_.getPlays(userWallet, filter))
 }
 
-final case class LivePositionService(
+final case class LiveMarketPlayService(
   positionRepo: MarketPlayRepo,
   priceQuoteRepo: PriceQuoteRepo,
   blockchainRepo: BlockchainRepo,
   journalingRepo: JournalingRepo,
   logger: Logger[String]
-) extends PositionService {
-  override def getPositions(userWallet: Wallet, positionFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
+) extends MarketPlayService {
+  override def getPlays(userWallet: Wallet, positionFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
     for {
       marketPlays <- positionRepo
                       .getPlays(userWallet.address, positionFilter)
@@ -65,7 +65,7 @@ final case class LivePositionService(
                        )
     } yield MarketPlays(withJournalEntries(marketPlays, journalEntries))
 
-  override def getPositions(
+  override def getPlays(
     userWallet: Wallet,
     filter: PlayFilter,
     contextId: ContextId
@@ -127,20 +127,20 @@ final case class LivePositionService(
       .map(priceQuotes => position.copy(priceQuotes = Some(priceQuotes)))
   }
 
-  override def importPositions(userWallet: Wallet): IO[MarketPlayError, Unit] =
+  override def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit] =
     logger.info(s"Importing positions for ${userWallet.address}") *>
-      importPositions(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
+      importPlays(blockchainRepo.transactionsStream(userWallet.address))(userWallet)
 
-  override def importPositions(userWallet: Wallet, startFrom: Instant): IO[MarketPlayError, Unit] =
-    importPositions(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
+  override def importPlays(userWallet: Wallet, startFrom: Instant): IO[MarketPlayError, Unit] =
+    importPlays(blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
 
-  private def importPositions(
+  private def importPlays(
     txStream: ZStream[Any, TransactionsGetError, Transaction]
   )(userWallet: Wallet): IO[MarketPlayError, Unit] = {
     val noPlaysEffect = logger.info(s"No positions to import for ${userWallet.address}")
 
     @inline
-    def handlePositionsImport(plays: List[MarketPlay]): IO[MarketPlayError, Unit] =
+    def handlePlayImport(plays: List[MarketPlay]): IO[MarketPlayError, Unit] =
       for {
         //Get open positions that might become closed with the new data coming in
         openPositions <- positionRepo.getPositions(userWallet.address, Open).map(MarketPlays(_))
@@ -163,17 +163,17 @@ final case class LivePositionService(
       _ <- if (plays.isEmpty) {
             noPlaysEffect
           } else {
-            handlePositionsImport(plays)
+            handlePlayImport(plays)
           }
     } yield ()
   }
 }
 
-object LivePositionService {
+object LiveMarketPlayService {
   lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteRepo] with Has[BlockchainRepo] with Has[
     JournalingRepo
   ] with Logging, Has[
-    PositionService
+    MarketPlayService
   ]] =
-    (LivePositionService(_, _, _, _, _)).toLayer
+    (LiveMarketPlayService(_, _, _, _, _)).toLayer
 }

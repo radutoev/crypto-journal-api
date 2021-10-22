@@ -5,7 +5,7 @@ import application.CryptoJournalApi
 import domain.model.{ContextId, ContextIdPredicate, PlayIdPredicate, UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.error._
-import domain.position.{JournalingService, PositionService, MarketPlays}
+import domain.position.{JournalingService, MarketPlayService, MarketPlays}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.DailyTradeData._
@@ -148,7 +148,7 @@ object Routes {
 
         response <- CryptoJournalApi
                      .getLatestPlays(address, filter)
-                     .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
+                     .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
                      .fold(marketPlayErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
@@ -162,7 +162,7 @@ object Routes {
 
         response <- CryptoJournalApi
                      .getPlays(address, filter)
-                     .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
+                     .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
                      .fold(marketPlayErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
@@ -186,7 +186,7 @@ object Routes {
 
         response <- CryptoJournalApi
                      .getPosition(positionId)
-                     .provideSomeLayer[Has[PositionService]](JwtRequestContext.layer(userId, contextId))
+                     .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        marketPlayErrorToHttpResponse,
                        position => Response.jsonString(fromPosition(position).toJson)

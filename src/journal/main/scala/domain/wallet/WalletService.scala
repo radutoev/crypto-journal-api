@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.wallet
 
 import domain.model.{ UserId, WalletAddress }
-import domain.position.PositionService
+import domain.position.MarketPlayService
 import domain.wallet.error.WalletError
 import domain.wallet.model.{ ImportDone, WalletImportStatus }
 
@@ -20,10 +20,10 @@ trait WalletService {
 }
 
 final case class LiveWalletService(
-  userWalletRepo: UserWalletRepo,
-  walletRepo: WalletImportRepo,
-  positionService: PositionService,
-  logger: Logger[String]
+                                    userWalletRepo: UserWalletRepo,
+                                    walletRepo: WalletImportRepo,
+                                    positionService: MarketPlayService,
+                                    logger: Logger[String]
 ) extends WalletService {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
     val userWallet = Wallet(userId, address)
@@ -34,7 +34,7 @@ final case class LiveWalletService(
           .addWallet(userId, address) *> walletRepo.addWallet(address)) //TODO Recover code, not sure if saga
           .zipParRight(
             positionService
-              .importPositions(userWallet)
+              .importPlays(userWallet)
               .tapError(_ => logger.error(s"Unable to import positions for $address"))
               .zipRight(walletRepo.updateImportStatus(address, ImportDone))
               .ignore
@@ -55,7 +55,7 @@ final case class LiveWalletService(
 
 object LiveWalletService {
   lazy val layer: URLayer[Has[UserWalletRepo] with Has[WalletImportRepo] with Has[
-    PositionService
+    MarketPlayService
   ] with Logging, Has[
     WalletService
   ]] =

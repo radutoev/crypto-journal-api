@@ -20,28 +20,28 @@ object CryptoJournalApi {
   def getLatestPlays(
     address: WalletAddress,
     filter: PlayFilter
-  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, MarketPlays] =
+  ): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, MarketPlays] =
     for {
       userId    <- RequestContext.userId
-      positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address), filter))
+      positions <- ZIO.serviceWith[MarketPlayService](_.getPlays(Wallet(userId, address), filter))
     } yield positions
 
   def getPlays(
     address: WalletAddress,
     filter: PlayFilter
-  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, MarketPlays] =
+  ): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, MarketPlays] =
     for {
       userId    <- RequestContext.userId
       contextId <- RequestContext.contextId
-      positions <- ZIO.serviceWith[PositionService](_.getPositions(Wallet(userId, address), filter, contextId))
+      positions <- ZIO.serviceWith[MarketPlayService](_.getPlays(Wallet(userId, address), filter, contextId))
     } yield positions
 
   def getPosition(
     positionId: PlayId
-  ): ZIO[Has[PositionService] with Has[RequestContext], MarketPlayError, Position] =
+  ): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, Position] =
     for {
       userId   <- RequestContext.userId
-      position <- ZIO.serviceWith[PositionService](_.getPosition(userId, positionId))
+      position <- ZIO.serviceWith[MarketPlayService](_.getPosition(userId, positionId))
     } yield position
 
   def getPortfolioKpis(

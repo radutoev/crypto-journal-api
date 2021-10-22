@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.portfolio.error.{ PortfolioError, PortfolioKpiGenerationError }
-import domain.position.{ PositionService, MarketPlays }
+import domain.position.{ MarketPlayService, MarketPlays }
 import domain.position.error.MarketPlayError
 import domain.wallet.Wallet
 import vo.TimeInterval
@@ -18,7 +18,7 @@ trait KpiService {
   def portfolioKpi(userWallet: Wallet)(kpiFilter: KpiFilter): IO[PortfolioError, PortfolioKpi]
 }
 
-final case class LiveKpiService(positionService: PositionService, clock: Clock.Service, logger: Logger[String])
+final case class LiveKpiService(positionService: MarketPlayService, clock: Clock.Service, logger: Logger[String])
     extends KpiService {
   override def portfolioKpi(wallet: Wallet)(kpiFilter: KpiFilter): IO[PortfolioError, PortfolioKpi] =
     for {
@@ -27,10 +27,10 @@ final case class LiveKpiService(positionService: PositionService, clock: Clock.S
       timeInterval              = kpiFilter.interval.getOrElse(TimeInterval(BeginningOfCrypto, now))
       timeIntervalForComparison = intervalForComparePositions(timeInterval)
       filter                    <- UIO(PlayFilter(kpiFilter.count, timeInterval))
-      positions                 <- positionService.getPositions(wallet, filter).mapError(portfolioErrorMapper)
+      positions                 <- positionService.getPlays(wallet, filter).mapError(portfolioErrorMapper)
       referencePositions <- if (timeInterval.start == BeginningOfCrypto) {
                              positionService
-                               .getPositions(
+                               .getPlays(
                                  wallet,
                                  filter.copy(interval = timeIntervalForComparison)
                                )
@@ -56,6 +56,6 @@ final case class LiveKpiService(positionService: PositionService, clock: Clock.S
 }
 
 object LiveKpiService {
-  lazy val layer: URLayer[Has[PositionService] with Clock with Logging, Has[KpiService]] =
+  lazy val layer: URLayer[Has[MarketPlayService] with Clock with Logging, Has[KpiService]] =
     (LiveKpiService(_, _, _)).toLayer
 }
