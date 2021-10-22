@@ -3,15 +3,16 @@ package infrastructure.api
 
 import domain.market.{Ohlcv => CJOhlcv}
 import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
-import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
 import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
+import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
 import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TransferIn => CJTransferIn}
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
-import vo.{PeriodDistribution => CJPeriodDistribution}
 import vo.filter.Count
+import vo.{PeriodDistribution => CJPeriodDistribution}
 
-import dto.Position._
+import infrastructure.api.dto.MarketPlay._
+
 import eu.timepit.refined.refineV
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
@@ -59,7 +60,7 @@ object dto {
 
   object MarketPlay {
     implicit val priceQuoteCodec: JsonCodec[PriceQuote]       = DeriveJsonCodec.gen[PriceQuote]
-    implicit val feeCodec: JsonCodec[FungibleData]            = DeriveJsonCodec.gen[FungibleData]
+    implicit val fungibleDataCodec: JsonCodec[FungibleData]            = DeriveJsonCodec.gen[FungibleData]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
     implicit val transferInCodec: JsonCodec[TransferIn]       = DeriveJsonCodec.gen[TransferIn]
