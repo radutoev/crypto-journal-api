@@ -2,19 +2,19 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.model._
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
-import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
 import domain.wallet.Wallet
 import util.MarketPlaysListOps
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 
@@ -29,8 +29,11 @@ trait MarketPlayService {
 
   def importPlays(userWallet: Wallet, startingFrom: Instant): IO[MarketPlayError, Unit]
 
-  def extractTimeInterval(positions: List[Position]): Option[TimeInterval] = {
-    val timestamps = positions.flatMap(_.entries).map(_.timestamp).sorted
+  def extractTimeInterval(marketPlays: List[MarketPlay]): Option[TimeInterval] = {
+    val timestamps = marketPlays.flatMap {
+      case p: Position   => p.entries.map(_.timestamp)
+      case t: TransferIn => List(t.timestamp)
+    }.sorted
     timestamps match {
       case head :: Nil  => Some(TimeInterval(head))
       case head :: tail => Some(TimeInterval(head, tail.last))
@@ -90,18 +93,22 @@ final case class LiveMarketPlayService(
   }
 
   private def enrichPlays(marketPlays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] = {
-    val positions   = marketPlays.positions
-    val transferIns = marketPlays.transferIns
-    val interval    = extractTimeInterval(positions)
-    if (positions.nonEmpty) {
+    val interval = extractTimeInterval(marketPlays)
+    if (marketPlays.nonEmpty) {
       logger.info(s"Fetching quotes for [${interval.get.start} - ${interval.get.end}]") *>
       priceQuoteRepo
         .getQuotes(interval.get)
         .tap(quotes => logger.info(s"Found ${quotes.length} quotes"))
         .mapBoth(PriceQuotesError, PriceQuotes.apply)
         .map(priceQuotes =>
-          transferIns ++ positions
-            .map(position => position.copy(priceQuotes = Some(priceQuotes.subset(position.timeInterval()))))
+          marketPlays.map {
+            case p: Position => p.copy(priceQuotes = Some(priceQuotes.subset(p.timeInterval())))
+            case t: TransferIn =>
+              t.copy(priceQuotes =
+                //TODO Extract TimeInterval generation
+                Some(priceQuotes.subset(TimeInterval(t.timestamp.minusSeconds(3600), t.timestamp.plusSeconds(36000))))
+              )
+          }
         )
     } else UIO(marketPlays)
   }
@@ -155,10 +162,10 @@ final case class LiveMarketPlayService(
       _ <- logger.info(s"Importing data for ${userWallet.address.value}...")
 
       plays <- txStream.runCollect
-                    .mapBoth(
-                      error => MarketPlayImportError(userWallet.address, new RuntimeException(error.message)),
-                      chunks => findMarketPlays(chunks.toList)
-                    ) // TODO Try to optimize so as not to process the entire stream.
+                .mapBoth(
+                  error => MarketPlayImportError(userWallet.address, new RuntimeException(error.message)),
+                  chunks => findMarketPlays(chunks.toList)
+                ) // TODO Try to optimize so as not to process the entire stream.
 
       _ <- if (plays.isEmpty) {
             noPlaysEffect
