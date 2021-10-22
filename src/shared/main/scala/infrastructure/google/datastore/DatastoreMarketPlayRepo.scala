@@ -85,7 +85,11 @@ final case class DatastoreMarketPlayRepo(
               (Page(MarketPlays(List.empty), None), None)
             ) { results =>
               val marketPlays = MarketPlays(results.asScala.toList.map(entityToPlay).collect {
-                case Right(play) => play
+                case Right(play) => play match {
+                  //TODO Why can entries be empty??
+                  case p: Position if p.entries.nonEmpty => p
+                  case t: TransferIn => t
+                }
               })
               val nextCursor = results.getCursorAfter
               val paginationContext = if (nextCursor.toUrlSafe.nonEmpty) {
@@ -194,7 +198,12 @@ final case class DatastoreMarketPlayRepo(
             if (startDateFilter.isDefined) {
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
-            list.map(entityToPlay).collect { case Right(p) => p }
+            list.map(entityToPlay)
+              .collect { case Right(p) => p  }
+              .collect {
+                case p: Position if p.entries.nonEmpty => p
+                case t: TransferIn => t
+              }
           }
       )
 
@@ -204,7 +213,8 @@ final case class DatastoreMarketPlayRepo(
         _ => MarketPlaysFetchError(address),
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty) { results =>
-            results.asScala.toList.map(entityToPosition).collect { case Right(p) => p }
+            //TODO Why do we have empty entries.
+            results.asScala.toList.map(entityToPosition).collect { case Right(p) if p.entries.nonEmpty  => p }
           }
       )
 
