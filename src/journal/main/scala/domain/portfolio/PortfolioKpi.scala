@@ -1,27 +1,31 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{Currency, FungibleData, Mistake, Percentage, Tag, TradeCountPredicate}
+import domain.model.{ Currency, FungibleData, Mistake, Percentage, Tag, TradeCountPredicate }
 import domain.portfolio.PortfolioKpi.FungibleDataOps
-import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
-import domain.position.{MarketPlays, Position}
-import util.{InstantOps, MarketPlaysListOps}
+import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate }
+import domain.position.{ MarketPlays, Position }
+import util.{ InstantOps, MarketPlaysListOps }
 import vo.filter.Count
-import vo.{PeriodDistribution, TimeInterval}
+import vo.{ PeriodDistribution, TimeInterval }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
 import java.time.format.DateTimeFormatter
-import java.time.{DayOfWeek, Duration, Month, ZoneId}
+import java.time.{ DayOfWeek, Duration, Month, ZoneId }
 
 /**
  * @param marketPlays source to compute the KPIs for
  * @param interval timeInterval does not have to be an exact match with the interval of the given positions.
  * @param referenceMarketPlays marketPlays compares against referenceMarketPlays to generate performance.
  */
-final case class PortfolioKpi(marketPlays: MarketPlays, interval: TimeInterval, referenceMarketPlays: MarketPlays = MarketPlays.empty()) {
+final case class PortfolioKpi(
+  marketPlays: MarketPlays,
+  interval: TimeInterval,
+  referenceMarketPlays: MarketPlays = MarketPlays.empty()
+) {
   lazy val netReturn: NetReturn = NetReturn(marketPlays)
 
   lazy val balance: AccountBalance = AccountBalance(marketPlays)
@@ -223,8 +227,9 @@ final case class PortfolioKpi(marketPlays: MarketPlays, interval: TimeInterval, 
         journal.tags.map(s => s -> p.fiatReturnPercentage().getOrElse(BigDecimal(0)))
     }.groupBy(_._1).view.mapValues(_.map(_._2).sum).toMap
 
-    positionToFiatReturn.view.map { case (tag, fungibleData) =>
-      tag -> (fungibleData, positionToReturnPercentage(tag))
+    positionToFiatReturn.view.map {
+      case (tag, fungibleData) =>
+        tag -> (fungibleData, positionToReturnPercentage(tag))
     }.toMap
   }
 
@@ -243,8 +248,9 @@ final case class PortfolioKpi(marketPlays: MarketPlays, interval: TimeInterval, 
         journal.tags.map(s => s -> p.fiatReturnPercentage().getOrElse(BigDecimal(0)))
     }.groupBy(_._1).view.mapValues(_.map(_._2).sum).toMap
 
-    positionToFiatReturn.view.map { case (tag, fungibleData) =>
-      tag -> (fungibleData, positionToReturnPercentage(tag))
+    positionToFiatReturn.view.map {
+      case (tag, fungibleData) =>
+        tag -> (fungibleData, positionToReturnPercentage(tag))
     }.toMap
   }
 
@@ -253,10 +259,14 @@ final case class PortfolioKpi(marketPlays: MarketPlays, interval: TimeInterval, 
       .filter(p => interval.contains(p.closedAt().get))
       .map(p => p.closedAt().get.atBeginningOfDay() -> p)
       .groupBy(_._1)
-      .map { case (day, list) =>
-        val dailyPositions = list.map(_._2)
-        val dailyTradeData = DailyTradeData(NetReturn(MarketPlays(dailyPositions)), refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size))
-        refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
+      .map {
+        case (day, list) =>
+          val dailyPositions = list.map(_._2)
+          val dailyTradeData = DailyTradeData(
+            NetReturn(MarketPlays(dailyPositions)),
+            refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size)
+          )
+          refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
       }
   }
 

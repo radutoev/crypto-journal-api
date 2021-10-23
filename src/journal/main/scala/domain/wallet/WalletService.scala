@@ -20,27 +20,30 @@ trait WalletService {
 }
 
 final case class LiveWalletService(
-                                    userWalletRepo: UserWalletRepo,
-                                    walletRepo: WalletImportRepo,
-                                    positionService: MarketPlayService,
-                                    logger: Logger[String]
+  userWalletRepo: UserWalletRepo,
+  walletRepo: WalletImportRepo,
+  positionService: MarketPlayService,
+  logger: Logger[String]
 ) extends WalletService {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
     val userWallet = Wallet(userId, address)
-    walletRepo.exists(address).flatMap {
-      case true => logger.info(s"Address ${address.value} found in system. Skipping import.")
-      case false =>
-        (userWalletRepo
-          .addWallet(userId, address) *> walletRepo.addWallet(address)) //TODO Recover code, not sure if saga
-          .zipParRight(
-            positionService
-              .importPlays(userWallet)
-              .tapError(_ => logger.error(s"Unable to import positions for $address"))
-              .zipRight(walletRepo.updateImportStatus(address, ImportDone))
-              .ignore
-              .forkDaemon
-          )
-          .unit
+
+    userWalletRepo.addWallet(userId, address).zipRight {
+      walletRepo.exists(address).flatMap {
+        case true => logger.info(s"Address ${address.value} found in system. Skipping import.")
+        case false =>
+          walletRepo
+            .addWallet(address)
+            .zipParRight(
+              positionService
+                .importPlays(userWallet)
+                .tapError(_ => logger.error(s"Unable to import positions for $address"))
+                .zipRight(walletRepo.updateImportStatus(address, ImportDone))
+                .ignore
+                .forkDaemon
+            )
+            .unit
+      }
     }
   }
 

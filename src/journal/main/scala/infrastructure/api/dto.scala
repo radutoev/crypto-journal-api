@@ -1,27 +1,41 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.market.{Ohlcv => CJOhlcv}
-import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
-import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
-import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TransferIn => CJTransferIn}
-import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
-import domain.wallet.{Wallet => CJWallet}
+import domain.market.{ Ohlcv => CJOhlcv }
+import domain.model.{ MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData }
+import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
+import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
+import domain.position.{
+  JournalEntry => CJJournalEntry,
+  MarketPlay => CJMarketPlay,
+  Position => CJPosition,
+  PositionEntry => CJPositionEntry,
+  PositionJournalEntry => CJPositionJournalEntry,
+  TransferIn => CJTransferIn
+}
+import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
+import domain.wallet.{ Wallet => CJWallet }
 import vo.filter.Count
-import vo.{PeriodDistribution => CJPeriodDistribution}
+import vo.{ PeriodDistribution => CJPeriodDistribution }
 
 import infrastructure.api.dto.MarketPlay._
 
 import eu.timepit.refined.refineV
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 object dto {
   sealed trait MarketPlay
 
-  final case class TransferIn(hash: String, value: FungibleData, fiatValue: Option[FungibleData], fee: FungibleData, totalFees: Option[FungibleData], timestamp: Instant) extends MarketPlay
+  final case class TransferIn(
+    hash: String,
+    value: FungibleData,
+    fiatValue: Option[FungibleData],
+    fee: FungibleData,
+    totalFees: Option[FungibleData],
+    timestamp: Instant
+  ) extends MarketPlay
 
   final case class Position(
     currency: String,
@@ -60,18 +74,17 @@ object dto {
 
   object MarketPlay {
     implicit val priceQuoteCodec: JsonCodec[PriceQuote]       = DeriveJsonCodec.gen[PriceQuote]
-    implicit val fungibleDataCodec: JsonCodec[FungibleData]            = DeriveJsonCodec.gen[FungibleData]
+    implicit val fungibleDataCodec: JsonCodec[FungibleData]   = DeriveJsonCodec.gen[FungibleData]
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
     implicit val transferInCodec: JsonCodec[TransferIn]       = DeriveJsonCodec.gen[TransferIn]
     implicit val marketPlayCodec: JsonCodec[MarketPlay]       = DeriveJsonCodec.gen[MarketPlay]
 
-    def fromMarketPlay(m: CJMarketPlay): MarketPlay = {
+    def fromMarketPlay(m: CJMarketPlay): MarketPlay =
       m match {
         case pos: CJPosition => fromPosition(pos)
         case t: CJTransferIn => fromTransferIn(t)
       }
-    }
 
     def fromPosition(position: CJPosition): Position =
       Position(
@@ -113,7 +126,7 @@ object dto {
         fiatValue = t.fiatValue().map(_.asJson),
         fee = t.fee.asJson,
         totalFees = t.totalFees().map(_.asJson),
-        timestamp = t.timestamp,
+        timestamp = t.timestamp
       )
   }
 
@@ -277,7 +290,10 @@ object dto {
       )
   }
 
-  final case class TagDistribution(mistakes: Map[String, FungibleDataAndPercentage], tags: Map[String, FungibleDataAndPercentage])
+  final case class TagDistribution(
+    mistakes: Map[String, FungibleDataAndPercentage],
+    tags: Map[String, FungibleDataAndPercentage]
+  )
 
   object TagDistribution {
     implicit val tagDistributionCodec: JsonCodec[TagDistribution] = DeriveJsonCodec.gen[TagDistribution]
@@ -286,11 +302,17 @@ object dto {
       new TagDistribution(
         mistakes = portfolioKpi.mistakeContribution.map {
           case (mistake, (fungibleData, percentage)) =>
-            mistake.value -> FungibleDataAndPercentage(FungibleData(fungibleData.amount, fungibleData.currency.value), percentage)
+            mistake.value -> FungibleDataAndPercentage(
+              FungibleData(fungibleData.amount, fungibleData.currency.value),
+              percentage
+            )
         },
         tags = portfolioKpi.tagContribution.map {
           case (setup, (fungibleData, percentage)) =>
-            setup.value -> FungibleDataAndPercentage(FungibleData(fungibleData.amount, fungibleData.currency.value), percentage)
+            setup.value -> FungibleDataAndPercentage(
+              FungibleData(fungibleData.amount, fungibleData.currency.value),
+              percentage
+            )
         }
       )
   }
@@ -298,7 +320,8 @@ object dto {
   final case class FungibleDataAndPercentage(fungibleData: FungibleData, percentage: BigDecimal)
 
   object FungibleDataAndPercentage {
-    implicit val fungibleDataAndPercentageCodec: JsonCodec[FungibleDataAndPercentage] = DeriveJsonCodec.gen[FungibleDataAndPercentage]
+    implicit val fungibleDataAndPercentageCodec: JsonCodec[FungibleDataAndPercentage] =
+      DeriveJsonCodec.gen[FungibleDataAndPercentage]
   }
 
   final case class DailyTradeData(netReturn: BigDecimal, tradeCount: Int)
@@ -306,9 +329,8 @@ object dto {
   object DailyTradeData {
     implicit val dailyTradeDataCodec: JsonCodec[DailyTradeData] = DeriveJsonCodec.gen[DailyTradeData]
 
-    def apply(data: CJDailyTradeData): DailyTradeData = {
+    def apply(data: CJDailyTradeData): DailyTradeData =
       new DailyTradeData(data.netReturn.value.amount, data.tradeCount.value)
-    }
   }
 
   final case class PeriodDistribution(

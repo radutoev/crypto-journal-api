@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{PlayId, UserId}
+import domain.model.{ PlayId, UserId }
 import domain.position.error._
 
 import zio.IO

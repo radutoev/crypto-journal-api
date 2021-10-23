@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{PlayId, UserId}
+import domain.model.{ PlayId, UserId }
 import domain.position.error._
 
-import zio.{Function1ToLayerSyntax, Has, IO, URLayer}
+import zio.{ Function1ToLayerSyntax, Has, IO, URLayer }
 
 trait JournalingService {
   def saveJournalEntry(userId: UserId, positionId: PlayId, entry: JournalEntry): IO[JournalSaveError, Unit]
@@ -14,9 +14,9 @@ trait JournalingService {
 
 final case class LiveJournalingService(journalingRepo: JournalingRepo) extends JournalingService {
   override def saveJournalEntry(
-                                 userId: UserId,
-                                 positionId: PlayId,
-                                 entry: JournalEntry
+    userId: UserId,
+    positionId: PlayId,
+    entry: JournalEntry
   ): IO[JournalSaveError, Unit] =
     journalingRepo.saveEntry(userId, positionId, entry)
 
