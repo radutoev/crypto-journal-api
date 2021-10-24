@@ -2,8 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress}
-import util.{InstantOps, MarketPlaysListOps}
+import domain.model.{ Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress }
+import util.{ InstantOps, MarketPlaysListOps }
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -14,8 +14,9 @@ import scala.collection.mutable.ArrayBuffer
 
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {
-  lazy val positions: List[Position]       = plays.positions
-  lazy val transferIns: List[TransferIn]   = plays.transferIns
+  lazy val positions: List[Position]     = plays.positions
+  lazy val transferIns: List[TransferIn] = plays.transferIns
+
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed())
   lazy val openPositions: List[Position]   = positions.filter(_.isOpen())
 
@@ -76,10 +77,7 @@ object MarketPlays {
       .sortBy(_.instant)(Ordering[Instant])
       .filter(_.successful)
 
-    val byEventPresence = successes.groupBy(_.hasTransactionEvents)
-
-    val txWithEvents    = byEventPresence.getOrElse(true, List.empty)
-    val txWithoutEvents = byEventPresence.getOrElse(false, List.empty)
+    val (txWithEvents, txWithoutEvents) = successes.partition(_.hasTransactionEvents)
 
     val transactionsByCoin = txWithEvents
       .filter(tx => TransactionTypes.contains(tx.transactionType))
@@ -129,13 +127,17 @@ object MarketPlays {
         }
     }.toList
 
-    val topUps = txWithoutEvents
-      .filter(_.toAddress == wallet.value)
-      .map(transactionToTopUp).collect {
+    val (incoming, outgoing) = txWithoutEvents.partition(_.toAddress == wallet.value)
+
+    val transferIns = incoming
+      .map(transactionToTransferIn)
+      .collect {
         case Right(topUp) => topUp
       }
 
-    (positions ++ topUps).sortBy(_.openedAt)(Ordering[Instant].reverse)
+//    val transferOuts = outgoing
+
+    (positions ++ transferIns).sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
   val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {
@@ -150,9 +152,15 @@ object MarketPlays {
       case Right(entry) => entry
     }
 
-  def transactionToTopUp(tx: Transaction): Either[String, TransferIn] =
+  def transactionToTransferIn(tx: Transaction): Either[String, TransferIn] =
     for {
       value <- tx.value
       hash  <- TransactionHash(tx.hash)
     } yield TransferIn(hash, value, tx.fee, tx.instant)
+
+  def transactionToTransferOut(tx: Transaction): Either[String, TransferOut] =
+    for {
+      value <- tx.value
+      hash  <- TransactionHash(tx.hash)
+    } yield TransferOut(hash, value, tx.fee, tx.instant)
 }

@@ -1,0 +1,21 @@
+[
+  {
+    "block_signed_at": "2021-10-09T10:28:06Z",
+    "block_height": 11620371,
+    "tx_hash": "0xf8e952da951bdb7ca54b37a4f4f88c8467db1fda062937cbf9b05af3dc543808",
+    "tx_offset": 413,
+    "successful": true,
+    "from_address": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41",
+    "from_address_label": null,
+    "to_address": "0xcff25e1ff73a1ab0aa67350cb06c95dc5134cbd3",
+    "to_address_label": null,
+    "value": "1000000000000000000",
+    "value_quote": 414.16290283203125,
+    "gas_offered": 21000,
+    "gas_spent": 21000,
+    "gas_price": 5000000000,
+    "gas_quote": 0.043487104797363285,
+    "gas_quote_rate": 414.16290283203125,
+    "log_events": []
+  }
+]

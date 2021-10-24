@@ -18,7 +18,9 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
   private val Address = refineV[WalletAddressPredicate].unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41")
   override def spec = suite("PositionGeneratorSpec")(
     test("No position if insufficient tranactions") {
-      assert(findMarketPlays(Address, List(readFile("/covalent/accept.json").fromJson[Transaction].right.get.toDomain)))(
+      assert(
+        findMarketPlays(Address, List(readFile("/covalent/accept.json").fromJson[Transaction].right.get.toDomain))
+      )(
         equalTo(List.empty)
       )
     },
@@ -43,28 +45,28 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       //I set empty entries so as not to initialize everything in this test. They are tested elsewhere.
       assert(positions.map(_.copy(entries = List.empty)))(hasSameElementsDistinct(expected))
     },
-
-    test("Detect top-ups from transactions") {
+    test("Detect top-ups") {
       val file         = readFile("/covalent/transferIn.json").fromJson[List[Transaction]]
       val transactions = file.right.get
-      val topUps       = findMarketPlays(Address, transactions.map(_.toDomain())).collect {
-        case t: domain.position.TransferIn => t
-      }
-      val expected     = List(
+      val topUps       = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val expected = List(
         domain.position.TransferIn(
-          txHash = refineV[TransactionHashPredicate].unsafeFrom("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),
+          txHash = refineV[TransactionHashPredicate]
+            .unsafeFrom("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),
           timestamp = Instant.parse("2021-05-21T10:21:02Z"),
           value = FungibleData(amount = BigDecimal(0.001), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
-          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB"))
         ),
         domain.position.TransferIn(
-          txHash = refineV[TransactionHashPredicate].unsafeFrom("0x5d7ec936bcefdaa9fbceef0fc7d6373b13756d6bc1ac91d72062cfe5c28d7e09"),
+          txHash = refineV[TransactionHashPredicate]
+            .unsafeFrom("0x5d7ec936bcefdaa9fbceef0fc7d6373b13756d6bc1ac91d72062cfe5c28d7e09"),
           timestamp = Instant.parse("2021-05-21T10:57:17Z"),
           value = FungibleData(amount = BigDecimal(2.27), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
-          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB"))
         ),
         domain.position.TransferIn(
-          txHash = refineV[TransactionHashPredicate].unsafeFrom("0x5c826088a422b091832d42b73cb95e16c3439a159a2fd147c9d07a1c09f42d0b"),
+          txHash = refineV[TransactionHashPredicate]
+            .unsafeFrom("0x5c826088a422b091832d42b73cb95e16c3439a159a2fd147c9d07a1c09f42d0b"),
           timestamp = Instant.parse("2021-08-24T18:22:22Z"),
           value = FungibleData(amount = BigDecimal(1.54582), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
           fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB"))
@@ -72,7 +74,12 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       )
       assert(topUps.size)(equalTo(3)) &&
       assert(expected)(hasSameElementsDistinct(expected))
-    }
+    },
+//    test("Detect transfer out") {
+//      val file         = readFile("/covalent/transferOut.json").fromJson[List[Transaction]]
+//      val transactions = file.right.get
+//      val plays        = findMarketPlays(Address, transactions.map(_.toDomain()))
+//    }
   )
 
   val ExpectedData = List(
