@@ -2,8 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress}
-import util.{InstantOps, ListOps, MarketPlaysListOps}
+import domain.model.{ Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress }
+import util.{ InstantOps, ListOps, MarketPlaysListOps }
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -131,9 +131,9 @@ object MarketPlays {
 
     val transferIns = incoming.map(transactionToTransferIn).rights
 
-//    val transferOuts = outgoing
+    val transferOuts = outgoing.map(transactionToTransferOut).rights
 
-    (positions ++ transferIns).sortBy(_.openedAt)(Ordering[Instant].reverse)
+    (positions ++ transferIns ++ transferOuts).sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
   val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {

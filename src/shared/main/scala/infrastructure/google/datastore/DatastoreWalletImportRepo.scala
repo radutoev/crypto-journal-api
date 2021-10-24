@@ -3,14 +3,14 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model.{WalletAddress, WalletAddressPredicate}
-import domain.wallet.error.{InvalidWallet, UnableToAddWallet, WalletError, WalletFetchError, WalletsFetchError}
+import domain.wallet.error._
 import domain.wallet.model.{Importing, WalletImportStatus}
 import domain.wallet.{WalletImportRepo, error}
+import util.{ListOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
-import com.google.cloud.datastore.{Datastore, DatastoreException, Entity, Key, Query, QueryResults, ReadOption}
+import com.google.cloud.datastore._
 import eu.timepit.refined
-import io.softwarechain.cryptojournal.util.{ListOps, tryOrLeft}
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, URLayer}
 
@@ -45,8 +45,7 @@ final case class DatastoreWalletImportRepo(
           .build()
       ).mapBoth(
         throwable => WalletsFetchError(throwable),
-        queryResult =>
-          queryResult.asScala.toList.map(asWalletAddress).rights
+        queryResult => queryResult.asScala.toList.map(asWalletAddress).rights
       )
 
   private def asWalletAddress(entity: Entity): Either[InvalidWallet, WalletAddress] =

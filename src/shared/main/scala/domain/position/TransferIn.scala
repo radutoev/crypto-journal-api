@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{Fee, FungibleData, PlayId, TransactionHash}
+import domain.model.{ Fee, FungibleData, PlayId, TransactionHash }
 import domain.pricequote.PriceQuotes
 
 import eu.timepit.refined
@@ -22,13 +22,15 @@ final case class TransferIn(
   override def openedAt: Instant = timestamp
 
   override def fiatValue(): Option[FungibleData] = priceQuotes.flatMap { quotes =>
-    quotes.findPrice(timestamp)
+    quotes
+      .findPrice(timestamp)
       .map(quote => value.amount * quote.price)
       .map(fiatAmount => FungibleData(fiatAmount, refined.refineV[NonEmpty].unsafeFrom("USD")))
   }
 
   override def totalFees(): Option[Fee] = priceQuotes.flatMap { quotes =>
-    quotes.findPrice(timestamp)
+    quotes
+      .findPrice(timestamp)
       .map(quote => fee.amount * quote.price)
       .map(fiatFee => FungibleData(fiatFee, refined.refineV[NonEmpty].unsafeFrom("USD")))
   }

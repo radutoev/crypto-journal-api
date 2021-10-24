@@ -5,19 +5,19 @@ import config.DatastoreConfig
 import domain.model._
 import domain.position.Position.PositionEntryIdPredicate
 import domain.position.error._
-import domain.position.{MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferIn}
-import util.{InstantOps, ListOps, tryOrLeft}
+import domain.position.{ MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferIn }
+import util.{ tryOrLeft, InstantOps, ListOps }
 import vo.filter.PlayFilter
-import vo.pagination.{CursorPredicate, Page, PaginationContext}
+import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
-import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -85,11 +85,12 @@ final case class DatastoreMarketPlayRepo(
               (Page(MarketPlays(List.empty), None), None)
             ) { results =>
               val marketPlays = MarketPlays(results.asScala.toList.map(entityToPlay).collect {
-                case Right(play) => play match {
-                  //TODO Why can entries be empty??
-                  case p: Position if p.entries.nonEmpty => p
-                  case t: TransferIn => t
-                }
+                case Right(play) =>
+                  play match {
+                    //TODO Why can entries be empty??
+                    case p: Position if p.entries.nonEmpty => p
+                    case t: TransferIn                     => t
+                  }
               })
               val nextCursor = results.getCursorAfter
               val paginationContext = if (nextCursor.toUrlSafe.nonEmpty) {
@@ -198,12 +199,10 @@ final case class DatastoreMarketPlayRepo(
             if (startDateFilter.isDefined) {
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
-            list.map(entityToPlay)
-              .rights
-              .collect {
-                case p: Position if p.entries.nonEmpty => p
-                case t: TransferIn => t
-              }
+            list.map(entityToPlay).rights.collect {
+              case p: Position if p.entries.nonEmpty => p
+              case t: TransferIn                     => t
+            }
           }
       )
 
@@ -214,7 +213,7 @@ final case class DatastoreMarketPlayRepo(
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty) { results =>
             //TODO Why do we have empty entries.
-            results.asScala.toList.map(entityToPosition).collect { case Right(p) if p.entries.nonEmpty  => p }
+            results.asScala.toList.map(entityToPosition).collect { case Right(p) if p.entries.nonEmpty => p }
           }
       )
 
@@ -238,7 +237,8 @@ final case class DatastoreMarketPlayRepo(
       .flatMap { queryResult =>
         val results = queryResult.asScala
         if (results.nonEmpty) {
-          ZIO.fromEither(entityToPlay(results.next()))
+          ZIO
+            .fromEither(entityToPlay(results.next()))
             .collect(MarketPlayNotFound(playId)) {
               case p: Position => p
             }

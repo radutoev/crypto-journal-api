@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 
-import domain.position.{MarketPlay, Position, TransferIn}
+import domain.position.{ MarketPlay, Position, TransferIn }
 
 import com.google.cloud.Timestamp
 
-import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 import scala.util.Try
 
 package object util {
@@ -18,13 +18,14 @@ package object util {
         .withSecond(0)
         .toInstant(ZoneOffset.UTC)
 
-    def atEndOfDay(): Instant = instant
-      .atZone(ZoneId.of(ZoneOffset.UTC.getId))
-      .toLocalDateTime
-      .withHour(23)
-      .withMinute(59)
-      .withSecond(59)
-      .toInstant(ZoneOffset.UTC)
+    def atEndOfDay(): Instant =
+      instant
+        .atZone(ZoneId.of(ZoneOffset.UTC.getId))
+        .toLocalDateTime
+        .withHour(23)
+        .withMinute(59)
+        .withSecond(59)
+        .toInstant(ZoneOffset.UTC)
 
     def toLocalDate(): LocalDate =
       LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))
@@ -34,7 +35,7 @@ package object util {
   }
 
   implicit class ListOps[Err, Value](list: List[Either[Err, Value]]) {
-    lazy val rights: List[Value]  = list.collect {
+    lazy val rights: List[Value] = list.collect {
       case Right(value) => value
     }
   }

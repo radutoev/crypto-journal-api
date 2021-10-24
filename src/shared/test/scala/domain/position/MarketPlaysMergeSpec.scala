@@ -48,31 +48,33 @@ object MarketPlaysMergeSpec extends DefaultRunnableSpec {
       }
     },
     testM("Merge and close open positions for matching coins") {
-      check(Gen.listOfN(3)(genPosition), genOpenPositionEntry, genClosedPositionEntry) { (positions, e1, e2) =>
-        val c1 = refineV[CurrencyPredicate].unsafeFrom("WBNB")
-        val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
+      check(Gen.listOfN(3)(genPosition), genOpenPositionEntry, genClosedPositionEntry) {
+        (positions, e1, e2) =>
+          val c1 = refineV[CurrencyPredicate].unsafeFrom("WBNB")
+          val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
 
-        val p1 =
-          MarketPlays(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
-        val p2 = MarketPlays(List(positions.last.copy(currency = c1, entries = List(e2))))
+          val p1 =
+            MarketPlays(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
+          val p2 = MarketPlays(List(positions.last.copy(currency = c1, entries = List(e2))))
 
-        val result = p2.merge(p1)
+          val result = p2.merge(p1)
 
-        assert(result.plays.length)(equalTo(2))
+          assert(result.plays.length)(equalTo(2))
       }
     },
     testM("Merge open positions for matching coins") {
-      check(Gen.listOfN(3)(genPosition), genOpenPositionEntry, genOpenPositionEntry) { (positions, e1, e2) =>
-        val c1 = refineV[CurrencyPredicate].unsafeFrom("WBNB")
-        val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
+      check(Gen.listOfN(3)(genPosition), genOpenPositionEntry, genOpenPositionEntry) {
+        (positions, e1, e2) =>
+          val c1 = refineV[CurrencyPredicate].unsafeFrom("WBNB")
+          val c2 = refineV[CurrencyPredicate].unsafeFrom("WBNB2")
 
-        val p1 =
-          MarketPlays(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
-        val p2 = MarketPlays(List(positions.last.copy(currency = c1, entries = List(e2))))
+          val p1 =
+            MarketPlays(List(positions.head.copy(currency = c1, entries = List(e1)), positions(1).copy(currency = c2)))
+          val p2 = MarketPlays(List(positions.last.copy(currency = c1, entries = List(e2))))
 
-        val result = p2.merge(p1)
+          val result = p2.merge(p1)
 
-        assert(result.plays.length)(equalTo(2))
+          assert(result.plays.length)(equalTo(2))
       }
     },
     testM("Merge closed positions for matching coins") {

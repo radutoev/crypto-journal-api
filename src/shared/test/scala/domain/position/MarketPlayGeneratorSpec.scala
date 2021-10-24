@@ -75,11 +75,20 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       assert(topUps.size)(equalTo(3)) &&
       assert(expected)(hasSameElementsDistinct(expected))
     },
-//    test("Detect transfer out") {
-//      val file         = readFile("/covalent/transferOut.json").fromJson[List[Transaction]]
-//      val transactions = file.right.get
-//      val plays        = findMarketPlays(Address, transactions.map(_.toDomain()))
-//    }
+    test("Detect transfer out") {
+      val file         = readFile("/covalent/transferOut.json").fromJson[List[Transaction]]
+      val transactions = file.right.get
+      val plays        = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val expected = List(
+        TransferOut(txHash = refineV[TransactionHashPredicate]
+          .unsafeFrom("0xf8e952da951bdb7ca54b37a4f4f88c8467db1fda062937cbf9b05af3dc543808"),
+          timestamp = Instant.parse("2021-10-09T10:28:06Z"),
+          value = FungibleData(amount = BigDecimal(1), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB")))
+      )
+      assert(1)(equalTo(plays.size)) &&
+        assert(expected)(hasSameElementsDistinct(expected))
+    }
   )
 
   val ExpectedData = List(
