@@ -16,6 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val positions: List[Position]     = plays.positions
   lazy val transferIns: List[TransferIn] = plays.transferIns
+  lazy val transferOuts: List[TransferOut] = plays.transferOuts
 
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed())
   lazy val openPositions: List[Position]   = positions.filter(_.isOpen())
@@ -49,7 +50,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     val notCorrelated = currencyPositionMap.values.toList
 
     MarketPlays(
-      (otherPositions.toList ::: notCorrelated ::: merged ::: transferIns ::: other.transferIns)
+      (otherPositions.toList ::: notCorrelated ::: merged ::: transferIns ::: other.transferIns ::: transferOuts ::: other.transferOuts)
         .sortBy(_.openedAt)(Ordering[Instant])
     )
   }

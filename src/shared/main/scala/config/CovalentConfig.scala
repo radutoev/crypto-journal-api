@@ -1,4 +1,4 @@
 package io.softwarechain.cryptojournal
 package config
 
-final case class CovalentConfig(baseUrl: String, key: String)
+final case class CovalentConfig(baseUrl: String, key: String, pageSize: Int)

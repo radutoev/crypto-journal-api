@@ -94,6 +94,7 @@ object dto {
       m match {
         case pos: CJPosition => fromPosition(pos)
         case t: CJTransferIn => fromTransferIn(t)
+        case tOut: CJTransferOut => fromTransferOut(tOut)
       }
 
     def fromPosition(position: CJPosition): Position =
