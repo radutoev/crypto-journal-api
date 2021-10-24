@@ -1,27 +1,44 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.market.{Ohlcv => CJOhlcv}
-import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
-import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
-import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TransferIn => CJTransferIn}
-import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
-import domain.wallet.{Wallet => CJWallet}
+import domain.market.{ Ohlcv => CJOhlcv }
+import domain.model.{ MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData }
+import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
+import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
+import domain.position.{
+  JournalEntry => CJJournalEntry,
+  MarketPlay => CJMarketPlay,
+  Position => CJPosition,
+  PositionEntry => CJPositionEntry,
+  PositionJournalEntry => CJPositionJournalEntry,
+  TransferIn => CJTransferIn,
+  TransferOut => CJTransferOut
+}
+import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
+import domain.wallet.{ Wallet => CJWallet }
 import vo.filter.Count
-import vo.{PeriodDistribution => CJPeriodDistribution}
+import vo.{ PeriodDistribution => CJPeriodDistribution }
 import infrastructure.api.dto.MarketPlay._
+import util.ListOps
 
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.util.ListOps
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 object dto {
   sealed trait MarketPlay
 
   final case class TransferIn(
+    hash: String,
+    value: FungibleData,
+    fiatValue: Option[FungibleData],
+    fee: FungibleData,
+    totalFees: Option[FungibleData],
+    timestamp: Instant
+  ) extends MarketPlay
+
+  final case class TransferOut(
     hash: String,
     value: FungibleData,
     fiatValue: Option[FungibleData],
@@ -114,6 +131,16 @@ object dto {
 
     private def fromTransferIn(t: CJTransferIn): TransferIn =
       TransferIn(
+        hash = t.txHash.value,
+        value = t.value.asJson,
+        fiatValue = t.fiatValue().map(_.asJson),
+        fee = t.fee.asJson,
+        totalFees = t.totalFees().map(_.asJson),
+        timestamp = t.timestamp
+      )
+
+    private def fromTransferOut(t: CJTransferOut): TransferOut =
+      TransferOut(
         hash = t.txHash.value,
         value = t.value.asJson,
         fiatValue = t.fiatValue().map(_.asJson),

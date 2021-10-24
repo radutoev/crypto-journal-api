@@ -127,11 +127,9 @@ object MarketPlays {
         }
     }.toList
 
-    val (incoming, outgoing) = txWithoutEvents.partition(_.toAddress == wallet.value)
+    val transferIns = txWithoutEvents.filter(_.toAddress == wallet.value).map(transactionToTransferIn).rights
 
-    val transferIns = incoming.map(transactionToTransferIn).rights
-
-    val transferOuts = outgoing.map(transactionToTransferOut).rights
+    val transferOuts = txWithoutEvents.filter(_.fromAddress == wallet.value).map(transactionToTransferOut).rights
 
     (positions ++ transferIns ++ transferOuts).sortBy(_.openedAt)(Ordering[Instant].reverse)
   }

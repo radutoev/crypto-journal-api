@@ -5,7 +5,7 @@ import config.DatastoreConfig
 import domain.model._
 import domain.position.Position.PositionEntryIdPredicate
 import domain.position.error._
-import domain.position.{ MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferIn }
+import domain.position.{ MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferIn, TransferOut }
 import util.{ tryOrLeft, InstantOps, ListOps }
 import vo.filter.PlayFilter
 import vo.pagination.{ CursorPredicate, Page, PaginationContext }
@@ -88,8 +88,8 @@ final case class DatastoreMarketPlayRepo(
                 case Right(play) =>
                   play match {
                     //TODO Why can entries be empty??
-                    case p: Position if p.entries.nonEmpty => p
-                    case t: TransferIn                     => t
+                    case p: Position if p.entries.nonEmpty    => p
+                    case t @ (_: TransferIn | _: TransferOut) => t
                   }
               })
               val nextCursor = results.getCursorAfter
@@ -200,8 +200,8 @@ final case class DatastoreMarketPlayRepo(
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
             list.map(entityToPlay).rights.collect {
-              case p: Position if p.entries.nonEmpty => p
-              case t: TransferIn                     => t
+              case p: Position if p.entries.nonEmpty    => p
+              case t @ (_: TransferIn | _: TransferOut) => t
             }
           }
       )
@@ -274,8 +274,9 @@ final case class DatastoreMarketPlayRepo(
 
   private def marketPlayToEntity(marketPlay: MarketPlay, address: WalletAddress): Entity =
     marketPlay match {
-      case p: Position   => positionToEntity(p, address, datastoreConfig.marketPlay)
-      case t: TransferIn => transferInToEntity(t, address, datastoreConfig.marketPlay)
+      case p: Position    => positionToEntity(p, address, datastoreConfig.marketPlay)
+      case t: TransferIn  => transferInToEntity(t, address, datastoreConfig.marketPlay)
+      case t: TransferOut => transferOutToEntity(t, address, datastoreConfig.marketPlay)
     }
 
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
@@ -351,10 +352,28 @@ final case class DatastoreMarketPlayRepo(
       .set("playType", "transferIn")
       .build()
 
+  private def transferOutToEntity(transferOut: TransferOut, address: WalletAddress, kind: String): Entity =
+    Entity
+      .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
+      .set("address", address.value)
+      .set("hash", transferOut.txHash.value)
+      .set("value", DoubleValue.of(transferOut.value.amount.doubleValue))
+      .set("valueCurrency", StringValue.of(transferOut.value.currency.value))
+      .set("fee", DoubleValue.of(transferOut.fee.amount.doubleValue))
+      .set("feeCurrency", StringValue.of(transferOut.fee.currency.value))
+      .set(
+        "openedAt",
+        TimestampValue
+          .of(Timestamp.ofTimeSecondsAndNanos(transferOut.timestamp.getEpochSecond, transferOut.timestamp.getNano))
+      )
+      .set("playType", "transferOut")
+      .build()
+
   private def entityToPlay(e: Entity): Either[InvalidRepresentation, MarketPlay] =
     e.getString("playType").strip() match {
-      case "position"   => entityToPosition(e)
-      case "transferIn" => entityToTransferIn(e)
+      case "position"    => entityToPosition(e)
+      case "transferIn"  => entityToTransferIn(e)
+      case "transferOut" => entityToTransferOut(e)
     }
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
@@ -452,6 +471,39 @@ final case class DatastoreMarketPlayRepo(
                     InvalidRepresentation("Invalid timestamp representation")
                   )
     } yield TransferIn(
+      hash,
+      FungibleData(value, currency),
+      FungibleData(feeValue, feeCurrency),
+      timestamp,
+      id = Some(id)
+    )
+
+  private def entityToTransferOut(entity: Entity): Either[InvalidRepresentation, TransferOut] =
+    for {
+      id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
+             .flatMap(rawIdStr =>
+               refined
+                 .refineV[PlayIdPredicate](rawIdStr)
+                 .left
+                 .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
+             )
+      hash <- tryOrLeft(entity.getString("hash"), InvalidRepresentation("Invalid hash representation"))
+               .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
+      value <- tryOrLeft(entity.getDouble("value"), InvalidRepresentation("Invalid value representation"))
+      currency <- tryOrLeft(
+                   entity.getString("valueCurrency"),
+                   InvalidRepresentation("Invalid value currency representation")
+                 ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
+      feeValue <- tryOrLeft(entity.getDouble("fee"), InvalidRepresentation("Invalid fee representation"))
+      feeCurrency <- tryOrLeft(
+                      entity.getString("feeCurrency"),
+                      InvalidRepresentation("Invalid fee currency representation")
+                    ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
+      timestamp <- tryOrLeft(
+                    Instant.ofEpochSecond(entity.getTimestamp("openedAt").getSeconds),
+                    InvalidRepresentation("Invalid timestamp representation")
+                  )
+    } yield TransferOut(
       hash,
       FungibleData(value, currency),
       FungibleData(feeValue, feeCurrency),
