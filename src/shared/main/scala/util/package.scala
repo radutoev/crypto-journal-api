@@ -33,6 +33,12 @@ package object util {
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)
   }
 
+  implicit class ListOps[Err, Value](list: List[Either[Err, Value]]) {
+    lazy val rights: List[Value]  = list.collect {
+      case Right(value) => value
+    }
+  }
+
   implicit class MarketPlaysListOps(marketPlays: List[MarketPlay]) {
     lazy val positions: List[Position] = marketPlays.collect { case p: Position => p }
 

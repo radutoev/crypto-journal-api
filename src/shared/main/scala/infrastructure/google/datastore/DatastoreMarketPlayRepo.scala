@@ -5,19 +5,19 @@ import config.DatastoreConfig
 import domain.model._
 import domain.position.Position.PositionEntryIdPredicate
 import domain.position.error._
-import domain.position.{ MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferIn }
-import util.{ tryOrLeft, InstantOps }
+import domain.position.{MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferIn}
+import util.{InstantOps, ListOps, tryOrLeft}
 import vo.filter.PlayFilter
-import vo.pagination.{ CursorPredicate, Page, PaginationContext }
+import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
-import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -199,7 +199,7 @@ final case class DatastoreMarketPlayRepo(
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
             list.map(entityToPlay)
-              .collect { case Right(p) => p  }
+              .rights
               .collect {
                 case p: Position if p.entries.nonEmpty => p
                 case t: TransferIn => t
@@ -378,9 +378,9 @@ final case class DatastoreMarketPlayRepo(
                   entity
                     .getList[EntityValue]("entries")
                     .asScala
+                    .toList
                     .map(entryToPositionEntry)
-                    .collect { case Right(entry) => entry }
-                    .toList,
+                    .rights,
                   InvalidRepresentation("Invalid entries representation")
                 )
     } yield Position(currency, openedAt, entries, id = Some(id))

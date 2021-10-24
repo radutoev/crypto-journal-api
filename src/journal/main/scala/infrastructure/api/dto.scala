@@ -1,29 +1,22 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.market.{ Ohlcv => CJOhlcv }
-import domain.model.{ MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData }
-import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
-import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
-import domain.position.{
-  JournalEntry => CJJournalEntry,
-  MarketPlay => CJMarketPlay,
-  Position => CJPosition,
-  PositionEntry => CJPositionEntry,
-  PositionJournalEntry => CJPositionJournalEntry,
-  TransferIn => CJTransferIn
-}
-import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
-import domain.wallet.{ Wallet => CJWallet }
+import domain.market.{Ohlcv => CJOhlcv}
+import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
+import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
+import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
+import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TransferIn => CJTransferIn}
+import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
+import domain.wallet.{Wallet => CJWallet}
 import vo.filter.Count
-import vo.{ PeriodDistribution => CJPeriodDistribution }
-
+import vo.{PeriodDistribution => CJPeriodDistribution}
 import infrastructure.api.dto.MarketPlay._
 
 import eu.timepit.refined.refineV
-import zio.json.{ DeriveJsonCodec, JsonCodec }
+import io.softwarechain.cryptojournal.util.ListOps
+import zio.json.{DeriveJsonCodec, JsonCodec}
 
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
 
 object dto {
   sealed trait MarketPlay
@@ -359,8 +352,8 @@ object dto {
       def toDomainModel: CJJournalEntry =
         CJJournalEntry(
           entry.notes,
-          tags = entry.tags.map(refineV[TagPredicate](_)).collect { case Right(setup)               => setup },
-          mistakes = entry.mistakes.map(refineV[MistakePredicate](_)).collect { case Right(mistake) => mistake }
+          tags = entry.tags.map(refineV[TagPredicate](_)).rights,
+          mistakes = entry.mistakes.map(refineV[MistakePredicate](_)).rights
         )
     }
   }
