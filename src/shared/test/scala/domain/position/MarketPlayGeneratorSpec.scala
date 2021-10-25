@@ -16,6 +16,8 @@ import scala.io.Source
 
 object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
   private val Address = refineV[WalletAddressPredicate].unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41")
+  private val BNB     = refineV[CurrencyPredicate].unsafeFrom("WBNB")
+
   override def spec = suite("PositionGeneratorSpec")(
     test("No position if insufficient tranactions") {
       assert(
@@ -80,14 +82,64 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       val transactions = file.right.get
       val plays        = findMarketPlays(Address, transactions.map(_.toDomain()))
       val expected = List(
-        TransferOut(txHash = refineV[TransactionHashPredicate]
-          .unsafeFrom("0xf8e952da951bdb7ca54b37a4f4f88c8467db1fda062937cbf9b05af3dc543808"),
+        domain.position.TransferOut(
+          txHash = refineV[TransactionHashPredicate]
+            .unsafeFrom("0xf8e952da951bdb7ca54b37a4f4f88c8467db1fda062937cbf9b05af3dc543808"),
           timestamp = Instant.parse("2021-10-09T10:28:06Z"),
           value = FungibleData(amount = BigDecimal(1), refineV[CurrencyPredicate].unsafeFrom("WBNB")),
-          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB")))
+          fee = FungibleData(amount = BigDecimal(0.000105), refineV[CurrencyPredicate].unsafeFrom("WBNB"))
+        )
       )
       assert(1)(equalTo(plays.size)) &&
-        assert(expected)(hasSameElementsDistinct(expected))
+      assert(expected)(hasSameElementsDistinct(expected))
+    },
+    test("Detect position from contribution and claim") {
+      val file         = readFile("/covalent/contribute_claim_sell.json").fromJson[List[Transaction]]
+      val transactions = file.right.get
+      val plays        = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val expected = List(
+        Position(
+          currency = refineV[CurrencyPredicate].unsafeFrom("NONO"),
+          openedAt = Instant.parse("2021-10-07T21:45:33Z"),
+          entries = List(
+            PositionEntry(
+              `type` = Contribute,
+              value = FungibleData(BigDecimal(0.1023923391846748), BNB),
+              fee = FungibleData(BigDecimal(0.00103985), BNB),
+              timestamp = Instant.parse("2021-10-07T21:45:33Z"),
+              refineV[TransactionHashPredicate]
+                .unsafeFrom("0x2bba1a27a5b3e4f96316506c41e85d882e71ae900ebd08f67cfca750de38460d")
+            ),
+            PositionEntry(
+              `type` = Contribute,
+              value = FungibleData(BigDecimal(0.1023923391846748), BNB),
+              fee = FungibleData(BigDecimal(0.00032141), BNB),
+              timestamp = Instant.parse("2021-10-07T21:46:54Z"),
+              refineV[TransactionHashPredicate]
+                .unsafeFrom("0x56ff303b40e520df3fc62d12587abc09ceec6aff579b7a2d6074ed48e4f79da0")
+            ),
+            PositionEntry(
+              `type` = Claim,
+              value = FungibleData(BigDecimal(93353105266207320L), refineV[CurrencyPredicate].unsafeFrom("NONO")),
+              fee = FungibleData(BigDecimal(0.00287494), BNB),
+              timestamp = Instant.parse("2021-10-08T09:46:25Z"),
+              refineV[TransactionHashPredicate]
+                .unsafeFrom("0x1f88b75a26cab0bba6d1c8468559ad392af82c37e45b27ce07ca98d36b59d0c5")
+            ),
+            PositionEntry(
+              `type` = Sell,
+              value = FungibleData(BigDecimal(0), BNB),
+              fee = FungibleData(BigDecimal(0.00369122), BNB),
+              timestamp = Instant.parse("2021-10-08T19:13:37Z"),
+              refineV[TransactionHashPredicate].unsafeFrom(
+                "0x5ec20963f3fe609c288d12319f45385a633243b9db4f20123ff8a933a93a2df3"
+              )
+            )
+          )
+        )
+      )
+      assert(1)(equalTo(plays.size)) &&
+      assert(expected)(hasSameElementsDistinct(expected))
     }
   )
 

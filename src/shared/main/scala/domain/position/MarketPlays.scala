@@ -2,15 +2,16 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{ Buy, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress }
-import util.{ InstantOps, ListOps, MarketPlaysListOps }
+import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress}
+import util.{InstantOps, ListOps, MarketPlaysListOps}
 import vo.TimeInterval
 
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
 
 import java.time.Instant
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {
@@ -50,8 +51,14 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     val notCorrelated = currencyPositionMap.values.toList
 
     MarketPlays(
-      (otherPositions.toList ::: notCorrelated ::: merged ::: transferIns ::: other.transferIns ::: transferOuts ::: other.transferOuts)
-        .sortBy(_.openedAt)(Ordering[Instant])
+      (otherPositions.toList :::
+        notCorrelated :::
+        merged :::
+        transferIns :::
+        other.transferIns :::
+        transferOuts :::
+        other.transferOuts
+        ).sortBy(_.openedAt)(Ordering[Instant])
     )
   }
 
@@ -70,7 +77,7 @@ object MarketPlays {
 
   def empty(): MarketPlays = MarketPlays(List.empty)
 
-  val TransactionTypes = Vector(Buy, Sell)
+  val TransactionTypes = Vector(Buy, Contribute, Claim, Sell)
 
   //TODO I should return MarketPlays here.
   def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): List[MarketPlay] = {
@@ -80,10 +87,25 @@ object MarketPlays {
 
     val (txWithEvents, txWithoutEvents) = successes.partition(_.hasTransactionEvents)
 
-    val transactionsByCoin = txWithEvents
+    val (transactionsWithCoinName, transactionsWithoutCoinName) = txWithEvents
       .filter(tx => TransactionTypes.contains(tx.transactionType))
-      .groupBy(_.coin.get)
+      .partition(_.coin.isDefined)
 
+    //Build possible positions by looking for contributions.
+    //I am grouping them by address in chronological order.
+    //I can only have contributions in this list, because Claims have coin name data in the decoded events.
+    val contributionsByAddress = mutable.Map.from(transactionsWithoutCoinName
+      .filter(_.transactionType == Contribute) //I am filtering here to enforce my reasoning. If there are other transactions, then I need to revisit understanding.
+      .groupBy(_.toAddress)
+      .view
+      .mapValues(ListBuffer.from(_))
+    )
+
+    //Group all transactions by coin symbol.
+    val transactionsByCoin = transactionsWithCoinName.groupBy(_.coin.get)
+
+    //Generate positions from transactions that have coin information.
+    //This takes a chronological view of the buy/sell transactions and attempts to build either open or closed Positions.
     val positions = transactionsByCoin.flatMap {
       case (rawCurrency, txList) =>
         val currency                                = refined.refineV[NonEmpty].unsafeFrom(rawCurrency)
@@ -106,6 +128,22 @@ object MarketPlays {
               }
             case Sell =>
               acc.addOne(tx)
+            case Claim =>
+              //this can be preceded by an optional set of contributions.
+              if(lastTxType == Claim) {
+                acc.addOne(tx)
+              } else {
+                val toAddress = tx.toAddress
+                val contributions = contributionsByAddress.getOrElse(toAddress, List.empty).filter(_.instant.isBefore(tx.instant))
+                acc.addAll(contributions :+ tx)
+                //remove contributions made before this claim.
+                if(contributions.nonEmpty) {
+                  contributionsByAddress(toAddress) --= contributions
+                  if(contributionsByAddress(toAddress) == Nil) {
+                    contributionsByAddress -= toAddress
+                  }
+                }
+              }
             case Unknown => //do nothing
           }
           lastTxType = tx.transactionType
@@ -115,16 +153,18 @@ object MarketPlays {
           grouped.addOne(acc.toList)
         }
 
+        //List of transactions is made of Sells, Buys, Claims or Contributions.
         grouped.toList.map { txList =>
-          txList.last.transactionType match {
-            case Buy => Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
-            case Sell =>
-              Position(
-                currency,
-                txList.head.instant,
-                transactionsToPositionEntries(txList)
-              )
-          }
+          Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
+//          txList.last.transactionType match {
+//            case Buy => Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
+//            case Sell =>
+//              Position(
+//                currency,
+//                txList.head.instant,
+//                transactionsToPositionEntries(txList)
+//              )
+//          }
         }
     }.toList
 

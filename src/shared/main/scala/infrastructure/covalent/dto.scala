@@ -56,7 +56,6 @@ object dto {
 
     implicit class TransactionOps(transaction: Transaction) {
       def toDomain(): DomainTransaction =
-        //I get null on decoded, figure out why that happens
         DomainTransaction(
           blockSignedAt = transaction.blockSignedAt,
           hash = transaction.hash,
@@ -72,7 +71,7 @@ object dto {
           gasPrice = transaction.gasPrice,
           gasQuote = transaction.gasQuote,
           gasQuoteRate = transaction.gasQuoteRate,
-          logEvents = transaction.logEvents.filter(_.decoded.isDefined).map(_.toDomain())
+          logEvents = transaction.logEvents.map(_.toDomain())
         )
     }
   }
@@ -97,7 +96,7 @@ object dto {
           senderContractSymbol = logEvent.senderContractSymbol,
           senderAddress = logEvent.senderAddress,
           senderAddressLabel = logEvent.senderAddressLabel,
-          decoded = logEvent.decoded.get.toDomain() //force get as i filter None values
+          decoded = logEvent.decoded.map(_.toDomain())
         )
     }
   }

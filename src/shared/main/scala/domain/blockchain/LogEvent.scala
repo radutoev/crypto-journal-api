@@ -7,7 +7,7 @@ final case class LogEvent(
   senderContractSymbol: Option[String],
   senderAddress: String,
   senderAddressLabel: Option[String],
-  decoded: Decoded
+  decoded: Option[Decoded]
 )
 
 final case class Decoded(name: String, signature: String, params: List[Param])
