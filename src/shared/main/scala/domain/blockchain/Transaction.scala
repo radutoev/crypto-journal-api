@@ -6,7 +6,6 @@ import domain.model.{
   Claim,
   Contribute,
   Currency,
-  CurrencyPredicate,
   Fee,
   FungibleData,
   Sell,
@@ -15,8 +14,6 @@ import domain.model.{
   TransferOut,
   Unknown
 }
-
-import eu.timepit.refined
 
 import java.time.Instant
 
@@ -41,31 +38,73 @@ final case class Transaction(
   logEvents: List[LogEvent]
 ) {
 
-  /**
-   * Rules for interpreting the transaction type.
-   *
-   * 1. If no logEvents are present => TransferIn.
-   * 2. If the first event is a Swap => Buy
-   * 3. If the first event is a Withdrawal => Sell
-   * 4. If there are logEvents, but no decoded (is null), and if the sender_address of the first event equals to_address => Contribute
-   * 5. If the name of the first event is Claimed => Claimed.
-   */
-  lazy val transactionType: TransactionType = logEvents.headOption.fold[TransactionType](TransferIn)(event =>
-    if (event.decoded.isDefined) {
-      event.decoded.get.name match {
-        case "Swap"       => Buy
-        case "Withdrawal" => Sell
-        case "Claimed"    => Claim
-        case _            => Unknown
-      }
+  lazy val transactionType: TransactionType = {
+    @inline
+    def isBuy(): Boolean =
+      false
+
+    @inline
+    def isClaim(): Boolean =
+      false
+
+    @inline
+    def isContribute(): Boolean =
+      false
+
+    @inline
+    def isSale(): Boolean =
+      logEvents.exists(ev =>
+        ev.decoded.exists(decoded =>
+          decoded.name == "Swap" &&
+            decoded.params.exists(param =>
+              param.name == "sender" && param.`type` == "address" && param.value == toAddress
+            )
+        )
+      )
+
+    @inline
+    def isTransferIn(): Boolean =
+      logEvents.isEmpty
+
+    if (isBuy()) {
+      Buy
     } else {
-      if (event.senderAddress == toAddress) {
-        Contribute
+      if (isClaim()) {
+        Claim
       } else {
-        Unknown
+        if (isContribute()) {
+          Contribute
+        } else {
+          if (isSale()) {
+            Sell
+          } else {
+            if (isTransferIn()) {
+              TransferIn
+            } else {
+              Unknown
+            }
+          }
+        }
       }
     }
-  )
+
+//    logEvents.headOption.fold[TransactionType](TransferIn)(event =>
+//      if (event.decoded.isDefined) {
+//        event.decoded.get.name match {
+//          case "Swap"       => Buy
+//          case "Withdrawal" => Sell
+//          case "Claimed"    => Claim
+//          case _            => Unknown
+//        }
+//      } else {
+//        if (event.senderAddress == toAddress) {
+//          Contribute
+//        } else {
+//          Unknown
+//        }
+//      }
+//    )
+  }
 
   lazy val instant: Instant = Instant.parse(blockSignedAt)
 
@@ -100,14 +139,7 @@ final case class Transaction(
         amount   = wadValue * Math.pow(10, -decimals)
       } yield FungibleData(amount, Currency.unsafeFrom("WBNB")))
         .toRight("Unable to determine value of transaction")
-    case Sell =>
-      (for {
-        decoded  <- logEvents.head.decoded
-        wadValue <- decoded.params.find(_.name == "wad").map(_.value).map(BigDecimal(_))
-        decimals <- logEvents.head.senderContractDecimals
-        amount   = wadValue * Math.pow(10, -decimals)
-      } yield FungibleData(amount, Currency.unsafeFrom("WBNB")))
-        .toRight("Unable to determine value of transaction")
+    case Sell => getValueOfLatestSwapEvent()
     case TransferIn =>
       Right(
         FungibleData(
@@ -139,8 +171,38 @@ final case class Transaction(
             amount   <- logEvent.decoded.get.params.last.value.toLongOption.map(BigDecimal(_))
             decimals <- logEvent.senderContractDecimals
             symbol   <- logEvent.senderContractSymbol
-          } yield FungibleData(amount * Math.pow(10, -decimals), Currency.unsafeFrom(symbol)) //note that we could have any coin symbol here.
+          } yield FungibleData(
+            amount * Math.pow(10, -decimals),
+            Currency.unsafeFrom(symbol)
+          ) //note that we could have any coin symbol here.
         }
         .toRight("Unable to extract Claim transaction")
   }
+
+  private def getValueOfLatestSwapEvent(): Either[String, FungibleData] =
+    (for {
+      swapEvent <- logEvents.find(_.decoded.exists(_.name == "Swap"))
+      decimals  <- swapEvent.senderContractDecimals
+      amount    <- extractAmountFromSwapEvent(swapEvent)
+    } yield FungibleData(amount * Math.pow(10, -decimals), Currency.unsafeFrom("WBNB")))
+      .toRight("Unable to determine value of transaction")
+
+  private def extractAmountFromSwapEvent(event: LogEvent): Option[BigDecimal] =
+    event.decoded.flatMap { decoded =>
+      if (toAddressMatchesTransactionFromAddress(decoded.params)) {
+        decoded.params.find(param => param.name == "amount0In").map(_.value).map(BigDecimal(_))
+      } else {
+        if (toAddressMatchesTransactionToAddress(decoded.params)) {
+          decoded.params.find(param => param.name == "amount1Out").map(_.value).map(BigDecimal(_))
+        } else {
+          None
+        }
+      }
+    }
+
+  private def toAddressMatchesTransactionFromAddress(params: List[Param]): Boolean =
+    params.exists(param => param.name == "to" && param.`type` == "address" && param.value == fromAddress)
+
+  private def toAddressMatchesTransactionToAddress(params: List[Param]): Boolean =
+    params.exists(param => param.name == "to" && param.`type` == "address" && param.value == toAddress)
 }
