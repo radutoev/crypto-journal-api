@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn, WalletAddressPredicate}
+import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn}
 import infrastructure.covalent.dto.Transaction
 
 import zio.json._
