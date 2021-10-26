@@ -1,0 +1,93 @@
+[
+  {
+    "block_signed_at": "2021-10-08T09:46:25Z",
+    "block_height": 11590860,
+    "tx_hash": "0x1f88b75a26cab0bba6d1c8468559ad392af82c37e45b27ce07ca98d36b59d0c5",
+    "tx_offset": 166,
+    "successful": true,
+    "from_address": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41",
+    "from_address_label": null,
+    "to_address": "0x42f8c2113f833db5886eea67a77ab32d83f4339f",
+    "to_address_label": null,
+    "value": "0",
+    "value_quote": 0.0,
+    "gas_offered": 595672,
+    "gas_spent": 574988,
+    "gas_price": 5000000000,
+    "gas_quote": 1.2025601686816405,
+    "gas_quote_rate": 418.29052734375,
+    "log_events": [
+      {
+        "block_signed_at": "2021-10-08T09:46:25Z",
+        "block_height": 11590860,
+        "tx_offset": 166,
+        "log_offset": 395,
+        "tx_hash": "0x1f88b75a26cab0bba6d1c8468559ad392af82c37e45b27ce07ca98d36b59d0c5",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0x987d620f307ff6b94d58743cb7a7509f24071586a77759b77c2d4e29f75a2f9a",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 0,
+        "sender_name": null,
+        "sender_contract_ticker_symbol": null,
+        "sender_address": "0x42f8c2113f833db5886eea67a77ab32d83f4339f",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x42f8c2113f833db5886eea67a77ab32d83f4339f.png",
+        "raw_log_data": "0x000000000000000000000000000000000000000000000000014ba82796126a5800000000000000000000000000000000000000000000000024f62189c6d36a57",
+        "decoded": {
+          "name": "Claimed",
+          "signature": "Claimed(address member, uint256 amount, uint256 claimTime)",
+          "params": null
+        }
+      },
+      {
+        "block_signed_at": "2021-10-08T09:46:25Z",
+        "block_height": 11590860,
+        "tx_offset": 166,
+        "log_offset": 394,
+        "tx_hash": "0x1f88b75a26cab0bba6d1c8468559ad392af82c37e45b27ce07ca98d36b59d0c5",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x00000000000000000000000042f8c2113f833db5886eea67a77ab32d83f4339f",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 4,
+        "sender_name": "CardaNONOmics",
+        "sender_contract_ticker_symbol": "NONO",
+        "sender_address": "0x94afac344e579924d34d9429cbf5fec266f09a8b",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x94afac344e579924d34d9429cbf5fec266f09a8b.png",
+        "raw_log_data": "0x000000000000000000000000000000000000000000000000014ba82796126a58",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x42f8c2113f833db5886eea67a77ab32d83f4339f"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "93353105266207320"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

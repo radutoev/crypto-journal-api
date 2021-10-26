@@ -41,15 +41,21 @@ final case class Transaction(
   lazy val transactionType: TransactionType = {
     @inline
     def isBuy(): Boolean =
-      false
+      rawValue != 0d && logEvents.exists(ev =>
+        ev.decoded.exists(decoded =>
+          decoded.name == "Transfer" && decoded.params.exists(param =>
+            param.name == "to" && param.`type` == "address" && param.value == fromAddress
+          )
+        )
+      )
 
     @inline
     def isClaim(): Boolean =
-      false
+      logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
 
     @inline
     def isContribute(): Boolean =
-      false
+      logEvents.headOption.exists(ev => ev.decoded.isEmpty && ev.senderAddress == toAddress)
 
     @inline
     def isSale(): Boolean =
@@ -87,23 +93,6 @@ final case class Transaction(
         }
       }
     }
-
-//    logEvents.headOption.fold[TransactionType](TransferIn)(event =>
-//      if (event.decoded.isDefined) {
-//        event.decoded.get.name match {
-//          case "Swap"       => Buy
-//          case "Withdrawal" => Sell
-//          case "Claimed"    => Claim
-//          case _            => Unknown
-//        }
-//      } else {
-//        if (event.senderAddress == toAddress) {
-//          Contribute
-//        } else {
-//          Unknown
-//        }
-//      }
-//    )
   }
 
   lazy val instant: Instant = Instant.parse(blockSignedAt)

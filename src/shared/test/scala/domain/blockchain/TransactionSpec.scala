@@ -1,10 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Currency, FungibleData, Sell, TransferIn, WalletAddressPredicate}
+import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn, WalletAddressPredicate}
 import infrastructure.covalent.dto.Transaction
 
-import eu.timepit.refined.refineV
 import zio.json._
 import zio.test.Assertion._
 import zio.test._
@@ -12,9 +11,31 @@ import zio.test._
 import scala.io.Source
 
 object TransactionSpec extends DefaultRunnableSpec {
-  private val Address = refineV[WalletAddressPredicate].unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41")
-
   override def spec = suite("TransactionSpec")(
+    test("Interpret transaction as Buy") {
+      val transaction = getTransaction("/covalent/transactions/buy.json")
+      val expectedValue = FungibleData(BigDecimal("0.257964600896151696"), Currency.unsafeFrom("WBNB"))
+
+      assert(Buy)(equalTo(transaction.transactionType)) &&
+        assert(Right(expectedValue))(equalTo(transaction.value))
+    },
+
+    test("Interpret transaction as Claim") {
+      val transaction = getTransaction("/covalent/transactions/claim.json")
+      val expectedValue = FungibleData(BigDecimal("9335310526620.7320"), Currency.unsafeFrom("NONO"))
+
+      assert(Claim)(equalTo(transaction.transactionType)) &&
+        assert(Right(expectedValue))(equalTo(transaction.value))
+    },
+
+    test("Interpret transaction as Contribute") {
+      val transaction = getTransaction("/covalent/transactions/contribute.json")
+      val expectedValue = FungibleData(BigDecimal("0.1023923391846748"), Currency.unsafeFrom("WBNB"))
+
+      assert(Contribute)(equalTo(transaction.transactionType)) &&
+        assert(Right(expectedValue))(equalTo(transaction.value))
+    },
+
     test("Interpret transaction as Sell based on Withdrawal event.") {
       val transaction = getTransaction("/covalent/transactions/sell1.json")
       val expectedValue = FungibleData(BigDecimal("0.4175743142140909320"), Currency.unsafeFrom("WBNB"))
@@ -37,13 +58,7 @@ object TransactionSpec extends DefaultRunnableSpec {
 
       assert(TransferIn)(equalTo(transaction.transactionType)) &&
         assert(Right(expectedValue))(equalTo(transaction.value))
-    }
-
-//    test("Interpret transactions as BUYs for given address") {
-//      val file         = readFile("/covalent/buys.json").fromJson[List[Transaction]]
-//      val transactions = file.right.get.map(tx => AddressTransaction(Address, tx.toDomain()))
-//      assert(Set(Buy))(hasSameElements(transactions.map(_.transactionType).toSet))
-//    }
+    },
   )
 
   private def getTransaction(file: String) = {
