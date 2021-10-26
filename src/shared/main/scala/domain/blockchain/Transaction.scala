@@ -108,6 +108,10 @@ final case class Transaction(
         .flatMap(_.senderContractSymbol)
     case Sell =>
       logEvents.reverse.headOption.flatMap(_.senderContractSymbol)
+    case Claim =>
+      logEvents.filter(event => event.decoded.isDefined && event.decoded.get.name == "Transfer")
+        .flatMap(_.senderContractSymbol)
+        .headOption
     case _ => None
   }
 

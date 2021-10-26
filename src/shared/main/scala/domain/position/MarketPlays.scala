@@ -156,15 +156,6 @@ object MarketPlays {
         //List of transactions is made of Sells, Buys, Claims or Contributions.
         grouped.toList.map { txList =>
           Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
-//          txList.last.transactionType match {
-//            case Buy => Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
-//            case Sell =>
-//              Position(
-//                currency,
-//                txList.head.instant,
-//                transactionsToPositionEntries(txList)
-//              )
-//          }
         }
     }.toList
 
