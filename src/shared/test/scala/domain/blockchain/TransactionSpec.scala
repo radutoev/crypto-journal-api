@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn}
+import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn, Unknown}
 import infrastructure.covalent.dto.Transaction
 
 import zio.json._
@@ -67,6 +67,11 @@ object TransactionSpec extends DefaultRunnableSpec {
         assert(Right(expectedValue))(equalTo(transaction.value)) &&
         assert(Some("WBNB"))(equalTo(transaction.coin))
     },
+
+    test("Interpret transaction as Unknown") {
+      val transaction = getTransaction("/covalent/transactions/unknown_busd_direct_send.json")
+      assert(Unknown)(equalTo(transaction.transactionType))
+    }
   )
 
   private def getTransaction(file: String) = {

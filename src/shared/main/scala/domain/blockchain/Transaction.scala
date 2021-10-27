@@ -54,8 +54,9 @@ final case class Transaction(
       logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
 
     @inline
-    def isContribute(): Boolean =
-      logEvents.headOption.exists(ev => ev.decoded.isEmpty && ev.senderAddress == toAddress)
+    def isContribute(): Boolean = {
+      rawValue != 0d && logEvents.headOption.exists(ev => ev.decoded.isEmpty && ev.senderAddress == toAddress)
+    }
 
     @inline
     def isSale(): Boolean =
