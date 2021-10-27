@@ -1,30 +1,23 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.market.{ Ohlcv => CJOhlcv }
-import domain.model.{ MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData }
-import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
-import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
-import domain.position.{
-  JournalEntry => CJJournalEntry,
-  MarketPlay => CJMarketPlay,
-  Position => CJPosition,
-  PositionEntry => CJPositionEntry,
-  PositionJournalEntry => CJPositionJournalEntry,
-  TransferIn => CJTransferIn,
-  TransferOut => CJTransferOut
-}
-import domain.pricequote.{ PriceQuotes, PriceQuote => CJPriceQuote }
-import domain.wallet.{ Wallet => CJWallet }
+import domain.market.{Ohlcv => CJOhlcv}
+import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
+import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
+import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
+import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TransferIn => CJTransferIn, TransferOut => CJTransferOut}
+import domain.position.model.ScamStrategy
+import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
+import domain.wallet.{Wallet => CJWallet}
 import vo.filter.Count
-import vo.{ PeriodDistribution => CJPeriodDistribution }
+import vo.{PeriodDistribution => CJPeriodDistribution}
 import infrastructure.api.dto.MarketPlay._
 import util.ListOps
 
 import eu.timepit.refined.refineV
-import zio.json.{ DeriveJsonCodec, JsonCodec }
+import zio.json.{DeriveJsonCodec, JsonCodec}
 
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
 
 object dto {
   sealed trait MarketPlay
@@ -116,7 +109,7 @@ object dto {
         position.isWin().map(isWin => if (isWin) true else false),
         position.entries.map(entry => fromPositionEntry(entry)(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
         position.id.map(_.value),
-        position.journal.map(_.toDto).getOrElse(JournalEntry(None, List.empty, List.empty))
+        position.journal.map(_.toDto).getOrElse(JournalEntry(None, List.empty, List.empty, None))
       )
 
     private def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry =
@@ -371,7 +364,7 @@ object dto {
       )
   }
 
-  final case class JournalEntry(notes: Option[String], tags: List[String], mistakes: List[String])
+  final case class JournalEntry(notes: Option[String], tags: List[String], mistakes: List[String], scamStrategy: Option[String])
 
   object JournalEntry {
     implicit val journalEntryCodec: JsonCodec[JournalEntry] = DeriveJsonCodec.gen[JournalEntry]
@@ -381,14 +374,15 @@ object dto {
         CJJournalEntry(
           entry.notes,
           tags = entry.tags.map(refineV[TagPredicate](_)).rights,
-          mistakes = entry.mistakes.map(refineV[MistakePredicate](_)).rights
+          mistakes = entry.mistakes.map(refineV[MistakePredicate](_)).rights,
+          scamStrategy = entry.scamStrategy.flatMap(ScamStrategy(_).toOption)
         )
     }
   }
 
   implicit class DomainJournalEntryOps(entry: CJJournalEntry) {
     def toDto: JournalEntry =
-      JournalEntry(entry.notes, entry.tags.map(_.value), entry.mistakes.map(_.value))
+      JournalEntry(entry.notes, entry.tags.map(_.value), entry.mistakes.map(_.value), entry.scamStrategy.map(_.toString))
   }
 
   final case class PositionJournalEntry(positionId: String, entry: JournalEntry)
@@ -401,7 +395,7 @@ object dto {
       def toDomainModel: CJPositionJournalEntry =
         CJPositionJournalEntry(
           positionId = refineV[PlayIdPredicate].unsafeFrom(posJournalEntry.positionId),
-          entry = posJournalEntry.entry.toDomainModel
+          entry = posJournalEntry.entry.toDomainModel,
         )
     }
   }
