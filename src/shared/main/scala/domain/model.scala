@@ -42,6 +42,7 @@ object model {
 
   sealed trait TransactionType
   final case object Unknown     extends TransactionType //used as a fallback.
+  final case object Approval    extends TransactionType
   final case object Buy         extends TransactionType
   final case object Sell        extends TransactionType
   final case object TransferIn  extends TransactionType

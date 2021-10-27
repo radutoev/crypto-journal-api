@@ -1,19 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{
-  Buy,
-  Claim,
-  Contribute,
-  Currency,
-  Fee,
-  FungibleData,
-  Sell,
-  TransactionType,
-  TransferIn,
-  TransferOut,
-  Unknown
-}
+import domain.model.{Approval, Buy, Claim, Contribute, Currency, Fee, FungibleData, Sell, TransactionType, TransferIn, TransferOut, Unknown}
 
 import java.time.Instant
 
@@ -39,6 +27,10 @@ final case class Transaction(
 ) {
 
   lazy val transactionType: TransactionType = {
+    @inline
+    def isApproval(): Boolean =
+      logEvents.exists(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(fromAddress))
+
     @inline
     def isBuy(): Boolean =
       rawValue != 0d && logEvents.exists(ev =>
@@ -73,22 +65,27 @@ final case class Transaction(
     def isTransferIn(): Boolean =
       logEvents.isEmpty
 
-    if (isBuy()) {
-      Buy
+
+    if(isApproval()) {
+      Approval
     } else {
-      if (isClaim()) {
-        Claim
+      if (isBuy()) {
+        Buy
       } else {
-        if (isContribute()) {
-          Contribute
+        if (isClaim()) {
+          Claim
         } else {
-          if (isSale()) {
-            Sell
+          if (isContribute()) {
+            Contribute
           } else {
-            if (isTransferIn()) {
-              TransferIn
+            if (isSale()) {
+              Sell
             } else {
-              Unknown
+              if (isTransferIn()) {
+                TransferIn
+              } else {
+                Unknown
+              }
             }
           }
         }
@@ -102,6 +99,9 @@ final case class Transaction(
 
   //TODO Should I make it return Currency?
   lazy val coin: Option[String] = transactionType match {
+    case Approval =>
+      logEvents.find(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(fromAddress))
+        .flatMap(_.senderContractSymbol)
     case Buy =>
       logEvents
         .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
@@ -127,6 +127,12 @@ final case class Transaction(
 
   lazy val value: Either[String, FungibleData] = transactionType match {
     case Unknown => Left("Unknown transaction type")
+    case Approval =>
+      logEvents
+        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
+        .flatMap(_.senderContractSymbol)
+        .map(symbol => FungibleData(BigDecimal(0), Currency.unsafeFrom(symbol)))
+        .toRight("Unable to interpret Approval event")
     case Buy =>
       (for {
         decoded <- logEvents.last.decoded
@@ -204,6 +210,10 @@ final case class Transaction(
 
   private def toAddressMatchesTransactionToAddress(params: List[Param]): Boolean =
     params.exists(param => param.name == "to" && param.`type` == "address" && param.value == toAddress)
+
+  private def isApprovalEvent(logEvent: LogEvent): Boolean = {
+    logEvent.decoded.exists(_.name == "Approval")
+  }
 
   private def isTransferEvent(logEvent: LogEvent): Boolean = {
     logEvent.decoded.exists(_.name == "Transfer")

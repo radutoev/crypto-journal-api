@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn, Unknown}
+import domain.model.{Approval, Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn, Unknown}
 import infrastructure.covalent.dto.Transaction
 
 import zio.json._
@@ -14,6 +14,13 @@ object TransactionSpec extends DefaultRunnableSpec {
   private val WBNB = Currency.unsafeFrom("WBNB")
 
   override def spec = suite("TransactionSpec")(
+    test("Interpret transaction as Approval") {
+      val transaction = getTransaction("/covalent/transactions/approval.json")
+
+      assert(Approval)(equalTo(transaction.transactionType)) &&
+        assert(Some("EDOGE"))(equalTo(transaction.coin))
+    },
+
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
       val expectedValue = FungibleData(BigDecimal("0.257964600896151696"), WBNB)
@@ -66,11 +73,6 @@ object TransactionSpec extends DefaultRunnableSpec {
       assert(TransferIn)(equalTo(transaction.transactionType)) &&
         assert(Right(expectedValue))(equalTo(transaction.value)) &&
         assert(Some("WBNB"))(equalTo(transaction.coin))
-    },
-
-    test("Interpret transaction as Unknown") {
-      val transaction = getTransaction("/covalent/transactions/unknown_busd_direct_send.json")
-      assert(Unknown)(equalTo(transaction.transactionType))
     }
   )
 
