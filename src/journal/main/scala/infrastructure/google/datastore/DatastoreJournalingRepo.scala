@@ -19,8 +19,8 @@ import scala.jdk.CollectionConverters._
 final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: DatastoreConfig, logger: Logger[String])
     extends JournalingRepo {
 
-  override def getEntry(userId: UserId, positionId: PlayId): IO[MarketPlayError, JournalEntry] = {
-    val key = datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, positionId))
+  override def getEntry(userId: UserId, playId: PlayId): IO[MarketPlayError, JournalEntry] = {
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, playId))
     val query = Query
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.journal)
@@ -33,7 +33,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
         if (results.nonEmpty) {
           ZIO.fromEither(entityToJournalEntry(results.next()))
         } else {
-          ZIO.fail(JournalNotFound(userId, positionId))
+          ZIO.fail(JournalNotFound(userId, playId))
         }
       }
   }
@@ -50,8 +50,8 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       )
   }
 
-  override def saveEntry(userId: UserId, positionId: PlayId, entry: JournalEntry): IO[JournalSaveError, Unit] =
-    Task(datastore.put(journalEntryToEntity(userId, positionId, entry)))
+  override def saveEntry(userId: UserId, playId: PlayId, entry: JournalEntry): IO[JournalSaveError, Unit] =
+    Task(datastore.put(journalEntryToEntity(userId, playId, entry)))
       .tapError(throwable => logger.error(s"Unable to save journal entry - ${throwable.getMessage}"))
       .mapError(throwable => JournalSaveError(throwable))
       .unit
