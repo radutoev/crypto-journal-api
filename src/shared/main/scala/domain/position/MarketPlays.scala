@@ -2,19 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{
-  Buy,
-  Claim,
-  Contribute,
-  Currency,
-  FungibleData,
-  Sell,
-  TransactionHash,
-  TransactionType,
-  Unknown,
-  WalletAddress
-}
-import util.{ InstantOps, ListOps, MarketPlaysListOps }
+import domain.model.{Approval, Buy, Claim, Contribute, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress}
+import util.{InstantOps, ListOps, MarketPlaysListOps}
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -22,7 +11,7 @@ import eu.timepit.refined.collection.NonEmpty
 
 import java.time.Instant
 import scala.collection.mutable
-import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {
@@ -123,9 +112,17 @@ object MarketPlays {
 
         for (tx <- txList) {
           tx.transactionType match {
+            case Approval =>
+              if(lastTxType == Buy || lastTxType == Claim) {
+                acc.addOne(tx)
+              } else {
+                println(s"Approval before Buy on transaction ${tx.hash}")
+              }
             case Buy =>
               if (lastTxType == Buy) {
                 acc.addOne(tx)
+              } else if(lastTxType == Approval) {
+                println(s"Buy after Approval on transaction ${tx.hash}")
               } else if (lastTxType == Sell) {
                 grouped.addOne(acc.toList)
                 acc.clear()
@@ -134,7 +131,11 @@ object MarketPlays {
                 acc.addOne(tx)
               }
             case Sell =>
-              acc.addOne(tx)
+              if(lastTxType == Approval) {
+                acc.addOne(tx)
+              } else {
+                println(s"Sell without prior Approval detected for transaction ${tx.hash}")
+              }
             case Claim =>
               //this can be preceded by an optional set of contributions.
               if (lastTxType == Claim) {

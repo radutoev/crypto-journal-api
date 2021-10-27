@@ -68,28 +68,18 @@ final case class Transaction(
 
     if(isApproval()) {
       Approval
+    } else if (isBuy()){
+      Buy
+    } else if (isClaim()) {
+      Claim
+    } else if (isContribute()) {
+      Contribute
+    } else if (isSale()) {
+      Sell
+    } else if (isTransferIn()) {
+      TransferIn
     } else {
-      if (isBuy()) {
-        Buy
-      } else {
-        if (isClaim()) {
-          Claim
-        } else {
-          if (isContribute()) {
-            Contribute
-          } else {
-            if (isSale()) {
-              Sell
-            } else {
-              if (isTransferIn()) {
-                TransferIn
-              } else {
-                Unknown
-              }
-            }
-          }
-        }
-      }
+      Unknown
     }
   }
 

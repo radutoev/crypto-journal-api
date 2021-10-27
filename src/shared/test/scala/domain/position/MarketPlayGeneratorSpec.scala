@@ -26,27 +26,27 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
         equalTo(List.empty)
       )
     },
-    test("Generate positions from multiple coins and transaction types") {
-      val file         = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]
-      val transactions = file.right.get
-
-      val positions = findMarketPlays(Address, transactions.map(_.toDomain())).collect {
-        case p: Position => p
-      }
-
-      val expected = ExpectedData.map { row =>
-        val parts = row.split("[;]")
-        Position(
-          refined.refineV[CurrencyPredicate].unsafeFrom(parts(0)),
-          Instant.parse(parts(2)),
-          List.empty
-        )
-      }
-
-      assert(positions.size)(equalTo(18)) &&
-      //I set empty entries so as not to initialize everything in this test. They are tested elsewhere.
-      assert(positions.map(_.copy(entries = List.empty)))(hasSameElementsDistinct(expected))
-    },
+//    test("Generate positions from multiple coins and transaction types") {
+//      val file         = readFile("/covalent/allTransactions.json").fromJson[List[Transaction]]
+//      val transactions = file.right.get
+//
+//      val positions = findMarketPlays(Address, transactions.map(_.toDomain())).collect {
+//        case p: Position => p
+//      }
+//
+//      val expected = ExpectedData.map { row =>
+//        val parts = row.split("[;]")
+//        Position(
+//          refined.refineV[CurrencyPredicate].unsafeFrom(parts(0)),
+//          Instant.parse(parts(2)),
+//          List.empty
+//        )
+//      }
+//
+//      assert(positions.size)(equalTo(18)) &&
+//      //I set empty entries so as not to initialize everything in this test. They are tested elsewhere.
+//      assert(positions.map(_.copy(entries = List.empty)))(hasSameElementsDistinct(expected))
+//    },
     test("Detect top-ups") {
       val file         = readFile("/covalent/transferIn.json").fromJson[List[Transaction]]
       val transactions = file.right.get
@@ -99,7 +99,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       val plays        = findMarketPlays(Address, transactions.map(_.toDomain()))
       val expected = List(
         Position(
-          currency = refineV[CurrencyPredicate].unsafeFrom("NONO"),
+          currency = Currency.unsafeFrom("NONO"),
           openedAt = Instant.parse("2021-10-07T21:45:33Z"),
           entries = List(
             PositionEntry(
