@@ -18,7 +18,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
   private val Address = refineV[WalletAddressPredicate].unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41")
   private val BNB     = refineV[CurrencyPredicate].unsafeFrom("WBNB")
 
-  override def spec = suite("PositionGeneratorSpec")(
+  override def spec = suite("MarketPlaysGeneratorSpec")(
     test("No position if insufficient tranactions") {
       assert(
         findMarketPlays(Address, List(readFile("/covalent/accept.json").fromJson[Transaction].right.get.toDomain))

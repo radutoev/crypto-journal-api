@@ -2,8 +2,19 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{Buy, Claim, Contribute, Currency, FungibleData, Sell, TransactionHash, TransactionType, Unknown, WalletAddress}
-import util.{InstantOps, ListOps, MarketPlaysListOps}
+import domain.model.{
+  Buy,
+  Claim,
+  Contribute,
+  Currency,
+  FungibleData,
+  Sell,
+  TransactionHash,
+  TransactionType,
+  Unknown,
+  WalletAddress
+}
+import util.{ InstantOps, ListOps, MarketPlaysListOps }
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -11,12 +22,12 @@ import eu.timepit.refined.collection.NonEmpty
 
 import java.time.Instant
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
 
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {
-  lazy val positions: List[Position]     = plays.positions
-  lazy val transferIns: List[TransferIn] = plays.transferIns
+  lazy val positions: List[Position]       = plays.positions
+  lazy val transferIns: List[TransferIn]   = plays.transferIns
   lazy val transferOuts: List[TransferOut] = plays.transferOuts
 
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed())
@@ -57,8 +68,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
         transferIns :::
         other.transferIns :::
         transferOuts :::
-        other.transferOuts
-        ).sortBy(_.openedAt)(Ordering[Instant])
+        other.transferOuts).sortBy(_.openedAt)(Ordering[Instant])
     )
   }
 
@@ -87,27 +97,24 @@ object MarketPlays {
 
     val (txWithEvents, txWithoutEvents) = successes.partition(_.hasTransactionEvents)
 
-    val (transactionsWithCoinName, transactionsWithoutCoinName) = txWithEvents
-      .filter(tx => TransactionTypes.contains(tx.transactionType))
-      .partition(_.coin.isDefined)
+    val (txToProcess, contributions) = txWithEvents.partition(_.transactionType != Contribute)
 
     //Build possible positions by looking for contributions.
     //I am grouping them by address in chronological order.
-    //I can only have contributions in this list, because Claims have coin name data in the decoded events.
-    val contributionsByAddress = mutable.Map.from(transactionsWithoutCoinName
-      .filter(_.transactionType == Contribute) //I am filtering here to enforce my reasoning. If there are other transactions, then I need to revisit understanding.
-      .groupBy(_.toAddress)
-      .view
-      .mapValues(ListBuffer.from(_))
+    val contributionsByAddress = mutable.Map.from(
+      contributions
+        .groupBy(_.toAddress)
+        .view
+        .mapValues(ListBuffer.from(_))
     )
 
     //Group all transactions by coin symbol.
-    val transactionsByCoin = transactionsWithCoinName.groupBy(_.coin.get)
+    val transactionsByCoin = txToProcess.groupBy(_.coin)
 
     //Generate positions from transactions that have coin information.
     //This takes a chronological view of the buy/sell transactions and attempts to build either open or closed Positions.
     val positions = transactionsByCoin.flatMap {
-      case (rawCurrency, txList) =>
+      case (Some(rawCurrency), txList) =>
         val currency                                = refined.refineV[NonEmpty].unsafeFrom(rawCurrency)
         val grouped: ArrayBuffer[List[Transaction]] = ArrayBuffer.empty
 
@@ -130,21 +137,26 @@ object MarketPlays {
               acc.addOne(tx)
             case Claim =>
               //this can be preceded by an optional set of contributions.
-              if(lastTxType == Claim) {
+              if (lastTxType == Claim) {
                 acc.addOne(tx)
               } else {
                 val toAddress = tx.toAddress
-                val contributions = contributionsByAddress.getOrElse(toAddress, List.empty).filter(_.instant.isBefore(tx.instant))
+                val contributions =
+                  contributionsByAddress.getOrElse(toAddress, List.empty).filter(_.instant.isBefore(tx.instant))
                 acc.addAll(contributions :+ tx)
                 //remove contributions made before this claim.
-                if(contributions.nonEmpty) {
+                if (contributions.nonEmpty) {
                   contributionsByAddress(toAddress) --= contributions
-                  if(contributionsByAddress(toAddress) == Nil) {
+                  if (contributionsByAddress(toAddress) == Nil) {
                     contributionsByAddress -= toAddress
                   }
                 }
               }
             case Unknown => //do nothing
+              println(
+                tx.hash + ";" + tx.transactionType + ";" + tx.coin
+                  .getOrElse("") + ";" + tx.value.map(_.amount.toString()).getOrElse("")
+              )
           }
           lastTxType = tx.transactionType
         }
@@ -154,9 +166,17 @@ object MarketPlays {
         }
 
         //List of transactions is made of Sells, Buys, Claims or Contributions.
-        grouped.toList.map { txList =>
-          Position(currency, txList.head.instant, transactionsToPositionEntries(txList))
-        }
+        grouped.toList.map(txList => Position(currency, txList.head.instant, transactionsToPositionEntries(txList)))
+
+      case (None, txList) =>
+        println("No coin")
+        txList.foreach(tx =>
+          println(
+            tx.hash + ";" + tx.transactionType + ";" + tx.coin
+              .getOrElse("") + ";" + tx.value.map(_.amount.toString()).getOrElse("")
+          )
+        )
+        List.empty
     }.toList
 
     val transferIns = txWithoutEvents.filter(_.toAddress == wallet.value).map(transactionToTransferIn).rights
