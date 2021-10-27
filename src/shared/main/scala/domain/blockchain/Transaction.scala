@@ -99,19 +99,24 @@ final case class Transaction(
 
   lazy val hasTransactionEvents: Boolean = logEvents.nonEmpty
 
-  //check against fromAddress.
+  //TODO Should I make it return Currency?
   lazy val coin: Option[String] = transactionType match {
     case Buy =>
-      logEvents.reverse
-        .filter(event => event.decoded.isDefined && event.decoded.get.name == "Transfer")
-        .find(event => event.decoded.get.params.exists(param => param.name == "to" && param.value == fromAddress))
+      logEvents
+        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
         .flatMap(_.senderContractSymbol)
-    case Sell =>
-      logEvents.reverse.headOption.flatMap(_.senderContractSymbol)
     case Claim =>
       logEvents.filter(event => event.decoded.isDefined && event.decoded.get.name == "Transfer")
         .flatMap(_.senderContractSymbol)
         .headOption
+    case Contribute =>
+      Some("WBNB") //default to WBNB
+    case Sell =>
+      logEvents
+        .find(ev => isTransferEvent(ev) && readParamValue(ev, "from").contains(fromAddress))
+        .flatMap(_.senderContractSymbol)
+    case TransferIn =>
+      Some("WBNB") //default to WBNB
     case _ => None
   }
 
@@ -198,4 +203,12 @@ final case class Transaction(
 
   private def toAddressMatchesTransactionToAddress(params: List[Param]): Boolean =
     params.exists(param => param.name == "to" && param.`type` == "address" && param.value == toAddress)
+
+  private def isTransferEvent(logEvent: LogEvent): Boolean = {
+    logEvent.decoded.exists(_.name == "Transfer")
+  }
+
+  private def readParamValue(logEvent: LogEvent, paramName: String): Option[String] = {
+    logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
+  }
 }

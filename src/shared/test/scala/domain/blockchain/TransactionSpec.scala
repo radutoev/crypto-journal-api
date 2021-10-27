@@ -11,13 +11,16 @@ import zio.test._
 import scala.io.Source
 
 object TransactionSpec extends DefaultRunnableSpec {
+  private val WBNB = Currency.unsafeFrom("WBNB")
+
   override def spec = suite("TransactionSpec")(
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
-      val expectedValue = FungibleData(BigDecimal("0.257964600896151696"), Currency.unsafeFrom("WBNB"))
+      val expectedValue = FungibleData(BigDecimal("0.257964600896151696"), WBNB)
 
       assert(Buy)(equalTo(transaction.transactionType)) &&
-        assert(Right(expectedValue))(equalTo(transaction.value))
+        assert(Right(expectedValue))(equalTo(transaction.value)) &&
+        assert(Some("FOOFIGHT"))(equalTo(transaction.coin))
     },
 
     test("Interpret transaction as Claim") {
@@ -25,7 +28,8 @@ object TransactionSpec extends DefaultRunnableSpec {
       val expectedValue = FungibleData(BigDecimal("9335310526620.7320"), Currency.unsafeFrom("NONO"))
 
       assert(Claim)(equalTo(transaction.transactionType)) &&
-        assert(Right(expectedValue))(equalTo(transaction.value))
+        assert(Right(expectedValue))(equalTo(transaction.value)) &&
+        assert(Some("NONO"))(equalTo(transaction.coin))
     },
 
     test("Interpret transaction as Contribute") {
@@ -33,7 +37,8 @@ object TransactionSpec extends DefaultRunnableSpec {
       val expectedValue = FungibleData(BigDecimal("0.1023923391846748"), Currency.unsafeFrom("WBNB"))
 
       assert(Contribute)(equalTo(transaction.transactionType)) &&
-        assert(Right(expectedValue))(equalTo(transaction.value))
+        assert(Right(expectedValue))(equalTo(transaction.value)) &&
+        assert(Some("WBNB"))(equalTo(transaction.coin))
     },
 
     test("Interpret transaction as Sell based on Withdrawal event.") {
@@ -41,7 +46,8 @@ object TransactionSpec extends DefaultRunnableSpec {
       val expectedValue = FungibleData(BigDecimal("0.4175743142140909320"), Currency.unsafeFrom("WBNB"))
 
       assert(Sell)(equalTo(transaction.transactionType)) &&
-        assert(Right(expectedValue))(equalTo(transaction.value))
+        assert(Right(expectedValue))(equalTo(transaction.value)) &&
+        assert(Some("FOOFIGHT"))(equalTo(transaction.coin))
     },
 
     test("Interpret transaction as Sell") {
@@ -49,7 +55,8 @@ object TransactionSpec extends DefaultRunnableSpec {
       val expectedValue = FungibleData(BigDecimal("2.1870555175766987330"), Currency.unsafeFrom("WBNB"))
 
       assert(Sell)(equalTo(transaction.transactionType)) &&
-        assert(Right(expectedValue))(equalTo(transaction.value))
+        assert(Right(expectedValue))(equalTo(transaction.value)) &&
+        assert(Some("NONO"))(equalTo(transaction.coin))
     },
 
     test("Interpret transaction as TransferIn") {
@@ -57,7 +64,8 @@ object TransactionSpec extends DefaultRunnableSpec {
       val expectedValue = FungibleData(BigDecimal("0.001"), Currency.unsafeFrom("WBNB"))
 
       assert(TransferIn)(equalTo(transaction.transactionType)) &&
-        assert(Right(expectedValue))(equalTo(transaction.value))
+        assert(Right(expectedValue))(equalTo(transaction.value)) &&
+        assert(Some("WBNB"))(equalTo(transaction.coin))
     },
   )
 
