@@ -238,6 +238,14 @@ object dto {
         PeriodDistribution(portfolioKpi.periodReturn()),
         TagDistribution(portfolioKpi)
       )
+
+    def apply(portfolioKpi: CJPortfolioKpi): PortfolioStats =
+      new PortfolioStats(
+        distinctValues = KpiDistinctValues(portfolioKpi),
+        TradeSummary(portfolioKpi),
+        PeriodDistribution(portfolioKpi.periodReturn()),
+        TagDistribution(portfolioKpi)
+      )
   }
 
   final case class KpiDistinctValues(
@@ -301,6 +309,12 @@ object dto {
       new TradeSummary(
         wins = portfolio.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
         loses = portfolio.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
+      )
+
+    def apply(portfolio: CJPortfolioKpi): TradeSummary =
+      new TradeSummary(
+        wins = portfolio.coinWins().map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
+        loses = portfolio.coinLoses().map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
       )
   }
 

@@ -1,18 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.portfolio.error.{ PortfolioError, PortfolioKpiGenerationError }
-import domain.position.{ MarketPlayService, MarketPlays }
+import domain.portfolio.error.{InvalidPortfolioError, PortfolioError, PortfolioKpiGenerationError}
+import domain.position.{MarketPlayService, MarketPlays}
 import domain.position.error.MarketPlayError
 import domain.wallet.Wallet
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PlayFilter }
-import util.{ BeginningOfCrypto, InstantOps }
+import vo.filter.{KpiFilter, PlayFilter}
+import util.{BeginningOfCrypto, InstantOps}
 
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, UIO, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, UIO, URLayer}
 
 trait KpiService {
   def portfolioKpi(userWallet: Wallet)(kpiFilter: KpiFilter): IO[PortfolioError, PortfolioKpi]
@@ -26,7 +26,8 @@ final case class LiveKpiService(positionService: MarketPlayService, clock: Clock
       now                       <- clock.instant
       timeInterval              = kpiFilter.interval.getOrElse(TimeInterval(BeginningOfCrypto, now))
       timeIntervalForComparison = intervalForComparePositions(timeInterval)
-      filter                    <- UIO(PlayFilter(kpiFilter.count, timeInterval))
+      count                     = kpiFilter.count.getOrElse(30)
+      filter                    <- PlayFilter(count, timeInterval).toZIO.mapError(InvalidPortfolioError)
       positions                 <- positionService.getPlays(wallet, filter).mapError(portfolioErrorMapper)
       referencePositions <- if (timeInterval.start == BeginningOfCrypto) {
                              positionService

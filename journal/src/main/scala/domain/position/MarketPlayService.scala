@@ -57,10 +57,10 @@ final case class LiveMarketPlayService(
   journalingRepo: JournalingRepo,
   logger: Logger[String]
 ) extends MarketPlayService {
-  override def getPlays(userWallet: Wallet, positionFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
+  override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
     for {
       marketPlays <- positionRepo
-                      .getPlays(userWallet.address, positionFilter)
+                      .getPlays(userWallet.address, playFilter)
                       .flatMap(enrichPlays)
                       .orElseFail(MarketPlaysFetchError(userWallet.address))
       journalEntries <- journalingRepo.getEntries(

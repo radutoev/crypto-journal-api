@@ -266,7 +266,12 @@ object Routes {
                      .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi => Response.jsonString(PortfolioStats(portfolioKpi, kpiFilter.count).toJson)
+                       portfolioKpi =>
+                         Response.jsonString(
+                           kpiFilter.count
+                             .fold(PortfolioStats(portfolioKpi))(count => PortfolioStats(portfolioKpi, count))
+                             .toJson
+                         )
                      )
       } yield response
 
@@ -303,7 +308,12 @@ object Routes {
                      .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi => Response.jsonString(TradeSummary(portfolioKpi, kpiFilter.count).toJson)
+                       portfolioKpi =>
+                         Response.jsonString(
+                           kpiFilter.count
+                             .fold(TradeSummary(portfolioKpi))(count => TradeSummary(portfolioKpi, count))
+                             .toJson
+                         )
                      )
       } yield response
 
@@ -449,11 +459,11 @@ object Routes {
   implicit class KpiQParamsOps(url: URL) {
     def kpiFilter(): Validation[String, KpiFilter] =
       Validation.validateWith(
-        url.countFilter(),
+        Validation.succeed(url.countFilter().fold[Option[Count]](_ => None, Some(_))),
         Validation.succeed(url.intervalFilter().fold[Option[TimeInterval]](_ => None, Some(_)))
       ) {
-        case (count, maybeInterval) =>
-          KpiFilter(count, maybeInterval)
+        case (maybeCount, maybeInterval) =>
+          KpiFilter(maybeCount, maybeInterval)
       }
   }
 
@@ -476,8 +486,14 @@ object Routes {
   implicit class CountQParamOps(url: URL) extends QParamsOps {
     def countFilter(): Validation[String, Count] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
-
-      getInt("count", 30)(qParams).flatMap(Count.make)
+      if (qParams.contains("count")) {
+        Validation
+          .fromOption(qParams("count").toIntOption)
+          .flatMap(Count.make)
+          .mapError(_ => "Invalid count value")
+      } else {
+        Validation.fail("Count not provided")
+      }
     }
   }
 

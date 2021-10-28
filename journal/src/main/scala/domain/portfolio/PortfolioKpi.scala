@@ -174,9 +174,17 @@ final case class PortfolioKpi(
     wins.slice(0, Math.min(count, wins.size))
   }
 
+  def coinWins(): List[(Currency, FungibleData, Percentage)] = {
+    coinContributions.filter(_._2.amount > 0)
+  }
+
   def coinLoses(count: Count): List[(Currency, FungibleData, Percentage)] = {
     val loses = coinContributions.filter(_._2.amount < 0).reverse
     loses.slice(0, Math.min(count, loses.size))
+  }
+
+  def coinLoses(): List[(Currency, FungibleData, Percentage)] = {
+    coinContributions.filter(_._2.amount < 0).reverse
   }
 
   lazy val coinContributions: List[(Currency, FungibleData, Percentage)] = {

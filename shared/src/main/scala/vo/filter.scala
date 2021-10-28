@@ -15,5 +15,5 @@ object filter {
       Count.make(count).map(posCount => new PlayFilter(posCount, interval))
   }
 
-  final case class KpiFilter(count: Count, interval: Option[TimeInterval])
+  final case class KpiFilter(count: Option[Count], interval: Option[TimeInterval])
 }
