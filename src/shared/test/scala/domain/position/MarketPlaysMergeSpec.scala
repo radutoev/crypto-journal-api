@@ -1,12 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
+import Generators._
 import domain.model._
-import domain.position.Generators._
 
 import eu.timepit.refined.refineV
-import eu.timepit.refined.types.string.NonEmptyString
-import zio.random.Random
 import zio.test.Assertion._
 import zio.test._
 
@@ -94,36 +92,4 @@ object MarketPlaysMergeSpec extends DefaultRunnableSpec {
       }
     }
   )
-}
-
-object Generators {
-  val genPositionId: Gen[Random, NonEmptyString] =
-    Gen.stringBounded(2, 100)(Gen.alphaNumericChar).map(NonEmptyString.unsafeFrom)
-  val genCurrency: Gen[Random with Sized, Currency] = Gen.stringN(10)(Gen.anyChar).map(NonEmptyString.unsafeFrom)
-  val genEntryType: Gen[Random, TransactionType]    = Gen.boolean.map(x => if (x) Buy else Sell)
-  val genTxHash                                     = Gen.stringBounded(2, 100)(Gen.alphaNumericChar).map(refineV[TransactionHashPredicate].unsafeFrom(_))
-
-  val genFungibleData = for {
-    amount   <- Gen.anyDouble.map(BigDecimal(_))
-    currency <- genCurrency
-  } yield FungibleData(amount, currency)
-
-  val genPositionEntry = for {
-    txType    <- genEntryType
-    timestamp <- Gen.anyInstant
-    value     <- genFungibleData
-    fee       <- genFungibleData
-    txHash    <- genTxHash
-  } yield PositionEntry(txType, value, fee, timestamp, txHash, None)
-
-  val genClosedPositionEntry = genPositionEntry.map(entry => entry.copy(`type` = Sell))
-
-  val genOpenPositionEntry = genPositionEntry.map(entry => entry.copy(`type` = Buy))
-
-  val genPosition = for {
-    positionId <- genPositionId
-    currency   <- genCurrency
-    openedAt   <- Gen.anyInstant
-    entries    <- Gen.listOfN(2)(genPositionEntry)
-  } yield Position(currency, openedAt, entries, id = Some(positionId))
 }
