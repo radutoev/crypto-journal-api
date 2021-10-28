@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.position.model.ExcludeFromStats
+import domain.position.model.HideFromStats
 import domain.position.{JournalEntry, MarketPlays}
 
 import zio.test.Assertion._
@@ -30,7 +30,7 @@ object NetReturnSpec extends DefaultRunnableSpec {
         notes = None,
         tags = List.empty,
         mistakes = List.empty,
-        scamStrategy = Some(ExcludeFromStats)
+        scamStrategy = Some(HideFromStats)
       )
     )
 }

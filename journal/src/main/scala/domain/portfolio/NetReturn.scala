@@ -6,11 +6,11 @@ import domain.model.FungibleData.{Bigger, Equal, Lower}
 import domain.portfolio.model.Performance.NoChangeInPerformance
 import domain.portfolio.model._
 import domain.position.MarketPlays
-import domain.position.model.ExcludeFromStats
+import domain.position.model.HideFromStats
 
 final case class NetReturn(marketPlays: MarketPlays) {
   lazy val value: FungibleData = marketPlays.closedPositions
-    .filterNot(_.journal.exists(_.scamStrategy.exists(_ == ExcludeFromStats)))
+    .filterNot(_.journal.exists(_.scamStrategy.exists(_ == HideFromStats)))
     .map(_.fiatReturn())
     .sumFungibleData()
 
