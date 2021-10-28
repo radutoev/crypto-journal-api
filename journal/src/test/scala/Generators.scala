@@ -38,4 +38,12 @@ object Generators {
     openedAt   <- Gen.anyInstant
     entries    <- Gen.listOfN(2)(genPositionEntry)
   } yield Position(currency, openedAt, entries, id = Some(positionId))
+
+  val genClosedPosition = for {
+    positionId <- genPositionId
+    currency   <- genCurrency
+    openedAt   <- Gen.anyInstant
+    entries    <- Gen.listOfN(2)(genPositionEntry)
+    closed     <- genClosedPositionEntry
+  } yield Position(currency, openedAt, entries :+ closed, id = Some(positionId))
 }

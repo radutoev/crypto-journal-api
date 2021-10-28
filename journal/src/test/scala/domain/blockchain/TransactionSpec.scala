@@ -1,17 +1,17 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import io.softwarechain.cryptojournal.domain.model.{ Buy, CurrencyPredicate, FungibleData, Sell }
-
+import io.softwarechain.cryptojournal.domain.model.{Buy, CurrencyPredicate, FungibleData, Sell}
 import io.softwarechain.cryptojournal.infrastructure.covalent.dto._
-
 import eu.timepit.refined.refineV
 import zio.json._
 import zio.test.Assertion._
+import zio.test.TestAspect.ignore
 import zio.test._
 
 import scala.io.Source
 
+//TODO Move this into shared project.
 object TransactionSpec extends DefaultRunnableSpec {
   def spec = suite("TransactionSpec")(
     test("BUY Transaction instantiation from json") {
@@ -29,7 +29,7 @@ object TransactionSpec extends DefaultRunnableSpec {
       assert(transaction.value)(
         equalTo(Right(FungibleData(BigDecimal(0.15), refineV[CurrencyPredicate].unsafeFrom("WBNB"))))
       )
-    },
+    } @@ ignore ,
     test("SELL Transaction instantiation from json") {
       val source        = Source.fromURL(getClass.getResource("/covalent/sell.json"))
       val rawJsonString = source.mkString
@@ -45,6 +45,6 @@ object TransactionSpec extends DefaultRunnableSpec {
       assert(transaction.value)(
         equalTo(Right(FungibleData(BigDecimal("0.176295631347800986"), refineV[CurrencyPredicate].unsafeFrom("WBNB"))))
       )
-    }
+    } @@ ignore
   )
 }

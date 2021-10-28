@@ -46,18 +46,12 @@ lazy val packageSettings = Nil ++
     dockerExposedPorts := Seq(8080)
   )
 
+lazy val cryptoJournal = project.in(file(".")).disablePlugins(AssemblyPlugin).aggregate(shared, journal, sync)
+
 lazy val shared = project
-  .in(file("src/shared"))
   .settings(
     commonSettings ++
-      Seq(
-        name := "shared",
-        Compile / javaSource := baseDirectory.value / "main" / "java",
-        Compile / scalaSource := baseDirectory.value / "main" / "scala",
-        Compile / resourceDirectory := baseDirectory.value / "main" / "resources",
-        Test / scalaSource := baseDirectory.value / "test" / "scala",
-        Test / resourceDirectory := baseDirectory.value / "test" / "resources"
-      ),
+      Seq(name := "shared"),
     libraryDependencies ++= Seq(
       "com.google.cloud"              % "google-cloud-datastore"  % datastoreVersion,
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
@@ -73,44 +67,9 @@ lazy val shared = project
     )
   )
 
-lazy val sync = project
-  .in(file("src/sync"))
-  .settings(
-    commonSettings ++ packageSettings ++
-      Seq(
-        name := "sync",
-        Compile / javaSource := baseDirectory.value / "main/java",
-        Compile / scalaSource := baseDirectory.value / "main/scala",
-        Compile / resourceDirectory := baseDirectory.value / "main/resources",
-        Test / scalaSource := baseDirectory.value / "test" / "scala",
-        Test / resourceDirectory := baseDirectory.value / "test" / "resources"
-      ),
-    libraryDependencies ++= Seq(
-      "ch.qos.logback" % "logback-classic"              % logbackVersion,
-      "com.spotify"    % "futures-extra"                % spotifyFuturesVersion,
-      "dev.zio"        %% "zio-config-magnolia"         % zioConfigVersion,
-      "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
-      "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
-      "dev.zio"        %% "zio-interop-reactivestreams" % zioInteropVersion,
-      "org.web3j"      % "core"                         % web3jVersion
-    )
-  )
-  .dependsOn(shared)
-  .enablePlugins(JavaAppPackaging, DockerPlugin)
-
 lazy val journal = project
-  .in(file("src/journal"))
   .settings(
-    commonSettings ++ packageSettings ++
-      Seq(
-        name := "journal",
-        Compile / javaSource := baseDirectory.value / "main" / "java",
-        Compile / scalaSource := baseDirectory.value / "main" / "scala",
-        Compile / resourceDirectory := baseDirectory.value / "main" / "resources",
-        Test / scalaSource := baseDirectory.value / "test" / "scala",
-        Test / sourceDirectory := baseDirectory.value / "test" / "scala",
-        Test / resourceDirectory := baseDirectory.value / "test" / "resources"
-      ),
+    commonSettings ++ packageSettings ++ Seq(name := "journal"),
     libraryDependencies ++= Seq(
       "com.auth0"            % "jwks-rsa"             % auth0Version,
       "com.github.jwt-scala" %% "jwt-core"            % jwtVersion,
@@ -119,9 +78,27 @@ lazy val journal = project
       "dev.zio"              %% "zio-config-magnolia" % zioConfigVersion,
       "dev.zio"              %% "zio-config-refined"  % zioConfigVersion,
       "dev.zio"              %% "zio-config-typesafe" % zioConfigVersion,
+      "dev.zio"              %% "zio-test"            % zioVersion % Test,
+      "dev.zio"              %% "zio-test-sbt"        % zioVersion % Test,
       "io.d11"               %% "zhttp"               % zioHttpVersion,
       "ch.qos.logback"       % "logback-classic"      % logbackVersion,
-      "org.reactivestreams"  % "reactive-streams"     % reactiveVersion
+      "org.reactivestreams"  % "reactive-streams"     % reactiveVersion,
+    )
+  )
+  .dependsOn(shared)
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
+
+lazy val sync = project
+  .settings(
+    commonSettings ++ packageSettings ++ Seq(name := "sync"),
+    libraryDependencies ++= Seq(
+      "ch.qos.logback" % "logback-classic"              % logbackVersion,
+      "com.spotify"    % "futures-extra"                % spotifyFuturesVersion,
+      "dev.zio"        %% "zio-config-magnolia"         % zioConfigVersion,
+      "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
+      "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
+      "dev.zio"        %% "zio-interop-reactivestreams" % zioInteropVersion,
+      "org.web3j"      % "core"                         % web3jVersion
     )
   )
   .dependsOn(shared)

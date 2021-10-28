@@ -1,9 +1,10 @@
-package io.softwarechain.cryptojournal.domain
+package io.softwarechain.cryptojournal
+package domain
 
-import io.softwarechain.cryptojournal.domain.model.WalletAddressPredicate
+import domain.model.WalletAddressPredicate
 
 import eu.timepit.refined._
-import zio.test.Assertion.{ isLeft, isRight }
+import zio.test.Assertion.{isLeft, isRight}
 import zio.test._
 
 object ModelSpec extends DefaultRunnableSpec {
