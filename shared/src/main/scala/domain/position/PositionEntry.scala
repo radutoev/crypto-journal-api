@@ -17,12 +17,17 @@ sealed trait PositionEntry {
 
 object PositionEntry {
   def fromTransaction(transaction: Transaction): Either[String, PositionEntry] = {
-    if(transaction.isBuy()) {
+    if(transaction.isApproval()) {
+      txToApproval(transaction)
+    } else if(transaction.isBuy()) {
       txToBuy(transaction)
     } else {
       Left("Unable to interpret transaction")
     }
   }
+
+  private def txToApproval(transaction: Transaction): Either[String, Approval] =
+    Right(Approval(txFee(transaction), transaction.hash, transaction.instant))
 
   private def txToBuy(transaction: Transaction): Either[String, Buy] =
     for {

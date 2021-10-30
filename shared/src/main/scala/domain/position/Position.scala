@@ -180,6 +180,7 @@ final case class Position(
     priceQuotes.map { quotes =>
       entries.map {
         case AirDrop(receivedFrom, fee, received, hash, timestamp) => None
+        case _: Approval => None
         case _ => Some(FungibleData.zero(USD))
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
