@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Approval, Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn, Unknown}
+import domain.model.{AirDrop, Approval, Buy, Claim, Contribute, Currency, FungibleData, Sell, TransferIn, Unknown}
 import infrastructure.covalent.dto.Transaction
 
 import zio.json._
@@ -14,6 +14,11 @@ object TransactionSpec extends DefaultRunnableSpec {
   private val WBNB = Currency.unsafeFrom("WBNB")
 
   override def spec = suite("TransactionSpec")(
+    test("Interpret transaction as AirDrop") {
+      val transaction = getTransaction("/covalent/transactions/airDrop.json")
+      assert(AirDrop)(equalTo(transaction.transactionType))
+    },
+
     test("Interpret transaction as Approval") {
       val transaction = getTransaction("/covalent/transactions/approval.json")
 

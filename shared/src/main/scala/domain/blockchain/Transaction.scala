@@ -1,7 +1,21 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{Approval, Buy, Claim, Contribute, Currency, Fee, FungibleData, Sell, TransactionType, TransferIn, TransferOut, Unknown}
+import domain.model.{
+  AirDrop,
+  Approval,
+  Buy,
+  Claim,
+  Contribute,
+  Currency,
+  Fee,
+  FungibleData,
+  Sell,
+  TransactionType,
+  TransferIn,
+  TransferOut,
+  Unknown
+}
 
 import java.time.Instant
 
@@ -28,6 +42,24 @@ final case class Transaction(
 
   lazy val transactionType: TransactionType = {
     @inline
+    def isAirDrop(): Boolean = {
+      if(logEvents.nonEmpty) {
+        val eventsInChronologicalOrder = logEvents.reverse
+        (for {
+          firstTransferValue    <- readParamValue(eventsInChronologicalOrder.head, "value").map(BigDecimal(_))
+          valueForAllTransfers = eventsInChronologicalOrder.tail
+            .filter(isTransferEvent)
+            .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
+            .collect {
+              case Some(value) => value
+            }.sum
+        } yield rawValue == 0d && valueForAllTransfers == firstTransferValue).getOrElse(false)
+      } else {
+        false
+      }
+    }
+
+    @inline
     def isApproval(): Boolean =
       logEvents.exists(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(fromAddress))
 
@@ -46,9 +78,8 @@ final case class Transaction(
       logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
 
     @inline
-    def isContribute(): Boolean = {
+    def isContribute(): Boolean =
       rawValue != 0d && logEvents.headOption.exists(ev => ev.decoded.isEmpty && ev.senderAddress == toAddress)
-    }
 
     @inline
     def isSale(): Boolean =
@@ -65,10 +96,11 @@ final case class Transaction(
     def isTransferIn(): Boolean =
       logEvents.isEmpty
 
-
-    if(isApproval()) {
+    if (isAirDrop()) {
+      AirDrop
+    } else if (isApproval()) {
       Approval
-    } else if (isBuy()){
+    } else if (isBuy()) {
       Buy
     } else if (isClaim()) {
       Claim
@@ -90,14 +122,16 @@ final case class Transaction(
   //TODO Should I make it return Currency?
   lazy val coin: Option[String] = transactionType match {
     case Approval =>
-      logEvents.find(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(fromAddress))
+      logEvents
+        .find(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(fromAddress))
         .flatMap(_.senderContractSymbol)
     case Buy =>
       logEvents
         .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
         .flatMap(_.senderContractSymbol)
     case Claim =>
-      logEvents.filter(event => event.decoded.isDefined && event.decoded.get.name == "Transfer")
+      logEvents
+        .filter(event => event.decoded.isDefined && event.decoded.get.name == "Transfer")
         .flatMap(_.senderContractSymbol)
         .headOption
     case Contribute =>
@@ -201,15 +235,12 @@ final case class Transaction(
   private def toAddressMatchesTransactionToAddress(params: List[Param]): Boolean =
     params.exists(param => param.name == "to" && param.`type` == "address" && param.value == toAddress)
 
-  private def isApprovalEvent(logEvent: LogEvent): Boolean = {
+  private def isApprovalEvent(logEvent: LogEvent): Boolean =
     logEvent.decoded.exists(_.name == "Approval")
-  }
 
-  private def isTransferEvent(logEvent: LogEvent): Boolean = {
+  private def isTransferEvent(logEvent: LogEvent): Boolean =
     logEvent.decoded.exists(_.name == "Transfer")
-  }
 
-  private def readParamValue(logEvent: LogEvent, paramName: String): Option[String] = {
+  private def readParamValue(logEvent: LogEvent, paramName: String): Option[String] =
     logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
-  }
 }
