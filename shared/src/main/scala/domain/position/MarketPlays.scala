@@ -79,6 +79,7 @@ object MarketPlays {
   val TransactionTypes = Vector(Buy, Contribute, Claim, Sell)
 
   //TODO I should return MarketPlays here.
+  //TODO Refactor and test this.
   def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): List[MarketPlay] = {
     val successes = transactions
       .sortBy(_.instant)(Ordering[Instant])

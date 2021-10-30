@@ -21,7 +21,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
   override def spec = suite("MarketPlaysGeneratorSpec")(
     test("No position if insufficient tranactions") {
       assert(
-        findMarketPlays(Address, List(readFile("/covalent/accept.json").fromJson[Transaction].right.get.toDomain))
+        findMarketPlays(Address, List(readFile("/covalent/approve.json").fromJson[Transaction].right.get.toDomain))
       )(
         equalTo(List.empty)
       )
