@@ -48,6 +48,18 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         timestamp = Instant.parse("2021-10-18T12:27:24Z")
       )
       assert(buy)(isRight(equalTo(expected)))
+    },
+    test("Interpret transaction as Claim") {
+      val transaction = getTransaction("/covalent/transactions/claim.json")
+      val claim       = PositionEntry.fromTransaction(transaction, Address)
+      val expected = Claim(
+        fee = FungibleData(BigDecimal("0.0028749400000000003"), WBNB),
+        received = FungibleData(BigDecimal("9335310526620.732"), Currency.unsafeFrom("NONO")),
+        receivedFrom = WalletAddress.unsafeFrom("0x42f8c2113f833db5886eea67a77ab32d83f4339f"),
+        hash = TransactionHash.unsafeApply("0x1f88b75a26cab0bba6d1c8468559ad392af82c37e45b27ce07ca98d36b59d0c5"),
+        timestamp = Instant.parse("2021-10-08T09:46:25Z")
+      )
+      assert(claim)(isRight(equalTo(expected)))
     }
   )
 

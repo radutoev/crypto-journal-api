@@ -1,8 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{LogEvent, Transaction}
-import domain.model.{Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
+import domain.blockchain.{ LogEvent, Transaction }
+import domain.model.{ Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate }
 import util.ListOptionOps
 
 import eu.timepit.refined.refineV
@@ -24,24 +24,26 @@ object PositionEntry {
       txToApproval(transaction)
     } else if (transaction.isBuy()) {
       txToBuy(transaction)
+    } else if (transaction.isClaim()) {
+      txToClaim(transaction, walletAddress)
     } else {
       Left("Unable to interpret transaction")
     }
 
   private def txToAirDrop(transaction: Transaction, walletAddress: WalletAddress): Either[String, AirDrop] = {
     lazy val amountOfCoins = transaction
-      .transferEventsForWallet(walletAddress)
+      .transferEventsToWallet(walletAddress)
       .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
       .values
       .sum
 
     for {
-      first      <- transaction.firstTransferEvent()
-      currency   <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
-      decimals   <- first.senderContractDecimals.toRight("Did not find contract decimals")
+      first       <- transaction.firstTransferEvent()
+      currency    <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
+      decimals    <- first.senderContractDecimals.toRight("Did not find contract decimals")
       finalAmount = amountOfCoins * Math.pow(10, -decimals)
-      rawAddress <- readParamValue(first, "from").toRight("Did not find sender address")
-      sender     <- refineV[WalletAddressPredicate](rawAddress)
+      rawAddress  <- readParamValue(first, "from").toRight("Did not find sender address")
+      sender      <- refineV[WalletAddressPredicate](rawAddress)
     } yield AirDrop(
       sender,
       txFee(transaction),
@@ -67,6 +69,29 @@ object PositionEntry {
       transferEvent           <- transaction.lastTransferEventToWallet()
       (coinAddress, received) <- dataFromTransferEvent(transferEvent)
     } yield Buy(fee, spent, received, coinAddress, transaction.hash, transaction.instant)
+
+  private def txToClaim(transaction: Transaction, address: WalletAddress): Either[String, Claim] = {
+    lazy val amountOfCoins = transaction
+      .transferEventsToWallet(address)
+      .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
+      .values
+      .sum
+
+    for {
+      first       <- transaction.firstTransferEvent()
+      currency    <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
+      decimals    <- first.senderContractDecimals.toRight("Did not find contract decimals")
+      finalAmount = amountOfCoins * Math.pow(10, -decimals)
+      rawAddress  <- readParamValue(first, "from").toRight("Did not find sender address")
+      sender      <- refineV[WalletAddressPredicate](rawAddress)
+    } yield Claim(
+      txFee(transaction),
+      FungibleData(finalAmount, currency),
+      sender,
+      transaction.hash,
+      transaction.instant
+    )
+  }
 
   private def dataFromTransferEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
     for {
@@ -107,7 +132,7 @@ object PositionEntry {
         .findLast(ev => isTransferEvent(ev))
         .toRight("Unable to interpret Transfer event")
 
-    def transferEventsForWallet(address: WalletAddress): List[LogEvent] =
+    def transferEventsToWallet(address: WalletAddress): List[LogEvent] =
       transaction.logEvents
         .filter(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(address.value))
 

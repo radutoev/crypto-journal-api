@@ -2,11 +2,11 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.pricequote.{PriceQuote, PriceQuotes}
+import domain.pricequote.{ PriceQuote, PriceQuotes }
 import util.ListOptionOps
 import vo.TimeInterval
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 final case class Position(
   currency: Currency,
@@ -161,7 +161,7 @@ final case class Position(
         case _: Approval => Some(FungibleData(0, WBNB))
         case Buy(_, spent, _, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
-        case _: Claim => Some(FungibleData(0, WBNB))
+        case _: Claim => None
         case Contribute(spent, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
 
@@ -177,6 +177,8 @@ final case class Position(
       entries.map {
         case _: AirDrop  => None
         case _: Approval => None
+        case _: Buy      => None
+        case _: Claim    => None
         //a position cannot have TransferIns nor TransferOuts
         case _: TransferIn  => None
         case _: TransferOut => None
