@@ -3,10 +3,9 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.PositionEntryIdPredicate
 import domain.position.error._
 import domain.position.{ MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferInPlay, TransferOutPlay }
-import util.{ tryOrLeft, InstantOps, ListOps }
+import util.{ tryOrLeft, InstantOps, ListEitherOps }
 import vo.filter.PlayFilter
 import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
@@ -282,30 +281,31 @@ final case class DatastoreMarketPlayRepo(
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {
       val id = UUID.randomUUID().toString
-      val entries = position.entries.map { entry =>
-        EntityValue.of(
-          Entity
-            .newBuilder(
-              datastore
-                .newKeyFactory()
-                .addAncestor(PathElement.of(kind, id))
-                .setKind("PositionEntry")
-                .newKey(UUID.randomUUID().toString)
-            )
-            .set("type", StringValue.of(entry.`type`.toString))
-            .set("value", DoubleValue.of(entry.value.amount.doubleValue))
-            .set("valueCurrency", StringValue.of(entry.value.currency.value))
-            .set("fee", DoubleValue.of(entry.fee.amount.doubleValue))
-            .set("feeCurrency", StringValue.of(entry.fee.currency.value))
-            .set(
-              "timestamp",
-              TimestampValue
-                .of(Timestamp.ofTimeSecondsAndNanos(entry.timestamp.getEpochSecond, entry.timestamp.getNano))
-            )
-            .set("hash", entry.txHash.value)
-            .build()
-        )
-      }
+      val entries = List.empty //TODO Implement this.
+//        position.entries.map { entry =>
+//        EntityValue.of(
+//          Entity
+//            .newBuilder(
+//              datastore
+//                .newKeyFactory()
+//                .addAncestor(PathElement.of(kind, id))
+//                .setKind("PositionEntry")
+//                .newKey(UUID.randomUUID().toString)
+//            )
+//            .set("type", StringValue.of(entry.`type`.toString))
+//            .set("value", DoubleValue.of(entry.value.amount.doubleValue))
+//            .set("valueCurrency", StringValue.of(entry.value.currency.value))
+//            .set("fee", DoubleValue.of(entry.fee.amount.doubleValue))
+//            .set("feeCurrency", StringValue.of(entry.fee.currency.value))
+//            .set(
+//              "timestamp",
+//              TimestampValue
+//                .of(Timestamp.ofTimeSecondsAndNanos(entry.timestamp.getEpochSecond, entry.timestamp.getNano))
+//            )
+//            .set("hash", entry.txHash.value)
+//            .build()
+//        )
+//      }
 
       var builder = Entity
         .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(id))
@@ -406,43 +406,45 @@ final case class DatastoreMarketPlayRepo(
   }
 
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {
-    val entity = e.get()
-    for {
-      id <- tryOrLeft(entity.getKey().asInstanceOf[Key].getName, InvalidRepresentation("Entry has no key name"))
-             .flatMap(rawIdStr =>
-               refined
-                 .refineV[PositionEntryIdPredicate](rawIdStr)
-                 .left
-                 .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
-             )
-      entryType <- tryOrLeft(
-                    TransactionType(entity.getString("type")),
-                    InvalidRepresentation("Invalid type representation")
-                  )
-      value <- tryOrLeft(entity.getDouble("value"), InvalidRepresentation("Invalid value representation"))
-      currency <- tryOrLeft(
-                   entity.getString("valueCurrency"),
-                   InvalidRepresentation("Invalid value currency representation")
-                 ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
-      feeValue <- tryOrLeft(entity.getDouble("fee"), InvalidRepresentation("Invalid fee representation"))
-      feeCurrency <- tryOrLeft(
-                      entity.getString("feeCurrency"),
-                      InvalidRepresentation("Invalid fee currency representation")
-                    ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
-      timestamp <- tryOrLeft(
-                    Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
-                    InvalidRepresentation("Invalid timestamp representation")
-                  )
-      hash <- tryOrLeft(entity.getString("hash"), InvalidRepresentation("Invalid hash representation"))
-               .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
-    } yield PositionEntry(
-      entryType,
-      FungibleData(value, currency),
-      FungibleData(feeValue, feeCurrency),
-      timestamp,
-      hash,
-      id = Some(id)
-    )
+    //TODO Implement this.
+    Left(InvalidRepresentation("Not implemented"))
+//    val entity = e.get()
+//    for {
+//      id <- tryOrLeft(entity.getKey().asInstanceOf[Key].getName, InvalidRepresentation("Entry has no key name"))
+//             .flatMap(rawIdStr =>
+//               refined
+//                 .refineV[PositionEntryIdPredicate](rawIdStr)
+//                 .left
+//                 .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
+//             )
+//      entryType <- tryOrLeft(
+//                    TransactionType(entity.getString("type")),
+//                    InvalidRepresentation("Invalid type representation")
+//                  )
+//      value <- tryOrLeft(entity.getDouble("value"), InvalidRepresentation("Invalid value representation"))
+//      currency <- tryOrLeft(
+//                   entity.getString("valueCurrency"),
+//                   InvalidRepresentation("Invalid value currency representation")
+//                 ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
+//      feeValue <- tryOrLeft(entity.getDouble("fee"), InvalidRepresentation("Invalid fee representation"))
+//      feeCurrency <- tryOrLeft(
+//                      entity.getString("feeCurrency"),
+//                      InvalidRepresentation("Invalid fee currency representation")
+//                    ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
+//      timestamp <- tryOrLeft(
+//                    Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
+//                    InvalidRepresentation("Invalid timestamp representation")
+//                  )
+//      hash <- tryOrLeft(entity.getString("hash"), InvalidRepresentation("Invalid hash representation"))
+//               .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
+//    } yield PositionEntry(
+//      entryType,
+//      FungibleData(value, currency),
+//      FungibleData(feeValue, feeCurrency),
+//      timestamp,
+//      hash,
+//      id = Some(id)
+//    )
   }
 
   private def entityToTransferIn(entity: Entity): Either[InvalidRepresentation, TransferInPlay] =

@@ -12,7 +12,7 @@ import domain.wallet.{Wallet => CJWallet}
 import vo.filter.Count
 import vo.{PeriodDistribution => CJPeriodDistribution}
 import infrastructure.api.dto.MarketPlay._
-import util.ListOps
+import util.ListEitherOps
 
 import eu.timepit.refined.refineV
 import zio.json.{DeriveJsonCodec, JsonCodec}
@@ -96,11 +96,11 @@ object dto {
         position.state.toString,
         position.openedAt,
         position.closedAt(),
-        position.totalCost().asJson,
-        position.totalFees().asJson,
-        position.fiatReturn().asJson,
-        position.totalCoins().asJson,
-        position.orderSize().asJson,
+        position.totalCost.asJson,
+        position.totalFees.asJson,
+        position.fiatReturn.asJson,
+        position.totalCoins.asJson,
+        position.orderSize.asJson,
         position.averageOrderSize().asJson,
         position.entryPrice().asJson,
         position.exitPrice().asJson,
@@ -112,16 +112,17 @@ object dto {
         position.journal.map(_.toDto).getOrElse(JournalEntry(None, List.empty, List.empty, None))
       )
 
-    private def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry =
-      PositionEntry(
-        entry.`type`.toString,
-        entry.value.asJson,
-        entry.fiatValue.map(_.asJson),
-        entry.fee.asJson,
-        entry.fiatFee.map(_.asJson),
-        entry.timestamp,
-        entry.id.map(_.value)
-      )
+    //TODO Implement this
+    private def fromPositionEntry(entry: CJPositionEntry)(implicit priceQuotes: PriceQuotes): PositionEntry = ???
+//      PositionEntry(
+//        entry.`type`.toString,
+//        entry.value.asJson,
+//        entry.fiatValue.map(_.asJson),
+//        entry.fee.asJson,
+//        entry.fiatFee.map(_.asJson),
+//        entry.timestamp,
+//        entry.id.map(_.value)
+//      )
 
     private def fromTransferIn(t: CJTransferIn): TransferIn =
       TransferIn(

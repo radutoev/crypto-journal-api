@@ -166,6 +166,9 @@ object model {
   type PlayIdPredicate = NonEmpty
   type PlayId          = String Refined PlayIdPredicate
 
+  val USD = Currency.unsafeFrom("USD")
+  val WBNB = Currency.unsafeFrom("WBNB")
+
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData =
       list.foldLeft(FungibleData(BigDecimal(0), refineV[NonEmpty]("USD").right.get)) { (acc, value) =>

@@ -7,7 +7,7 @@ import domain.position.error._
 import domain.position.model.ScamStrategy
 import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
 import infrastructure.google.datastore.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
-import util.{ListOps, tryOrLeft}
+import util.{ListEitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._

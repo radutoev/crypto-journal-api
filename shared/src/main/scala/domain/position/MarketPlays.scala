@@ -3,7 +3,7 @@ package domain.position
 
 import domain.blockchain.Transaction
 import domain.model.{Currency, FungibleData,TransactionHash, TransactionType, Unknown, WalletAddress}
-import util.{InstantOps, ListOps, MarketPlaysListOps}
+import util.{InstantOps, ListEitherOps, MarketPlaysListOps}
 import vo.TimeInterval
 
 import eu.timepit.refined

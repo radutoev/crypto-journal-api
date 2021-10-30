@@ -1,24 +1,22 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ LogEvent, Transaction }
-import domain.model.{ Currency, Fee, FungibleData, TransactionHash, WalletAddress, WalletAddressPredicate }
+import domain.blockchain.{LogEvent, Transaction}
+import domain.model.{Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
 
 import eu.timepit.refined.refineV
 
 import java.time.Instant
 import scala.util.Try
 
-sealed trait NewPositionEntry {
+sealed trait PositionEntry {
   val hash: TransactionHash
   val fee: Fee
   val timestamp: Instant
 }
 
-object NewPositionEntry {
-  private val WBNB = Currency.unsafeFrom("WBNB")
-
-  def fromTransaction(transaction: Transaction): Either[String, NewPositionEntry] =
+object PositionEntry {
+  def fromTransaction(transaction: Transaction): Either[String, PositionEntry] =
     txToBuy(transaction)
 
   private def txToBuy(transaction: Transaction): Either[String, Buy] =
@@ -83,9 +81,9 @@ final case class AirDrop(
   received: FungibleData,
   hash: TransactionHash,
   timestamp: Instant
-) extends NewPositionEntry
+) extends PositionEntry
 
-final case class Approval(fee: Fee, hash: TransactionHash, timestamp: Instant) extends NewPositionEntry
+final case class Approval(fee: Fee, hash: TransactionHash, timestamp: Instant) extends PositionEntry
 
 final case class Buy(
   fee: Fee,
@@ -94,7 +92,7 @@ final case class Buy(
   coinAddress: WalletAddress,
   hash: TransactionHash,
   timestamp: Instant
-) extends NewPositionEntry
+) extends PositionEntry
 
 final case class Claim(
   fee: Fee,
@@ -102,10 +100,10 @@ final case class Claim(
   receivedFrom: WalletAddress,
   hash: TransactionHash,
   timestamp: Instant
-) extends NewPositionEntry
+) extends PositionEntry
 
 final case class Contribute(spent: FungibleData, fee: Fee, hash: TransactionHash, timestamp: Instant)
-    extends NewPositionEntry
+    extends PositionEntry
 
 final case class TransferIn(
   amount: FungibleData,
@@ -113,7 +111,7 @@ final case class TransferIn(
   fee: Fee,
   hash: TransactionHash,
   timestamp: Instant
-) extends NewPositionEntry
+) extends PositionEntry
 
 //TODO transfer out represents me sending out coins to another address, but what happens when I want to exchange coins for FIAT??
 final case class TransferOut(
@@ -122,4 +120,4 @@ final case class TransferOut(
   fee: Fee,
   hash: TransactionHash,
   timestamp: Instant
-) extends NewPositionEntry
+) extends PositionEntry

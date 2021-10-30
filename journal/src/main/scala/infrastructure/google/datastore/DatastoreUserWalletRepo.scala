@@ -5,7 +5,7 @@ import config.DatastoreConfig
 import domain.model.{UserId, WalletAddress, WalletAddressPredicate}
 import domain.wallet.error._
 import domain.wallet.{UserWalletRepo, Wallet}
-import util.{EitherOps, ListOps, tryOrLeft}
+import util.{EitherOps, ListEitherOps, tryOrLeft}
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter

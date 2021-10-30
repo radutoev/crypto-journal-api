@@ -17,7 +17,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
   override def spec = suite("PositionEntrySpec")(
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
-      val buy = NewPositionEntry.fromTransaction(transaction)
+      val buy = PositionEntry.fromTransaction(transaction)
       val expected = Buy(
         spent = FungibleData(BigDecimal("0.387540872900310619"), WBNB),
         received = FungibleData(BigDecimal("207074895.873037397"), Currency.unsafeFrom("FOOFIGHT")),

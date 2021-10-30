@@ -6,7 +6,7 @@ import domain.model.{WalletAddress, WalletAddressPredicate}
 import domain.wallet.error._
 import domain.wallet.model.{Importing, WalletImportStatus}
 import domain.wallet.{WalletImportRepo, error}
-import util.{ListOps, tryOrLeft}
+import util.{ListEitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._

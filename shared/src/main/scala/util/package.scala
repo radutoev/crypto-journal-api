@@ -34,9 +34,15 @@ package object util {
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)
   }
 
-  implicit class ListOps[Err, Value](list: List[Either[Err, Value]]) {
+  implicit class ListEitherOps[Err, Value](list: List[Either[Err, Value]]) {
     lazy val rights: List[Value] = list.collect {
       case Right(value) => value
+    }
+  }
+
+  implicit class ListOptionOps[Value](list: List[Option[Value]]) {
+    lazy val values: List[Value] = list.collect {
+      case Some(value) => value
     }
   }
 
