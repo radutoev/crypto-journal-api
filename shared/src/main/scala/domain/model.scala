@@ -43,7 +43,7 @@ object model {
   }
 
   sealed trait TransactionType
-  final case object Unknown     extends TransactionType //used as a fallback.
+  final case object Unknown extends TransactionType //used as a fallback.
 //  final case object AirDrop     extends TransactionType
 //  final case object Approval    extends TransactionType
 //  final case object Buy         extends TransactionType
@@ -62,7 +62,7 @@ object model {
 //        case "transferout" => TransferOut
 //        case "contribute"  => Contribute
 //        case "claim"       => Claim
-        case _             => Unknown
+        case _ => Unknown
       }
   }
 
@@ -166,7 +166,7 @@ object model {
   type PlayIdPredicate = NonEmpty
   type PlayId          = String Refined PlayIdPredicate
 
-  val USD = Currency.unsafeFrom("USD")
+  val USD  = Currency.unsafeFrom("USD")
   val WBNB = Currency.unsafeFrom("WBNB")
 
   implicit class FungibleDataOps(list: List[FungibleData]) {

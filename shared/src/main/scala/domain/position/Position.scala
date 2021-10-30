@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.pricequote.{PriceQuote, PriceQuotes}
+import domain.pricequote.{ PriceQuote, PriceQuotes }
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -10,7 +10,7 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import io.softwarechain.cryptojournal.util.ListOptionOps
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 final case class Position(
   currency: Currency,
@@ -45,9 +45,8 @@ final case class Position(
    *
    * TODO Do I need this?
    */
-  def fiatValue(): Option[FungibleData] = {
+  def fiatValue(): Option[FungibleData] =
     ???
-  }
   //    priceQuotes.map { implicit quotes =>
   //      entries.collect {
   //        case e: PositionEntry if e.fiatTotal().isDefined => e.fiatValue().get
@@ -88,12 +87,12 @@ final case class Position(
   lazy val totalCoins: FungibleData = {
     entries.map {
       case AirDrop(_, _, received, _, _) => Some(received)
-      case _: Approval => None
-      case Buy(_, _, received, _, _, _) => Some(received)
-      case Claim(_, received, _, _, _) => Some(received)
-      case _: Contribute => None
-      case _: TransferIn => None
-      case _: TransferOut => None
+      case _: Approval                   => None
+      case Buy(_, _, received, _, _, _)  => Some(received)
+      case Claim(_, received, _, _, _)   => Some(received)
+      case _: Contribute                 => None
+      case _: TransferIn                 => None
+      case _: TransferOut                => None
     }.values.sumFungibleData()
   }
 
@@ -103,7 +102,7 @@ final case class Position(
   /**
    * @return Order size if only one buy or order size divided by number of buys if multiple buys in position.
    */
-  def averageOrderSize(): FungibleData = {
+  def averageOrderSize(): FungibleData =
     //TODO Implement this.
     ???
 //    val nrOfBuys = entries.count(_.isBuy())
@@ -112,7 +111,6 @@ final case class Position(
 //    } else {
 //      FungibleData.zero(currency)
 //    }
-  }
 
   /**
    * @return Entry coin fiat price
@@ -161,7 +159,7 @@ final case class Position(
   lazy val outgoingSum: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
-        case _: AirDrop => Some(FungibleData(0, WBNB))
+        case _: AirDrop  => Some(FungibleData(0, WBNB))
         case _: Approval => Some(FungibleData(0, WBNB))
         case Buy(_, spent, _, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
@@ -180,8 +178,8 @@ final case class Position(
     priceQuotes.map { quotes =>
       entries.map {
         case AirDrop(receivedFrom, fee, received, hash, timestamp) => None
-        case _: Approval => None
-        case _ => Some(FungibleData.zero(USD))
+        case _: Approval                                           => None
+        case _                                                     => Some(FungibleData.zero(USD))
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
   }

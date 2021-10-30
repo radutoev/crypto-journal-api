@@ -1,13 +1,18 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.blockchain.{Decoded => DomainDecoded, LogEvent => DomainLogEvent, Param => DomainParam, Transaction => DomainTransaction}
+import domain.blockchain.{
+  Decoded => DomainDecoded,
+  LogEvent => DomainLogEvent,
+  Param => DomainParam,
+  Transaction => DomainTransaction
+}
 
 import eu.timepit.refined.refineV
 import io.softwarechain.cryptojournal.domain.model.TransactionHashPredicate
 import zio.json.ast.Json
 import zio.json.ast.Json.Obj
-import zio.json.{DeriveJsonDecoder, JsonDecoder, jsonField}
+import zio.json.{ jsonField, DeriveJsonDecoder, JsonDecoder }
 
 object dto {
   final case class TransactionQueryResponse(

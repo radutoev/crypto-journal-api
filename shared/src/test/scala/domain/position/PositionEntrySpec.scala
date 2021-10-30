@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{Currency, FungibleData, TransactionHash, WBNB, WalletAddress}
+import domain.model.{ Currency, FungibleData, TransactionHash, WBNB, WalletAddress }
 import infrastructure.covalent.dto.Transaction
 
 import zio.json._
@@ -15,7 +15,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
   override def spec = suite("PositionEntrySpec")(
     test("Interpret transaction as Approval") {
       val transaction = getTransaction("/covalent/transactions/approval.json")
-      val approval = PositionEntry.fromTransaction(transaction)
+      val approval    = PositionEntry.fromTransaction(transaction)
       val expected = Approval(
         fee = FungibleData(BigDecimal("0.00022274000000000003"), WBNB),
         hash = TransactionHash.unsafeApply("0xdc4b8148e8d106014e9f37be3b06746e04f432a271067c7f5a4eaa6ead729899"),
@@ -23,10 +23,9 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       )
       assert(approval)(isRight(equalTo(expected)))
     },
-
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
-      val buy = PositionEntry.fromTransaction(transaction)
+      val buy         = PositionEntry.fromTransaction(transaction)
       val expected = Buy(
         spent = FungibleData(BigDecimal("0.387540872900310619"), WBNB),
         received = FungibleData(BigDecimal("207074895.873037397"), Currency.unsafeFrom("FOOFIGHT")),
@@ -39,12 +38,11 @@ object PositionEntrySpec extends DefaultRunnableSpec {
     }
   )
 
-  private def getTransaction(file: String) = {
+  private def getTransaction(file: String) =
     getTransactions(file).head
-  }
 
   private def getTransactions(file: String) = {
-    val f        = readFile(file).fromJson[List[Transaction]]
+    val f = readFile(file).fromJson[List[Transaction]]
     f.right.get.map(tx => tx.toDomain())
   }
 

@@ -2,8 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{Currency, FungibleData,TransactionHash, TransactionType, Unknown, WalletAddress}
-import util.{InstantOps, ListEitherOps, MarketPlaysListOps}
+import domain.model.{ Currency, FungibleData, TransactionHash, TransactionType, Unknown, WalletAddress }
+import util.{ InstantOps, ListEitherOps, MarketPlaysListOps }
 import vo.TimeInterval
 
 import eu.timepit.refined
@@ -11,11 +11,11 @@ import eu.timepit.refined.collection.NonEmpty
 
 import java.time.Instant
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
 
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {
-  lazy val positions: List[Position]       = plays.positions
+  lazy val positions: List[Position]           = plays.positions
   lazy val transferIns: List[TransferInPlay]   = plays.transferIns
   lazy val transferOuts: List[TransferOutPlay] = plays.transferOuts
 
@@ -80,7 +80,7 @@ object MarketPlays {
 
   //TODO I should return MarketPlays here.
   //TODO Refactor and test this.
-  def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): List[MarketPlay] = {
+  def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): List[MarketPlay] =
     ???
 //    val successes = transactions
 //      .sortBy(_.instant)(Ordering[Instant])
@@ -187,7 +187,6 @@ object MarketPlays {
 //    val transferOuts = txWithoutEvents.filter(_.fromAddress == wallet.value).map(transactionToTransferOut).rights
 //
 //    (positions ++ transferIns ++ transferOuts).sortBy(_.openedAt)(Ordering[Instant].reverse)
-  }
 
 //  val transactionToPositionEntry: Transaction => Either[String, PositionEntry] = tx => {
 //    for {

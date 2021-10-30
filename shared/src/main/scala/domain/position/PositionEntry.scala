@@ -1,8 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{LogEvent, Transaction}
-import domain.model.{Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
+import domain.blockchain.{ LogEvent, Transaction }
+import domain.model.{ Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate }
 
 import eu.timepit.refined.refineV
 
@@ -16,15 +16,14 @@ sealed trait PositionEntry {
 }
 
 object PositionEntry {
-  def fromTransaction(transaction: Transaction): Either[String, PositionEntry] = {
-    if(transaction.isApproval()) {
+  def fromTransaction(transaction: Transaction): Either[String, PositionEntry] =
+    if (transaction.isApproval()) {
       txToApproval(transaction)
-    } else if(transaction.isBuy()) {
+    } else if (transaction.isBuy()) {
       txToBuy(transaction)
     } else {
       Left("Unable to interpret transaction")
     }
-  }
 
   private def txToApproval(transaction: Transaction): Either[String, Approval] =
     Right(Approval(txFee(transaction), transaction.hash, transaction.instant))
@@ -104,7 +103,9 @@ object PositionEntry {
       }
 
     def isApproval(): Boolean =
-      transaction.logEvents.exists(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(transaction.fromAddress))
+      transaction.logEvents.exists(ev =>
+        isApprovalEvent(ev) && readParamValue(ev, "owner").contains(transaction.fromAddress)
+      )
 
     def isBuy(): Boolean =
       transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
@@ -119,7 +120,9 @@ object PositionEntry {
       transaction.logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
 
     def isContribute(): Boolean =
-      transaction.rawValue.toDouble != 0d && transaction.logEvents.headOption.exists(ev => ev.decoded.isEmpty && ev.senderAddress == transaction.toAddress)
+      transaction.rawValue.toDouble != 0d && transaction.logEvents.headOption.exists(ev =>
+        ev.decoded.isEmpty && ev.senderAddress == transaction.toAddress
+      )
 
     def isSale(): Boolean =
       transaction.logEvents.exists(ev =>

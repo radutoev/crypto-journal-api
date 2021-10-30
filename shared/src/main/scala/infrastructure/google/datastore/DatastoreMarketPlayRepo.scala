@@ -4,7 +4,15 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.model._
 import domain.position.error._
-import domain.position.{ MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, TransferInPlay, TransferOutPlay }
+import domain.position.{
+  MarketPlay,
+  MarketPlayRepo,
+  MarketPlays,
+  Position,
+  PositionEntry,
+  TransferInPlay,
+  TransferOutPlay
+}
 import util.{ tryOrLeft, InstantOps, ListEitherOps }
 import vo.filter.PlayFilter
 import vo.pagination.{ CursorPredicate, Page, PaginationContext }
@@ -87,7 +95,7 @@ final case class DatastoreMarketPlayRepo(
                 case Right(play) =>
                   play match {
                     //TODO Why can entries be empty??
-                    case p: Position if p.entries.nonEmpty    => p
+                    case p: Position if p.entries.nonEmpty            => p
                     case t @ (_: TransferInPlay | _: TransferOutPlay) => t
                   }
               })
@@ -199,7 +207,7 @@ final case class DatastoreMarketPlayRepo(
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
             list.map(entityToPlay).rights.collect {
-              case p: Position if p.entries.nonEmpty    => p
+              case p: Position if p.entries.nonEmpty            => p
               case t @ (_: TransferInPlay | _: TransferOutPlay) => t
             }
           }
@@ -273,14 +281,14 @@ final case class DatastoreMarketPlayRepo(
 
   private def marketPlayToEntity(marketPlay: MarketPlay, address: WalletAddress): Entity =
     marketPlay match {
-      case p: Position    => positionToEntity(p, address, datastoreConfig.marketPlay)
+      case p: Position        => positionToEntity(p, address, datastoreConfig.marketPlay)
       case t: TransferInPlay  => transferInToEntity(t, address, datastoreConfig.marketPlay)
       case t: TransferOutPlay => transferOutToEntity(t, address, datastoreConfig.marketPlay)
     }
 
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {
-      val id = UUID.randomUUID().toString
+      val id      = UUID.randomUUID().toString
       val entries = List.empty //TODO Implement this.
 //        position.entries.map { entry =>
 //        EntityValue.of(

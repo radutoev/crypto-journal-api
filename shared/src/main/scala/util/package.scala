@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 
-import domain.position.{MarketPlay, Position, TransferInPlay, TransferOutPlay}
+import domain.position.{ MarketPlay, Position, TransferInPlay, TransferOutPlay }
 
 import com.google.cloud.Timestamp
 
-import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 import scala.util.Try
 
 package object util {
