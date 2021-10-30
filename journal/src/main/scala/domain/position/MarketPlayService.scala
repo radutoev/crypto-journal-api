@@ -32,8 +32,8 @@ trait MarketPlayService {
   def extractTimeInterval(marketPlays: List[MarketPlay]): Option[TimeInterval] = {
     val timestamps = marketPlays.flatMap {
       case p: Position   => p.entries.map(_.timestamp)
-      case t: TransferIn => List(t.timestamp)
-      case t: TransferOut => List(t.timestamp)
+      case t: TransferInPlay => List(t.timestamp)
+      case t: TransferOutPlay => List(t.timestamp)
     }.sorted
     timestamps match {
       case head :: Nil  => Some(TimeInterval(head))
@@ -89,7 +89,7 @@ final case class LiveMarketPlayService(
     val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
     plays.map {
       case p: Position   => p.copy(journal = p.id.flatMap(positionToEntryMap.get))
-      case t @ (_:TransferIn | _:TransferOut) => t
+      case t @ (_:TransferInPlay | _:TransferOutPlay) => t
     }
   }
 
@@ -104,12 +104,12 @@ final case class LiveMarketPlayService(
         .map(priceQuotes =>
           marketPlays.map {
             case p: Position => p.copy(priceQuotes = Some(priceQuotes.subset(p.timeInterval())))
-            case t: TransferIn =>
+            case t: TransferInPlay =>
               t.copy(priceQuotes =
                 //TODO Extract TimeInterval generation
                 Some(priceQuotes.subset(TimeInterval(t.timestamp.minusSeconds(3600), t.timestamp.plusSeconds(36000))))
               )
-            case tOut: TransferOut =>
+            case tOut: TransferOutPlay =>
               tOut.copy(priceQuotes =
               //TODO Extract TimeInterval generation
                 Some(priceQuotes.subset(TimeInterval(tOut.timestamp.minusSeconds(3600), tOut.timestamp.plusSeconds(36000))))

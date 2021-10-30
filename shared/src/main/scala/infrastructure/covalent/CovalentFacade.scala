@@ -45,7 +45,7 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                                response => response.data.items.map(_.toDomain())
                              )
                            )
-      transactions <- ZIO.foreach(slimTransactions.map(tx => TransactionHash.unsafeApply(tx.hash)))(fetchTransaction)
+      transactions <- ZIO.foreach(slimTransactions.map(tx => tx.hash))(fetchTransaction)
     } yield transactions
 
   def transactionsStream(address: WalletAddress): ZStream[Any, TransactionsGetError, Transaction] =

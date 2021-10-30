@@ -2,18 +2,19 @@ package io.softwarechain.cryptojournal
 package domain.blockchain
 
 import domain.model.{
-  AirDrop,
-  Approval,
-  Buy,
-  Claim,
-  Contribute,
+//  AirDrop,
+//  Approval,
+//  Buy,
+//  Claim,
+//  Contribute,
   Currency,
   Fee,
   FungibleData,
-  Sell,
+//  Sell,
+  TransactionHash,
   TransactionType,
-  TransferIn,
-  TransferOut,
+//  TransferIn,
+//  TransferOut,
   Unknown
 }
 
@@ -21,16 +22,17 @@ import java.time.Instant
 
 /**
  * @param logEvents list of events that are part of the transaction. Latest event is first item.
+ * TODO Refine params.
  */
 final case class Transaction(
   blockSignedAt: String,
-  hash: String,
+  hash: TransactionHash,
   successful: Boolean,
   fromAddress: String,
   fromAddressLabel: Option[String],
   toAddress: String,
   toAddressLabel: Option[String],
-  rawValue: Double,
+  rawValue: String,
   valueQuote: Option[Double],
   gasOffered: Int,
   gasSpent: Int,
@@ -42,22 +44,22 @@ final case class Transaction(
 
   lazy val transactionType: TransactionType = {
     @inline
-    def isAirDrop(): Boolean = {
-      if(logEvents.nonEmpty) {
+    def isAirDrop(): Boolean =
+      if (logEvents.nonEmpty) {
         val eventsInChronologicalOrder = logEvents.reverse
         (for {
-          firstTransferValue    <- readParamValue(eventsInChronologicalOrder.head, "value").map(BigDecimal(_))
+          firstTransferValue <- readParamValue(eventsInChronologicalOrder.head, "value").map(BigDecimal(_))
           valueForAllTransfers = eventsInChronologicalOrder.tail
             .filter(isTransferEvent)
             .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
             .collect {
               case Some(value) => value
-            }.sum
+            }
+            .sum
         } yield rawValue == 0d && valueForAllTransfers == firstTransferValue).getOrElse(false)
       } else {
         false
       }
-    }
 
     @inline
     def isApproval(): Boolean =
@@ -96,23 +98,25 @@ final case class Transaction(
     def isTransferIn(): Boolean =
       logEvents.isEmpty
 
-    if (isAirDrop()) {
-      AirDrop
-    } else if (isApproval()) {
-      Approval
-    } else if (isBuy()) {
-      Buy
-    } else if (isClaim()) {
-      Claim
-    } else if (isContribute()) {
-      Contribute
-    } else if (isSale()) {
-      Sell
-    } else if (isTransferIn()) {
-      TransferIn
-    } else {
-      Unknown
-    }
+    Unknown
+
+//    if (isAirDrop()) {
+//      AirDrop
+//    } else if (isApproval()) {
+//      Approval
+//    } else if (isBuy()) {
+//      Buy
+//    } else if (isClaim()) {
+//      Claim
+//    } else if (isContribute()) {
+//      Contribute
+//    } else if (isSale()) {
+//      Sell
+//    } else if (isTransferIn()) {
+//      TransferIn
+//    } else {
+//      Unknown
+//    }
   }
 
   lazy val instant: Instant = Instant.parse(blockSignedAt)
@@ -121,27 +125,27 @@ final case class Transaction(
 
   //TODO Should I make it return Currency?
   lazy val coin: Option[String] = transactionType match {
-    case Approval =>
-      logEvents
-        .find(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(fromAddress))
-        .flatMap(_.senderContractSymbol)
-    case Buy =>
-      logEvents
-        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
-        .flatMap(_.senderContractSymbol)
-    case Claim =>
-      logEvents
-        .filter(event => event.decoded.isDefined && event.decoded.get.name == "Transfer")
-        .flatMap(_.senderContractSymbol)
-        .headOption
-    case Contribute =>
-      Some("WBNB") //default to WBNB
-    case Sell =>
-      logEvents
-        .find(ev => isTransferEvent(ev) && readParamValue(ev, "from").contains(fromAddress))
-        .flatMap(_.senderContractSymbol)
-    case TransferIn =>
-      Some("WBNB") //default to WBNB
+//    case Approval =>
+//      logEvents
+//        .find(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(fromAddress))
+//        .flatMap(_.senderContractSymbol)
+//    case Buy =>
+//      logEvents
+//        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
+//        .flatMap(_.senderContractSymbol)
+//    case Claim =>
+//      logEvents
+//        .filter(event => event.decoded.isDefined && event.decoded.get.name == "Transfer")
+//        .flatMap(_.senderContractSymbol)
+//        .headOption
+//    case Contribute =>
+//      Some("WBNB") //default to WBNB
+//    case Sell =>
+//      logEvents
+//        .find(ev => isTransferEvent(ev) && readParamValue(ev, "from").contains(fromAddress))
+//        .flatMap(_.senderContractSymbol)
+//    case TransferIn =>
+//      Some("WBNB") //default to WBNB
     case _ => None
   }
 
@@ -151,61 +155,61 @@ final case class Transaction(
 
   lazy val value: Either[String, FungibleData] = transactionType match {
     case Unknown => Left("Unknown transaction type")
-    case Approval =>
-      logEvents
-        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
-        .flatMap(_.senderContractSymbol)
-        .map(symbol => FungibleData(BigDecimal(0), Currency.unsafeFrom(symbol)))
-        .toRight("Unable to interpret Approval event")
-    case Buy =>
-      (for {
-        decoded <- logEvents.last.decoded
-        wadValue <- decoded.params
-                     .find(_.name == "wad")
-                     .map(_.value)
-                     .map(BigDecimal(_))
-        decimals <- logEvents.last.senderContractDecimals
-        amount   = wadValue * Math.pow(10, -decimals)
-      } yield FungibleData(amount, Currency.unsafeFrom("WBNB")))
-        .toRight("Unable to determine value of transaction")
-    case Sell => getValueOfLatestSwapEvent()
-    case TransferIn =>
-      Right(
-        FungibleData(
-          //I have no log events here, so assuming wei as ETH subunit with a default decimal count of -18 for the contract
-          amount = BigDecimal(rawValue) * Math.pow(10, -18),
-          currency = Currency.unsafeFrom("WBNB")
-        )
-      )
-    case TransferOut =>
-      Right(
-        FungibleData(
-          //I have no log events here, so assuming wei as ETH subunit with a default decimal count of -18 for the contract
-          amount = BigDecimal(rawValue) * Math.pow(10, -18),
-          currency = Currency.unsafeFrom("WBNB")
-        )
-      )
-    case Contribute =>
-      Right(
-        FungibleData(
-          amount = BigDecimal(rawValue) * Math.pow(10, -18),
-          currency = Currency.unsafeFrom("WBNB")
-        )
-      )
-    case Claim =>
-      logEvents
-        .find(ev => ev.decoded.isDefined && ev.decoded.get.name == "Transfer")
-        .flatMap { logEvent =>
-          for {
-            amount   <- logEvent.decoded.get.params.last.value.toLongOption.map(BigDecimal(_))
-            decimals <- logEvent.senderContractDecimals
-            symbol   <- logEvent.senderContractSymbol
-          } yield FungibleData(
-            amount * Math.pow(10, -decimals),
-            Currency.unsafeFrom(symbol)
-          ) //note that we could have any coin symbol here.
-        }
-        .toRight("Unable to extract Claim transaction")
+//    case Approval =>
+//      logEvents
+//        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(fromAddress))
+//        .flatMap(_.senderContractSymbol)
+//        .map(symbol => FungibleData(BigDecimal(0), Currency.unsafeFrom(symbol)))
+//        .toRight("Unable to interpret Approval event")
+//    case Buy =>
+//      (for {
+//        decoded <- logEvents.last.decoded
+//        wadValue <- decoded.params
+//                     .find(_.name == "wad")
+//                     .map(_.value)
+//                     .map(BigDecimal(_))
+//        decimals <- logEvents.last.senderContractDecimals
+//        amount   = wadValue * Math.pow(10, -decimals)
+//      } yield FungibleData(amount, Currency.unsafeFrom("WBNB")))
+//        .toRight("Unable to determine value of transaction")
+//    case Sell => getValueOfLatestSwapEvent()
+//    case TransferIn =>
+//      Right(
+//        FungibleData(
+//          //I have no log events here, so assuming wei as ETH subunit with a default decimal count of -18 for the contract
+//          amount = BigDecimal(rawValue) * Math.pow(10, -18),
+//          currency = Currency.unsafeFrom("WBNB")
+//        )
+//      )
+//    case TransferOut =>
+//      Right(
+//        FungibleData(
+//          //I have no log events here, so assuming wei as ETH subunit with a default decimal count of -18 for the contract
+//          amount = BigDecimal(rawValue) * Math.pow(10, -18),
+//          currency = Currency.unsafeFrom("WBNB")
+//        )
+//      )
+//    case Contribute =>
+//      Right(
+//        FungibleData(
+//          amount = BigDecimal(rawValue) * Math.pow(10, -18),
+//          currency = Currency.unsafeFrom("WBNB")
+//        )
+//      )
+//    case Claim =>
+//      logEvents
+//        .find(ev => ev.decoded.isDefined && ev.decoded.get.name == "Transfer")
+//        .flatMap { logEvent =>
+//          for {
+//            amount   <- logEvent.decoded.get.params.last.value.toLongOption.map(BigDecimal(_))
+//            decimals <- logEvent.senderContractDecimals
+//            symbol   <- logEvent.senderContractSymbol
+//          } yield FungibleData(
+//            amount * Math.pow(10, -decimals),
+//            Currency.unsafeFrom(symbol)
+//          ) //note that we could have any coin symbol here.
+//        }
+//        .toRight("Unable to extract Claim transaction")
   }
 
   private def getValueOfLatestSwapEvent(): Either[String, FungibleData] =

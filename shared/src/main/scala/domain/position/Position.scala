@@ -138,9 +138,10 @@ final case class Position(
 
   def isOpen(): Boolean = state == Open
 
-  def closedAt(): Option[Instant] = entries.lastOption.collect {
-    case entry if entry.`type` == Sell => entry.timestamp
-  }
+  def closedAt(): Option[Instant] = entries.lastOption.map(_.timestamp)
+//    .collect {
+//    case entry if entry.`type` == Sell => entry.timestamp
+//  }
 
   def inInterval(interval: TimeInterval): Boolean = {
     val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
@@ -163,7 +164,7 @@ final case class PositionEntry(
 ) {
   def isBuy(): Boolean = `type` == Buy
 
-  def isSell(): Boolean = `type` == Sell
+  def isSell(): Boolean = false//`type` == Sell
 
   def fiatValue()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
     priceQuotes
@@ -187,8 +188,8 @@ final case class PositionEntry(
       fiatValue <- fiatValue()
       fiatFee   <- fiatFee()
       fiatReturn <- Some[BigDecimal](`type` match {
-                     case Buy  => -fiatValue.amount - fiatFee.amount
-                     case Sell => fiatValue.amount - fiatFee.amount
+//                     case Buy  => -fiatValue.amount - fiatFee.amount
+//                     case Sell => fiatValue.amount - fiatFee.amount
                      case _    => 0
                    })
     } yield FungibleData(fiatReturn, refined.refineV[NonEmpty].unsafeFrom("USD"))
@@ -202,8 +203,8 @@ final case class PositionEntry(
       fiatValue <- fiatValue()
       fiatFee   <- fiatFee()
       value <- Some[BigDecimal](`type` match {
-                case Buy  => fiatValue.amount - fiatFee.amount
-                case Sell => -fiatValue.amount - fiatFee.amount
+//                case Buy  => fiatValue.amount - fiatFee.amount
+//                case Sell => -fiatValue.amount - fiatFee.amount
                 case _    => 0
               })
     } yield FungibleData(value, refined.refineV[NonEmpty].unsafeFrom("USD"))

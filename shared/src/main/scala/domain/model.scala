@@ -17,6 +17,8 @@ object model {
   type Currency          = String Refined CurrencyPredicate
 
   object Currency {
+    def apply(str: String): Either[String, Currency] = refineV[CurrencyPredicate](str)
+
     def unsafeFrom(str: String): Refined[String, CurrencyPredicate] = refineV[CurrencyPredicate].unsafeFrom(str)
   }
 
@@ -42,24 +44,24 @@ object model {
 
   sealed trait TransactionType
   final case object Unknown     extends TransactionType //used as a fallback.
-  final case object AirDrop     extends TransactionType
-  final case object Approval    extends TransactionType
-  final case object Buy         extends TransactionType
-  final case object Sell        extends TransactionType
-  final case object TransferIn  extends TransactionType
-  final case object TransferOut extends TransactionType
-  final case object Contribute  extends TransactionType
-  final case object Claim       extends TransactionType
+//  final case object AirDrop     extends TransactionType
+//  final case object Approval    extends TransactionType
+//  final case object Buy         extends TransactionType
+//  final case object Sell        extends TransactionType
+//  final case object TransferIn  extends TransactionType
+//  final case object TransferOut extends TransactionType
+//  final case object Contribute  extends TransactionType
+//  final case object Claim       extends TransactionType
 
   object TransactionType {
     def apply(value: String): TransactionType =
       value.trim.toLowerCase match {
-        case "buy"         => Buy
-        case "sell"        => Sell
-        case "transferin"  => TransferIn
-        case "transferout" => TransferOut
-        case "contribute"  => Contribute
-        case "claim"       => Claim
+//        case "buy"         => Buy
+//        case "sell"        => Sell
+//        case "transferin"  => TransferIn
+//        case "transferout" => TransferOut
+//        case "contribute"  => Contribute
+//        case "claim"       => Claim
         case _             => Unknown
       }
   }
@@ -141,7 +143,7 @@ object model {
   type WalletAddress          = String Refined WalletAddressPredicate
 
   object WalletAddress {
-    def unsafeApply(value: String): WalletAddress = refineV[WalletAddressPredicate].unsafeFrom(value)
+    def unsafeFrom(value: String): WalletAddress = refineV[WalletAddressPredicate].unsafeFrom(value)
   }
 
   type UserIdPredicate = NonEmpty

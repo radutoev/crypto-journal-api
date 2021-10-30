@@ -74,8 +74,8 @@ object Sync extends App {
 
     WalletImportRepo.getByImportStatus(ImportDone).flatMap { addresses =>
       if (tx.getTo != null && tx.getFrom != null) {
-        val to             = WalletAddress.unsafeApply(tx.getTo)
-        val from           = WalletAddress.unsafeApply(tx.getFrom)
+        val to             = WalletAddress.unsafeFrom(tx.getTo)
+        val from           = WalletAddress.unsafeFrom(tx.getFrom)
         val foundAddresses = Nil ++ elementOrNil(to, addresses) ++ elementOrNil(from, addresses)
         UIO(foundAddresses)
       } else {

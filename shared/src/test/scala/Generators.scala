@@ -1,6 +1,6 @@
 package io.softwarechain.cryptojournal
 
-import domain.model.{Buy, Currency, FungibleData, Sell, TransactionHashPredicate, TransactionType}
+import domain.model.{Currency, FungibleData, TransactionHashPredicate, TransactionType, Unknown}
 import domain.position.{Position, PositionEntry}
 
 import eu.timepit.refined.refineV
@@ -12,7 +12,7 @@ object Generators {
   val genPositionId: Gen[Random, NonEmptyString] =
     Gen.stringBounded(2, 100)(Gen.alphaNumericChar).map(NonEmptyString.unsafeFrom)
   val genCurrency: Gen[Random with Sized, Currency] = Gen.stringN(10)(Gen.anyChar).map(NonEmptyString.unsafeFrom)
-  val genEntryType: Gen[Random, TransactionType]    = Gen.boolean.map(x => if (x) Buy else Sell)
+  val genEntryType: Gen[Random, TransactionType]    = Gen.boolean.map(_ => Unknown)
   val genTxHash                                     = Gen.stringBounded(2, 100)(Gen.alphaNumericChar).map(refineV[TransactionHashPredicate].unsafeFrom(_))
 
   val genFungibleData = for {
@@ -28,9 +28,9 @@ object Generators {
     txHash    <- genTxHash
   } yield PositionEntry(txType, value, fee, timestamp, txHash, None)
 
-  val genClosedPositionEntry = genPositionEntry.map(entry => entry.copy(`type` = Sell))
+  val genClosedPositionEntry = genPositionEntry//.map(entry => entry.copy(`type` = Sell))
 
-  val genOpenPositionEntry = genPositionEntry.map(entry => entry.copy(`type` = Buy))
+  val genOpenPositionEntry = genPositionEntry//.map(entry => entry.copy(`type` = Buy))
 
   val genPosition = for {
     positionId <- genPositionId

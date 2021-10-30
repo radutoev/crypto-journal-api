@@ -1,16 +1,13 @@
 package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
-import domain.blockchain.{
-  Decoded => DomainDecoded,
-  LogEvent => DomainLogEvent,
-  Param => DomainParam,
-  Transaction => DomainTransaction
-}
+import domain.blockchain.{Decoded => DomainDecoded, LogEvent => DomainLogEvent, Param => DomainParam, Transaction => DomainTransaction}
 
+import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.model.TransactionHashPredicate
 import zio.json.ast.Json
 import zio.json.ast.Json.Obj
-import zio.json.{ jsonField, DeriveJsonDecoder, JsonDecoder }
+import zio.json.{DeriveJsonDecoder, JsonDecoder, jsonField}
 
 object dto {
   final case class TransactionQueryResponse(
@@ -41,7 +38,7 @@ object dto {
     @jsonField("from_address_label") fromAddressLabel: Option[String],
     @jsonField("to_address") toAddress: String,
     @jsonField("to_address_label") toAddressLabel: Option[String],
-    @jsonField("value") rawValue: Double,
+    @jsonField("value") rawValue: String,
     @jsonField("value_quote") valueQuote: Option[Double],
     @jsonField("gas_offered") gasOffered: Int,
     @jsonField("gas_spent") gasSpent: Int,
@@ -58,7 +55,7 @@ object dto {
       def toDomain(): DomainTransaction =
         DomainTransaction(
           blockSignedAt = transaction.blockSignedAt,
-          hash = transaction.hash,
+          hash = refineV[TransactionHashPredicate].unsafeFrom(transaction.hash),
           successful = transaction.successful,
           fromAddress = transaction.fromAddress,
           fromAddressLabel = transaction.fromAddressLabel,
