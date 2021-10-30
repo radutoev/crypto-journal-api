@@ -60,6 +60,17 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         timestamp = Instant.parse("2021-10-08T09:46:25Z")
       )
       assert(claim)(isRight(equalTo(expected)))
+    },
+    test("Interpret transaction as Contribute") {
+      val transaction = getTransaction("/covalent/transactions/contribute.json")
+      val contribute  = PositionEntry.fromTransaction(transaction, Address)
+      val expected = Contribute(
+        spent = FungibleData(BigDecimal("0.1023923391846748000"), WBNB),
+        fee = FungibleData(BigDecimal("0.0010398500000000001"), WBNB),
+        hash = TransactionHash.unsafeApply("0x2bba1a27a5b3e4f96316506c41e85d882e71ae900ebd08f67cfca750de38460d"),
+        timestamp = Instant.parse("2021-10-07T21:45:33Z")
+      )
+      assert(contribute)(isRight(equalTo(expected)))
     }
   )
 

@@ -179,6 +179,7 @@ final case class Position(
         case _: Approval => None
         case _: Buy      => None
         case _: Claim    => None
+        case _: Contribute => None
         //a position cannot have TransferIns nor TransferOuts
         case _: TransferIn  => None
         case _: TransferOut => None
@@ -186,64 +187,4 @@ final case class Position(
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
   }
-
-//object Position {
-//  type PositionEntryIdPredicate = NonEmpty
-//  type PositionEntryId          = String Refined PositionEntryIdPredicate
-//}
-
-//final case class PositionEntry(
-//  `type`: TransactionType,
-//  value: FungibleData,
-//  fee: Fee,
-//  timestamp: Instant,
-//  txHash: TransactionHash,
-//  id: Option[PositionEntryId] = None
-//) {
-//  def isBuy(): Boolean = `type` == Buy
-//
-//  def isSell(): Boolean = false//`type` == Sell
-//
-//  def fiatValue()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
-//    priceQuotes
-//      .findPrice(timestamp)
-//      .map(priceQuote => value.amount * priceQuote.price)
-//      .map(fiatAmount => FungibleData(fiatAmount, refined.refineV[NonEmpty].unsafeFrom("USD")))
-//
-//  def fiatFee()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
-//    priceQuotes
-//      .findPrice(timestamp)
-//      .map(priceQuote => fee.amount * priceQuote.price)
-//      .map(fiatAmount => FungibleData(fiatAmount, refined.refineV[NonEmpty].unsafeFrom("USD")))
-//
-//  /**
-//   * Calculates fiat value for the given price quotes based on the type of the entry.
-//   * If entry is of type BUY, then it will return the negative absolute number of the fiatValue and fiatFee values.
-//   * If entry is of type SELL, then it will subtract the fiatFee from the fiatValue.
-//   */
-//  def fiatReturnTotal()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
-//    for {
-//      fiatValue <- fiatValue()
-//      fiatFee   <- fiatFee()
-//      fiatReturn <- Some[BigDecimal](`type` match {
-////                     case Buy  => -fiatValue.amount - fiatFee.amount
-////                     case Sell => fiatValue.amount - fiatFee.amount
-//                     case _    => 0
-//                   })
-//    } yield FungibleData(fiatReturn, refined.refineV[NonEmpty].unsafeFrom("USD"))
-//
-//  /**
-//   * Contribution of this entry to the balance of the account.
-//   * Idea is that when you buy coins, then those have an attached fiat value to it.
-//   */
-//  def fiatTotal()(implicit priceQuotes: PriceQuotes): Option[FungibleData] =
-//    for {
-//      fiatValue <- fiatValue()
-//      fiatFee   <- fiatFee()
-//      value <- Some[BigDecimal](`type` match {
-////                case Buy  => fiatValue.amount - fiatFee.amount
-////                case Sell => -fiatValue.amount - fiatFee.amount
-//                case _    => 0
-//              })
-//    } yield FungibleData(value, refined.refineV[NonEmpty].unsafeFrom("USD"))
 }

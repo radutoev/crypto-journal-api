@@ -26,6 +26,8 @@ object PositionEntry {
       txToBuy(transaction)
     } else if (transaction.isClaim()) {
       txToClaim(transaction, walletAddress)
+    } else if (transaction.isContribute()) {
+      txToContribute(transaction)
     } else {
       Left("Unable to interpret transaction")
     }
@@ -92,6 +94,13 @@ object PositionEntry {
       transaction.instant
     )
   }
+
+  private def txToContribute(transaction: Transaction): Either[String, Contribute] =
+    for {
+      txValue <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -18)).toEither.left.map(_ =>
+                  "Cannot determine amount"
+                )
+    } yield Contribute(FungibleData(txValue, WBNB), txFee(transaction), transaction.hash, transaction.instant)
 
   private def dataFromTransferEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
     for {
