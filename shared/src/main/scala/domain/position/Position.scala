@@ -2,15 +2,11 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.pricequote.{ PriceQuote, PriceQuotes }
+import domain.pricequote.{PriceQuote, PriceQuotes}
+import util.ListOptionOps
 import vo.TimeInterval
 
-import eu.timepit.refined
-import eu.timepit.refined.api.Refined
-import eu.timepit.refined.collection.NonEmpty
-import io.softwarechain.cryptojournal.util.ListOptionOps
-
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
 
 final case class Position(
   currency: Currency,
@@ -91,8 +87,10 @@ final case class Position(
       case Buy(_, _, received, _, _, _)  => Some(received)
       case Claim(_, received, _, _, _)   => Some(received)
       case _: Contribute                 => None
-      case _: TransferIn                 => None
-      case _: TransferOut                => None
+
+      //a position cannot have TransferIns nor TransferOuts
+      case _: TransferIn  => None
+      case _: TransferOut => None
     }.values.sumFungibleData()
   }
 
@@ -159,27 +157,30 @@ final case class Position(
   lazy val outgoingSum: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
-        case _: AirDrop  => Some(FungibleData(0, WBNB))
+        case _: AirDrop  => None
         case _: Approval => Some(FungibleData(0, WBNB))
         case Buy(_, spent, _, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
         case _: Claim => Some(FungibleData(0, WBNB))
         case Contribute(spent, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
-        case _: TransferIn => Some(FungibleData(0, WBNB))
-        case TransferOut(transferred, _, _, _, timestamp) =>
-          quotes.findPrice(timestamp).map(quote => transferred.amount * quote.price).map(FungibleData(_, USD))
+
+        //a position cannot have TransferIns nor TransferOuts
+        case _: TransferIn  => None
+        case _: TransferOut => None
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
   }
 
-  //TODO Finish implementation.
   lazy val incomingSum: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
-        case AirDrop(receivedFrom, fee, received, hash, timestamp) => None
-        case _: Approval                                           => None
-        case _                                                     => Some(FungibleData.zero(USD))
+        case _: AirDrop  => None
+        case _: Approval => None
+        //a position cannot have TransferIns nor TransferOuts
+        case _: TransferIn  => None
+        case _: TransferOut => None
+        case _              => Some(FungibleData.zero(USD))
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
   }

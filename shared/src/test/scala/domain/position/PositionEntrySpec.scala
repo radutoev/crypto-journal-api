@@ -12,10 +12,23 @@ import java.time.Instant
 import scala.io.Source
 
 object PositionEntrySpec extends DefaultRunnableSpec {
+  private val Address = WalletAddress.unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41")
   override def spec = suite("PositionEntrySpec")(
+    test("Interpret transaction as AirDrop") {
+      val transaction = getTransaction("/covalent/transactions/airDrop.json")
+      val airDrop     = PositionEntry.fromTransaction(transaction, Address)
+      val expected = AirDrop(
+        receivedFrom = WalletAddress.unsafeFrom("0xc6af635d908529d3c00a857079d9547aeecac400"),
+        fee = FungibleData(BigDecimal(0.08568792), WBNB),
+        received = FungibleData(BigDecimal("1000000000.0000000000000000000"), Currency.unsafeFrom("EDOGE")),
+        hash = TransactionHash.unsafeApply("0xfa4cbef915290b45d8cd85e3c1b7f9fbb3c604b8ca4cff2e49222f80ffd63d38"),
+        timestamp = Instant.parse("2021-05-26T10:46:15Z")
+      )
+      assert(airDrop)(isRight(equalTo(expected)))
+    },
     test("Interpret transaction as Approval") {
       val transaction = getTransaction("/covalent/transactions/approval.json")
-      val approval    = PositionEntry.fromTransaction(transaction)
+      val approval    = PositionEntry.fromTransaction(transaction, Address)
       val expected = Approval(
         fee = FungibleData(BigDecimal("0.00022274000000000003"), WBNB),
         hash = TransactionHash.unsafeApply("0xdc4b8148e8d106014e9f37be3b06746e04f432a271067c7f5a4eaa6ead729899"),
@@ -25,7 +38,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
     },
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
-      val buy         = PositionEntry.fromTransaction(transaction)
+      val buy         = PositionEntry.fromTransaction(transaction, Address)
       val expected = Buy(
         spent = FungibleData(BigDecimal("0.387540872900310619"), WBNB),
         received = FungibleData(BigDecimal("207074895.873037397"), Currency.unsafeFrom("FOOFIGHT")),

@@ -1,8 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ LogEvent, Transaction }
-import domain.model.{ Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate }
+import domain.blockchain.{LogEvent, Transaction}
+import domain.model.{Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
+import util.ListOptionOps
 
 import eu.timepit.refined.refineV
 
@@ -16,14 +17,39 @@ sealed trait PositionEntry {
 }
 
 object PositionEntry {
-  def fromTransaction(transaction: Transaction): Either[String, PositionEntry] =
-    if (transaction.isApproval()) {
+  def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, PositionEntry] =
+    if (transaction.isAirDrop()) {
+      txToAirDrop(transaction, walletAddress)
+    } else if (transaction.isApproval()) {
       txToApproval(transaction)
     } else if (transaction.isBuy()) {
       txToBuy(transaction)
     } else {
       Left("Unable to interpret transaction")
     }
+
+  private def txToAirDrop(transaction: Transaction, walletAddress: WalletAddress): Either[String, AirDrop] = {
+    lazy val amountOfCoins = transaction
+      .transferEventsForWallet(walletAddress)
+      .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
+      .values
+      .sum
+
+    for {
+      first      <- transaction.firstTransferEvent()
+      currency   <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
+      decimals   <- first.senderContractDecimals.toRight("Did not find contract decimals")
+      finalAmount = amountOfCoins * Math.pow(10, -decimals)
+      rawAddress <- readParamValue(first, "from").toRight("Did not find sender address")
+      sender     <- refineV[WalletAddressPredicate](rawAddress)
+    } yield AirDrop(
+      sender,
+      txFee(transaction),
+      FungibleData(finalAmount, currency),
+      transaction.hash,
+      transaction.instant
+    )
+  }
 
   private def txToApproval(transaction: Transaction): Either[String, Approval] =
     Right(Approval(txFee(transaction), transaction.hash, transaction.instant))
@@ -36,8 +62,7 @@ object PositionEntry {
       amountSpent <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -decimals)).toEither.left.map(_ =>
                       "Cannot determine amount spent"
                     )
-      rawCurrency             <- depositEvent.senderContractSymbol.toRight("Did not find currency")
-      currency                <- Currency(rawCurrency)
+      currency                <- depositEvent.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
       spent                   = FungibleData(amountSpent, currency)
       transferEvent           <- transaction.lastTransferEventToWallet()
       (coinAddress, received) <- dataFromTransferEvent(transferEvent)
@@ -76,6 +101,15 @@ object PositionEntry {
       transaction.logEvents
         .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(transaction.fromAddress))
         .toRight("Unable to interpret Transfer event")
+
+    def firstTransferEvent(): Either[String, LogEvent] =
+      transaction.logEvents
+        .findLast(ev => isTransferEvent(ev))
+        .toRight("Unable to interpret Transfer event")
+
+    def transferEventsForWallet(address: WalletAddress): List[LogEvent] =
+      transaction.logEvents
+        .filter(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(address.value))
 
     private def isDepositEvent(event: LogEvent): Boolean =
       event.decoded.exists(_.name == "Deposit")
