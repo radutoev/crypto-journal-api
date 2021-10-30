@@ -16,8 +16,13 @@ sealed trait PositionEntry {
 }
 
 object PositionEntry {
-  def fromTransaction(transaction: Transaction): Either[String, PositionEntry] =
-    txToBuy(transaction)
+  def fromTransaction(transaction: Transaction): Either[String, PositionEntry] = {
+    if(transaction.isBuy()) {
+      txToBuy(transaction)
+    } else {
+      Left("Unable to interpret transaction")
+    }
+  }
 
   private def txToBuy(transaction: Transaction): Either[String, Buy] =
     for {
@@ -49,10 +54,13 @@ object PositionEntry {
   private def txFee(tx: Transaction): Fee =
     FungibleData(tx.gasSpent * tx.gasPrice * Math.pow(10, -18), WBNB)
 
+  private def readParamValue(logEvent: LogEvent, paramName: String): Option[String] =
+    logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
+
   implicit class TransactionOps(transaction: Transaction) {
     def depositEvent(): Either[String, LogEvent] =
       transaction.logEvents
-        .find(ev => isDeposit(ev) && readParamValue(ev, "dst").contains(transaction.toAddress))
+        .find(ev => isDepositEvent(ev) && readParamValue(ev, "dst").contains(transaction.toAddress))
         .toRight("Unable to interpret Deposit event")
 
     /**
@@ -62,17 +70,65 @@ object PositionEntry {
      */
     def lastTransferEventToWallet(): Either[String, LogEvent] =
       transaction.logEvents
-        .find(ev => isTransfer(ev) && readParamValue(ev, "to").contains(transaction.fromAddress))
+        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(transaction.fromAddress))
         .toRight("Unable to interpret Transfer event")
 
-    private def isDeposit(event: LogEvent): Boolean =
+    private def isDepositEvent(event: LogEvent): Boolean =
       event.decoded.exists(_.name == "Deposit")
 
-    private def isTransfer(event: LogEvent): Boolean = event.decoded.exists(_.name == "Transfer")
-  }
+    private def isApprovalEvent(logEvent: LogEvent): Boolean =
+      logEvent.decoded.exists(_.name == "Approval")
 
-  private def readParamValue(logEvent: LogEvent, paramName: String): Option[String] =
-    logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
+    private def isTransferEvent(event: LogEvent): Boolean = event.decoded.exists(_.name == "Transfer")
+
+    def isAirDrop(): Boolean =
+      if (transaction.logEvents.nonEmpty) {
+        val eventsInChronologicalOrder = transaction.logEvents.reverse
+        (for {
+          firstTransferValue <- readParamValue(eventsInChronologicalOrder.head, "value").map(BigDecimal(_))
+          valueForAllTransfers = eventsInChronologicalOrder.tail
+            .filter(isTransferEvent)
+            .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
+            .collect {
+              case Some(value) => value
+            }
+            .sum
+        } yield transaction.rawValue.toDouble == 0d && valueForAllTransfers == firstTransferValue).getOrElse(false)
+      } else {
+        false
+      }
+
+    def isApproval(): Boolean =
+      transaction.logEvents.exists(ev => isApprovalEvent(ev) && readParamValue(ev, "owner").contains(transaction.fromAddress))
+
+    def isBuy(): Boolean =
+      transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
+        ev.decoded.exists(decoded =>
+          decoded.name == "Transfer" && decoded.params.exists(param =>
+            param.name == "to" && param.`type` == "address" && param.value == transaction.fromAddress
+          )
+        )
+      )
+
+    def isClaim(): Boolean =
+      transaction.logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
+
+    def isContribute(): Boolean =
+      transaction.rawValue.toDouble != 0d && transaction.logEvents.headOption.exists(ev => ev.decoded.isEmpty && ev.senderAddress == transaction.toAddress)
+
+    def isSale(): Boolean =
+      transaction.logEvents.exists(ev =>
+        ev.decoded.exists(decoded =>
+          decoded.name == "Swap" &&
+            decoded.params.exists(param =>
+              param.name == "sender" && param.`type` == "address" && param.value == transaction.toAddress
+            )
+        )
+      )
+
+    def isTransferIn(): Boolean =
+      transaction.logEvents.isEmpty
+  }
 }
 
 final case class AirDrop(

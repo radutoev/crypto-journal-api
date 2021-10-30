@@ -15,6 +15,11 @@ object PositionEntrySpec extends DefaultRunnableSpec {
   private val WBNB = Currency.unsafeFrom("WBNB")
 
   override def spec = suite("PositionEntrySpec")(
+//    test("Interpret transaction as Approval") {
+//      val transaction = getTransaction("/covalent/transactions/approval.json")
+//
+//    },
+
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
       val buy = PositionEntry.fromTransaction(transaction)
