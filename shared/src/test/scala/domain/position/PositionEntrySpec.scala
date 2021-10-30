@@ -71,7 +71,22 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         timestamp = Instant.parse("2021-10-07T21:45:33Z")
       )
       assert(contribute)(isRight(equalTo(expected)))
-    }
+    },
+    test("Interpret transaction as TransferIn") {
+      val transaction = getTransaction("/covalent/transactions/transferIn.json")
+      val transferIn  = PositionEntry.fromTransaction(transaction, Address)
+      val expected = TransferIn(
+        amount = FungibleData(BigDecimal("0.001"), WBNB),
+        fee = FungibleData(BigDecimal("0.000105"), WBNB),
+        receivedFrom = WalletAddress.unsafeFrom("0x0c21496dcac5826c43747c39461e5dc9461e894a"),
+        hash = TransactionHash.unsafeApply("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),
+        timestamp = Instant.parse("2021-05-21T10:21:02Z")
+      )
+      assert(transferIn)(isRight(equalTo(expected)))
+    },
+//    test("Interpret transaction as TransferOut") {
+//      ???
+//    }
   )
 
   private def getTransaction(file: String) =

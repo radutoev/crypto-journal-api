@@ -180,6 +180,7 @@ final case class Position(
         case _: Buy      => None
         case _: Claim    => None
         case _: Contribute => None
+
         //a position cannot have TransferIns nor TransferOuts
         case _: TransferIn  => None
         case _: TransferOut => None

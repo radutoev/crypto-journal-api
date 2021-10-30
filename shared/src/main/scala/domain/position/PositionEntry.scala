@@ -28,6 +28,8 @@ object PositionEntry {
       txToClaim(transaction, walletAddress)
     } else if (transaction.isContribute()) {
       txToContribute(transaction)
+    } else if (transaction.isTransferIn()) {
+      txToTransferIn(transaction)
     } else {
       Left("Unable to interpret transaction")
     }
@@ -101,6 +103,20 @@ object PositionEntry {
                   "Cannot determine amount"
                 )
     } yield Contribute(FungibleData(txValue, WBNB), txFee(transaction), transaction.hash, transaction.instant)
+
+  private def txToTransferIn(transaction: Transaction): Either[String, TransferIn] =
+    for {
+      txValue <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -18)).toEither.left.map(_ =>
+                  "Cannot determine amount"
+                )
+      receivedFrom <- refineV[WalletAddressPredicate](transaction.fromAddress)
+    } yield TransferIn(
+      FungibleData(txValue, WBNB),
+      receivedFrom,
+      txFee(transaction),
+      transaction.hash,
+      transaction.instant
+    )
 
   private def dataFromTransferEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
     for {
