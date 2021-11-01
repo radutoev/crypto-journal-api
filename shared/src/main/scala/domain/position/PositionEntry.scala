@@ -18,23 +18,23 @@ sealed trait PositionEntry {
 
 object PositionEntry {
   //TODO By having this in PositionEntry I am making it aware of blockchain transactions. I need to move it somewhere else.
-  def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, PositionEntry] =
+  def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, List[PositionEntry]] =
     if (transaction.isAirDrop()) {
-      txToAirDrop(transaction, walletAddress)
+      txToAirDrop(transaction, walletAddress).map(List(_))
     } else if (transaction.isApproval()) {
-      txToApproval(transaction)
+      txToApproval(transaction).map(List(_))
     } else if (transaction.isBuy()) {
-      txToBuy(transaction)
+      txToBuy(transaction).map(List(_))
     } else if (transaction.isClaim()) {
-      txToClaim(transaction, walletAddress)
+      txToClaim(transaction, walletAddress).map(List(_))
     } else if (transaction.isContribute()) {
-      txToContribute(transaction)
+      txToContribute(transaction).map(List(_))
     } else if (transaction.isSale()) {
-      txToSell(transaction, walletAddress)
+      txToSell(transaction, walletAddress).map(List(_))
     } else if (transaction.isTransferIn()) {
-      txToTransferIn(transaction)
+      txToTransferIn(transaction).map(List(_))
     } else if(transaction.isTransferOut(walletAddress)) {
-      txToTransferOut(transaction, walletAddress)
+      txToTransferOut(transaction, walletAddress).map(List(_))
     } else {
       Left("Unable to interpret transaction")
     }

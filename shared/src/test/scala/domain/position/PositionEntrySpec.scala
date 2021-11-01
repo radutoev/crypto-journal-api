@@ -24,7 +24,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0xfa4cbef915290b45d8cd85e3c1b7f9fbb3c604b8ca4cff2e49222f80ffd63d38"),
         timestamp = Instant.parse("2021-05-26T10:46:15Z")
       )
-      assert(airDrop)(isRight(equalTo(expected)))
+      assert(airDrop)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as Approval") {
       val transaction = getTransaction("/covalent/transactions/approval.json")
@@ -34,7 +34,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0xdc4b8148e8d106014e9f37be3b06746e04f432a271067c7f5a4eaa6ead729899"),
         timestamp = Instant.parse("2021-05-25T02:09:01Z")
       )
-      assert(approval)(isRight(equalTo(expected)))
+      assert(approval)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
@@ -47,7 +47,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
         timestamp = Instant.parse("2021-10-18T12:27:24Z")
       )
-      assert(buy)(isRight(equalTo(expected)))
+      assert(buy)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as Claim") {
       val transaction = getTransaction("/covalent/transactions/claim.json")
@@ -59,7 +59,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0x1f88b75a26cab0bba6d1c8468559ad392af82c37e45b27ce07ca98d36b59d0c5"),
         timestamp = Instant.parse("2021-10-08T09:46:25Z")
       )
-      assert(claim)(isRight(equalTo(expected)))
+      assert(claim)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as Contribute") {
       val transaction = getTransaction("/covalent/transactions/contribute.json")
@@ -70,7 +70,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0x2bba1a27a5b3e4f96316506c41e85d882e71ae900ebd08f67cfca750de38460d"),
         timestamp = Instant.parse("2021-10-07T21:45:33Z")
       )
-      assert(contribute)(isRight(equalTo(expected)))
+      assert(contribute)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as SELL of claimed tokens") {
       val transaction = getTransaction("/covalent/transactions/sell_after_claim.json")
@@ -82,7 +82,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0x5ec20963f3fe609c288d12319f45385a633243b9db4f20123ff8a933a93a2df3"),
         timestamp = Instant.parse("2021-10-08T19:13:37Z")
       )
-      assert(sell)(isRight(equalTo(expected)))
+      assert(sell)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as Sell") {
       val transaction = getTransaction("/covalent/transactions/sell1.json")
@@ -94,7 +94,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
         timestamp = Instant.parse("2021-10-18T14:04:18Z")
       )
-      assert(sell)(isRight(equalTo(expected)))
+      assert(sell)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as TransferIn") {
       val transaction = getTransaction("/covalent/transactions/transferIn.json")
@@ -106,7 +106,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),
         timestamp = Instant.parse("2021-05-21T10:21:02Z")
       )
-      assert(transferIn)(isRight(equalTo(expected)))
+      assert(transferIn)(isRight(hasSameElements(List(expected))))
     },
     test("Interpret transaction as TransferOut") {
       val transaction = getTransaction("/covalent/transactions/transferOut.json")
@@ -118,7 +118,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0x01dc748a38922295ef5090a627c3b6125f06b166fada29b4d996a34af1fb05bc"),
         timestamp = Instant.parse("2021-09-05T17:51:04Z")
       )
-      assert(transferOut)(isRight(equalTo(expected)))
+      assert(transferOut)(isRight(hasSameElements(List(expected))))
     }
   )
 
