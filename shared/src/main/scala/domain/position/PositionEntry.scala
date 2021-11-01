@@ -33,6 +33,8 @@ object PositionEntry {
       txToSell(transaction, walletAddress)
     } else if (transaction.isTransferIn()) {
       txToTransferIn(transaction)
+    } else if(transaction.isTransferOut(walletAddress)) {
+      txToTransferOut(transaction, walletAddress)
     } else {
       Left("Unable to interpret transaction")
     }
@@ -40,7 +42,7 @@ object PositionEntry {
   private def txToAirDrop(transaction: Transaction, walletAddress: WalletAddress): Either[String, AirDrop] = {
     lazy val amountOfCoins = transaction
       .transferEventsToWallet(walletAddress)
-      .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
+      .map(ev => ev.paramValue("value").map(BigDecimal(_)))
       .values
       .sum
 
@@ -49,7 +51,7 @@ object PositionEntry {
       currency    <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
       decimals    <- first.senderContractDecimals.toRight("Did not find contract decimals")
       finalAmount = amountOfCoins * Math.pow(10, -decimals)
-      rawAddress  <- readParamValue(first, "from").toRight("Did not find sender address")
+      rawAddress  <- first.paramValue("from").toRight("Did not find sender address")
       sender      <- refineV[WalletAddressPredicate](rawAddress)
     } yield AirDrop(
       sender,
@@ -80,7 +82,7 @@ object PositionEntry {
   private def txToClaim(transaction: Transaction, address: WalletAddress): Either[String, Claim] = {
     lazy val amountOfCoins = transaction
       .transferEventsToWallet(address)
-      .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
+      .map(ev => ev.paramValue("value").map(BigDecimal(_)))
       .values
       .sum
 
@@ -89,7 +91,7 @@ object PositionEntry {
       currency    <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
       decimals    <- first.senderContractDecimals.toRight("Did not find contract decimals")
       finalAmount = amountOfCoins * Math.pow(10, -decimals)
-      rawAddress  <- readParamValue(first, "from").toRight("Did not find sender address")
+      rawAddress  <- first.paramValue("from").toRight("Did not find sender address")
       sender      <- refineV[WalletAddressPredicate](rawAddress)
     } yield Claim(
       txFee(transaction),
@@ -126,8 +128,8 @@ object PositionEntry {
                            .flatMap(_.senderContractSymbol)
                            .toRight("Did not find currency")
                            .flatMap(Currency(_))
-      fromWalletAmount = transfersFromWallet.map(ev => readParamValue(ev, "value").map(BigDecimal(_))).values.sum * Math.pow(10, -fromWalletDecimals)
-      toWalletAmount = transfersToWallet.map(ev => readParamValue(ev, "value").map(BigDecimal(_))).values.sum * Math.pow(10, -toWalletDecimals)
+      fromWalletAmount = transfersFromWallet.map(_.paramValue("value").map(BigDecimal(_))).values.sum * Math.pow(10, -fromWalletDecimals)
+      toWalletAmount = transfersToWallet.map(_.paramValue("value").map(BigDecimal(_))).values.sum * Math.pow(10, -toWalletDecimals)
     } yield Sell(
       FungibleData(fromWalletAmount, fromWalletCurrency),
       FungibleData(toWalletAmount, toWalletCurrency),
@@ -151,12 +153,22 @@ object PositionEntry {
       transaction.instant
     )
 
+  private def txToTransferOut(transaction: Transaction, address: WalletAddress): Either[String, TransferOut] = {
+    val transferOuts = transaction.logEvents.filter(_.isTransferFromAddress(address))
+    for {
+      decimals <- transferOuts.headOption.flatMap(_.senderContractDecimals).toRight("Did not find contract decimals")
+      currency <- transferOuts.headOption.flatMap(_.senderContractSymbol).toRight("Did not find currency").flatMap(Currency(_))
+      toAddress <- transferOuts.headOption.flatMap(_.paramValue("to")).toRight("Did not find destination address").flatMap(refineV[WalletAddressPredicate](_))
+      amount = transferOuts.map(_.paramValue("value").map(BigDecimal(_))).values.sum * Math.pow(10, -decimals)
+    } yield TransferOut(FungibleData(amount, currency), toAddress, txFee(transaction), transaction.hash, transaction.instant)
+  }
+
   private def dataFromTransferEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
     for {
       senderDecimals <- event.senderContractDecimals.toRight("Did not find contract decimals")
       rawCurrency    <- event.senderContractSymbol.toRight("Did not find currency")
       currency       <- Currency(rawCurrency)
-      rawAmount      <- readParamValue(event, "value").toRight("Cannot determine amount")
+      rawAmount      <- event.paramValue("value").toRight("Cannot determine amount")
       amount <- Try(BigDecimal(rawAmount) * Math.pow(10, -senderDecimals)).toEither.left.map(_ =>
                  "Cannot determine amount"
                )
@@ -166,13 +178,10 @@ object PositionEntry {
   private def txFee(tx: Transaction): Fee =
     FungibleData(tx.gasSpent * tx.gasPrice * Math.pow(10, -18), WBNB)
 
-  private def readParamValue(logEvent: LogEvent, paramName: String): Option[String] =
-    logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
-
   implicit class TransactionOps(transaction: Transaction) {
     def depositEvent(): Either[String, LogEvent] =
       transaction.logEvents
-        .find(ev => isDepositEvent(ev) && readParamValue(ev, "dst").contains(transaction.toAddress))
+        .find(ev => isDepositEvent(ev) && ev.paramValue("dst").contains(transaction.toAddress))
         .toRight("Unable to interpret Deposit event")
 
     /**
@@ -182,21 +191,21 @@ object PositionEntry {
      */
     def lastTransferEventToWallet(): Either[String, LogEvent] =
       transaction.logEvents
-        .find(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(transaction.fromAddress))
+        .find(ev => ev.isTransferEvent() && ev.paramValue("to").contains(transaction.fromAddress))
         .toRight("Unable to interpret Transfer event")
 
     def firstTransferEvent(): Either[String, LogEvent] =
       transaction.logEvents
-        .findLast(ev => isTransferEvent(ev))
+        .findLast(_.isTransferEvent())
         .toRight("Unable to interpret Transfer event")
 
     def transferEventsToWallet(address: WalletAddress): List[LogEvent] =
       transaction.logEvents
-        .filter(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(address.value))
+        .filter(ev => ev.isTransferEvent() && ev.paramValue("to").contains(address.value))
 
     def transferEventsFromWallet(address: WalletAddress): List[LogEvent] =
       transaction.logEvents
-        .filter(ev => isTransferEvent(ev) && readParamValue(ev, "from").contains(address.value))
+        .filter(ev => ev.isTransferEvent() && ev.paramValue("from").contains(address.value))
 
     private def isDepositEvent(event: LogEvent): Boolean =
       event.decoded.exists(_.name == "Deposit")
@@ -204,16 +213,14 @@ object PositionEntry {
     private def isApprovalEvent(logEvent: LogEvent): Boolean =
       logEvent.decoded.exists(_.name == "Approval")
 
-    private def isTransferEvent(event: LogEvent): Boolean = event.decoded.exists(_.name == "Transfer")
-
     def isAirDrop(): Boolean =
       if (transaction.logEvents.nonEmpty) {
         val eventsInChronologicalOrder = transaction.logEvents.reverse
         (for {
-          firstTransferValue <- readParamValue(eventsInChronologicalOrder.head, "value").map(BigDecimal(_))
+          firstTransferValue <- eventsInChronologicalOrder.head.paramValue("value").map(BigDecimal(_))
           valueForAllTransfers = eventsInChronologicalOrder.tail
-            .filter(isTransferEvent)
-            .map(ev => readParamValue(ev, "value").map(BigDecimal(_)))
+            .filter(_.isTransferEvent())
+            .map(_.paramValue("value").map(BigDecimal(_)))
             .collect {
               case Some(value) => value
             }
@@ -223,10 +230,11 @@ object PositionEntry {
         false
       }
 
-    def isApproval(): Boolean =
-      transaction.logEvents.exists(ev =>
-        isApprovalEvent(ev) && readParamValue(ev, "owner").contains(transaction.fromAddress)
+    def isApproval(): Boolean = {
+      transaction.logEvents.size == 1 && transaction.logEvents.exists(ev =>
+        isApprovalEvent(ev) && ev.paramValue("owner").contains(transaction.fromAddress)
       )
+    }
 
     def isBuy(): Boolean =
       transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
@@ -257,6 +265,28 @@ object PositionEntry {
 
     def isTransferIn(): Boolean =
       transaction.logEvents.isEmpty
+
+    def isTransferOut(address: WalletAddress): Boolean = {
+      transaction.rawValue.toDouble == 0d && {
+        val events = transaction.logEvents.filter(_.decoded.isDefined)
+        events.size % 2 == 0 &&
+          events.grouped(2).count { pair =>
+            pair.head.isApproval() && pair.last.isTransferEvent()
+          } == events.size / 2
+      }
+    }
+  }
+
+  implicit class LogEventOps(logEvent: LogEvent) {
+    def isApproval(): Boolean = logEvent.decoded.exists(_.name == "Approval")
+
+    def isTransferEvent(): Boolean = logEvent.decoded.exists(_.name == "Transfer")
+
+    def paramValue(paramName: String): Option[String] =
+      logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
+
+    def isTransferFromAddress(address: WalletAddress) =
+      isTransferEvent() && paramValue("from").contains(address.value)
   }
 }
 
