@@ -227,18 +227,6 @@ object PositionEntry {
                         .flatMap(refineV[WalletAddressPredicate](_))
     } yield (senderAddress, FungibleData(amount, currency))
 
-//  private def dataFromTransferOutEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
-//    for {
-//      senderDecimals <- event.senderContractDecimals.toRight("Did not find contract decimals")
-//      rawCurrency    <- event.senderContractSymbol.toRight("Did not find currency")
-//      currency       <- Currency(rawCurrency)
-//      rawAmount      <- event.paramValue("value").toRight("Cannot determine amount")
-//      amount <- Try(BigDecimal(rawAmount) * Math.pow(10, -senderDecimals)).toEither.left.map(_ =>
-//        "Cannot determine amount"
-//      )
-//      senderAddress <- event.paramValue("from").toRight("Did not find sender address").flatMap(refineV[WalletAddressPredicate](_))
-//    } yield (senderAddress, FungibleData(amount, currency))
-
   implicit class TransactionOps(transaction: Transaction) {
     def depositEvent(): Either[String, LogEvent] =
       transaction.logEvents
