@@ -38,16 +38,25 @@ object PositionEntrySpec extends DefaultRunnableSpec {
     },
     test("Interpret transaction as Buy") {
       val transaction = getTransaction("/covalent/transactions/buy.json")
-      val buy         = PositionEntry.fromTransaction(transaction, Address)
-      val expected = Buy(
-        spent = FungibleData(BigDecimal("0.387540872900310619"), WBNB),
-        received = FungibleData(BigDecimal("207074895.873037397"), Currency.unsafeFrom("FOOFIGHT")),
-        coinAddress = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
-        fee = FungibleData(BigDecimal("0.00377384"), WBNB),
-        hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
-        timestamp = Instant.parse("2021-10-18T12:27:24Z")
+      val buyAndTransferIn = PositionEntry.fromTransaction(transaction, Address)
+      val expected = List(
+        Buy(
+          spent = FungibleData(BigDecimal("0.3875408729003106190"), WBNB),
+          received = FungibleData(BigDecimal("207074895.8730373970"), Currency.unsafeFrom("FOOFIGHT")),
+          coinAddress = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
+          fee = FungibleData(BigDecimal("0.00377384"), WBNB),
+          hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
+          timestamp = Instant.parse("2021-10-18T12:27:24Z")
+        ),
+        TransferIn(
+          amount = FungibleData(BigDecimal("3.4736516581719474730"), Currency.unsafeFrom("BUSD")),
+          receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
+          fee = FungibleData.zero(WBNB),
+          hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
+          timestamp = Instant.parse("2021-10-18T12:27:24Z")
+        )
       )
-      assert(buy)(isRight(hasSameElements(List(expected))))
+      assert(buyAndTransferIn)(isRight(hasSameElements(expected)))
     },
     test("Interpret transaction as Claim") {
       val transaction = getTransaction("/covalent/transactions/claim.json")
