@@ -9,8 +9,6 @@ import vo.TimeInterval
 import java.time.{ Duration, Instant }
 
 final case class Position(
-  currency: Currency,
-  openedAt: Instant,
   entries: List[PositionEntry],
   priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
   journal: Option[JournalEntry] = None,
@@ -149,7 +147,7 @@ final case class Position(
         case Buy(_, spent, _, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
         case _: Claim => None
-        case Contribute(spent, _, _, timestamp) =>
+        case Contribute(spent, _, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
 
         //a position cannot have TransferIns nor TransferOuts
@@ -175,4 +173,22 @@ final case class Position(
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
   }
+
+  lazy val currency: Option[Currency] = {
+    entries.map {
+      case a: AirDrop => Some(a.received.currency)
+      case _: Approval => None
+      case Buy(_, _, received, _, _, _) => Some(received.currency)
+      case Claim(_, received, _, _, _) => Some(received.currency)
+      case _: Contribute => None
+      case Sell(sold, _, _, _, _) => Some(sold.currency)
+      case TransferIn(amount, _, _, _, _) => Some(amount.currency)
+      case TransferOut(amount, _, _, _, _) => Some(amount.currency)
+    }.values
+      .filter(c => !Set(WBNB).contains(c))
+      .distinct
+      .headOption
+  }
+
+  lazy val openedAt: Instant = entries.head.timestamp
 }

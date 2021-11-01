@@ -31,6 +31,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       val approval    = PositionEntry.fromTransaction(transaction, Address)
       val expected = Approval(
         fee = FungibleData(BigDecimal("0.00022274000000000003"), WBNB),
+        forContract = WalletAddress.unsafeFrom("0x163f182c32d24a09d91eb75820cde9fd5832b329"),
         hash = TransactionHash.unsafeApply("0xdc4b8148e8d106014e9f37be3b06746e04f432a271067c7f5a4eaa6ead729899"),
         timestamp = Instant.parse("2021-05-25T02:09:01Z")
       )
@@ -75,6 +76,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       val contribute  = PositionEntry.fromTransaction(transaction, Address)
       val expected = Contribute(
         spent = FungibleData(BigDecimal("0.1023923391846748000"), WBNB),
+        to = WalletAddress.unsafeFrom("0x42f8c2113f833db5886eea67a77ab32d83f4339f"),
         fee = FungibleData(BigDecimal("0.0010398500000000001"), WBNB),
         hash = TransactionHash.unsafeApply("0x2bba1a27a5b3e4f96316506c41e85d882e71ae900ebd08f67cfca750de38460d"),
         timestamp = Instant.parse("2021-10-07T21:45:33Z")
@@ -85,7 +87,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       val transaction = getTransaction("/covalent/transactions/sell_after_claim.json")
       val sell = PositionEntry.fromTransaction(transaction, Address)
       val expected = Sell(
-        amount = FungibleData(BigDecimal("9335310526620.73190"), Currency.unsafeFrom("NONO")),
+        sold = FungibleData(BigDecimal("9335310526620.73190"), Currency.unsafeFrom("NONO")),
         received = FungibleData(BigDecimal("925.5416553017160106510"), Currency.unsafeFrom("BUSD")),
         fee = FungibleData(BigDecimal("0.0036912200000000003"), WBNB),
         hash = TransactionHash.unsafeApply("0x5ec20963f3fe609c288d12319f45385a633243b9db4f20123ff8a933a93a2df3"),
@@ -98,7 +100,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       val sell = PositionEntry.fromTransaction(transaction, Address)
       val expected = List(
         Sell(
-          amount = FungibleData(BigDecimal("432156304.4306867440"), Currency.unsafeFrom("FOOFIGHT")),
+          sold = FungibleData(BigDecimal("432156304.4306867440"), Currency.unsafeFrom("FOOFIGHT")),
           received = FungibleData(BigDecimal("0.4175743142140909320"), WBNB),
           fee = FungibleData(BigDecimal("0.00496212"), WBNB),
           hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),

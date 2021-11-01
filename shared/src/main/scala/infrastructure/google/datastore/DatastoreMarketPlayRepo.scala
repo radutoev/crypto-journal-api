@@ -318,7 +318,6 @@ final case class DatastoreMarketPlayRepo(
       var builder = Entity
         .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(id))
         .set("address", StringValue.of(address.value))
-        .set("currency", StringValue.of(position.currency.value))
         .set("state", StringValue.of(position.state.toString))
         .set(
           "openedAt",
@@ -393,14 +392,6 @@ final case class DatastoreMarketPlayRepo(
                  .left
                  .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
              )
-      currency <- tryOrLeft(
-                   entity.getString("currency"),
-                   InvalidRepresentation("Invalid value currency representation")
-                 ).flatMap(refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
-      openedAt <- tryOrLeft(
-                   Instant.ofEpochSecond(entity.getTimestamp("openedAt").getSeconds),
-                   InvalidRepresentation("Invalid openedAt representation")
-                 )
       entries <- tryOrLeft(
                   entity
                     .getList[EntityValue]("entries")
@@ -410,7 +401,7 @@ final case class DatastoreMarketPlayRepo(
                     .rights,
                   InvalidRepresentation("Invalid entries representation")
                 )
-    } yield Position(currency, openedAt, entries, id = Some(id))
+    } yield Position(entries, id = Some(id))
   }
 
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {
