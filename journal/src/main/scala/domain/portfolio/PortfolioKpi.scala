@@ -159,13 +159,13 @@ final case class PortfolioKpi(
 
   lazy val biggestWin: Option[FungibleData] = {
     marketPlays.closedPositions.collect {
-      case p: Position if p.fiatReturn().isDefined => p.fiatReturn().get
+      case p: Position if p.fiatReturn.isDefined => p.fiatReturn.get
     }.maxOption
   }
 
   lazy val biggestLoss: Option[FungibleData] = {
     marketPlays.closedPositions.collect {
-      case p: Position if p.fiatReturn().isDefined => p.fiatReturn().get
+      case p: Position if p.fiatReturn.isDefined => p.fiatReturn.get
     }.minOption
   }
 
@@ -194,7 +194,7 @@ final case class PortfolioKpi(
         case (currency, listOfPositions) =>
           (
             currency,
-            listOfPositions.map(_.fiatReturn().getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
+            listOfPositions.map(_.fiatReturn.getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
             listOfPositions.map(_.fiatReturnPercentage().getOrElse(BigDecimal(0))).sum
           )
       }
@@ -204,7 +204,7 @@ final case class PortfolioKpi(
 
   def periodReturn(): PeriodDistribution = {
     val returnByDate = marketPlays.closedPositions
-      .map(p => p.closedAt().get.toLocalDate().atStartOfDay() -> p.fiatReturn().get)
+      .map(p => p.closedAt().get.toLocalDate().atStartOfDay() -> p.fiatReturn.get)
       .groupBy(_._1)
       .view
       .mapValues(_.map(_._2).sumFungibleData())
@@ -227,7 +227,7 @@ final case class PortfolioKpi(
     }
     val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
-        journal.tags.map(s => s -> p.fiatReturn().getOrElse(FungibleData.zero(USDCurrency)))
+        journal.tags.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(USDCurrency)))
     }.sumByKey()
 
     val positionToReturnPercentage = journaledPositions.flatMap {
@@ -248,7 +248,7 @@ final case class PortfolioKpi(
 
     val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
-        journal.mistakes.map(s => s -> p.fiatReturn().getOrElse(FungibleData.zero(USDCurrency)))
+        journal.mistakes.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(USDCurrency)))
     }.sumByKey()
 
     val positionToReturnPercentage = journaledPositions.flatMap {

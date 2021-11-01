@@ -36,19 +36,6 @@ final case class Position(
   }
 
   /**
-   * Total fiat value of position.
-   * Basically what is the fiat value of the coins in the position.
-   *
-   * TODO Do I need this?
-   */
-  def fiatValue(): Option[FungibleData] =
-    ???
-  //    priceQuotes.map { implicit quotes =>
-  //      entries.collect {
-  //        case e: PositionEntry if e.fiatTotal().isDefined => e.fiatValue().get
-  //      }.sumFungibleData()
-
-  /**
    * Position return derived from all position entries associated with this position.
    *
    * @return

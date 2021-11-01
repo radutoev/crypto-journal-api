@@ -25,7 +25,6 @@ object dto {
   final case class TransferIn(
     hash: String,
     value: FungibleData,
-    fiatValue: Option[FungibleData],
     fee: FungibleData,
     totalFees: Option[FungibleData],
     timestamp: Instant
@@ -34,7 +33,6 @@ object dto {
   final case class TransferOut(
     hash: String,
     value: FungibleData,
-    fiatValue: Option[FungibleData],
     fee: FungibleData,
     totalFees: Option[FungibleData],
     timestamp: Instant
@@ -128,7 +126,6 @@ object dto {
       TransferIn(
         hash = t.txHash.value,
         value = t.value.asJson,
-        fiatValue = t.fiatValue().map(_.asJson),
         fee = t.fee.asJson,
         totalFees = t.totalFees().map(_.asJson),
         timestamp = t.timestamp
@@ -138,7 +135,6 @@ object dto {
       TransferOut(
         hash = t.txHash.value,
         value = t.value.asJson,
-        fiatValue = t.fiatValue().map(_.asJson),
         fee = t.fee.asJson,
         totalFees = t.totalFees().map(_.asJson),
         timestamp = t.timestamp

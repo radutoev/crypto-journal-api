@@ -10,7 +10,5 @@ trait MarketPlay {
 
   def openedAt: Instant
 
-  def fiatValue(): Option[FungibleData]
-
   def totalFees(): Option[FungibleData]
 }

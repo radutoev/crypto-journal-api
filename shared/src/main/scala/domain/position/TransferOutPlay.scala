@@ -19,13 +19,6 @@ final case class TransferOutPlay(
 ) extends MarketPlay {
   override def openedAt: Instant = timestamp
 
-  override def fiatValue(): Option[Fee] = priceQuotes.flatMap { quotes =>
-    quotes
-      .findPrice(timestamp)
-      .map(quote => value.amount * quote.price)
-      .map(fiatAmount => FungibleData(fiatAmount, refined.refineV[NonEmpty].unsafeFrom("USD")))
-  }
-
   override def totalFees(): Option[Fee] = priceQuotes.flatMap { quotes =>
     quotes
       .findPrice(timestamp)

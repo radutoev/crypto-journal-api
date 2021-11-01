@@ -11,10 +11,10 @@ import domain.position.model.HideFromStats
 final case class NetReturn(marketPlays: MarketPlays) {
   lazy val value: FungibleData = marketPlays.closedPositions
     .filterNot(_.journal.exists(_.scamStrategy.exists(_ == HideFromStats)))
-    .map(_.fiatReturn())
+    .map(_.fiatReturn)
     .sumFungibleData()
 
-  lazy val trend: List[FungibleData] = marketPlays.trend(_.fiatReturn())
+  lazy val trend: List[FungibleData] = marketPlays.trend(_.fiatReturn)
 
   def performance(relativeTo: NetReturn): Performance =
     value.compare(relativeTo.value) match {
