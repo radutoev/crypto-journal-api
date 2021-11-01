@@ -1,9 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{LogEvent, Transaction}
-import domain.model.{Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
-import util.{ListEitherOps, ListOptionOps}
+import domain.blockchain.{ LogEvent, Transaction }
+import domain.model.{ Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate }
+import util.{ ListEitherOps, ListOptionOps }
 
 import eu.timepit.refined.refineV
 
@@ -30,10 +30,10 @@ object PositionEntry {
     } else if (transaction.isContribute()) {
       txToContribute(transaction).map(List(_))
     } else if (transaction.isSale()) {
-      txToSell(transaction, walletAddress).map(List(_))
+      txToSell(transaction, walletAddress)
     } else if (transaction.isTransferIn()) {
       txToTransferIn(transaction).map(List(_))
-    } else if(transaction.isTransferOut(walletAddress)) {
+    } else if (transaction.isTransferOut(walletAddress)) {
       txToTransferOut(transaction, walletAddress).map(List(_))
     } else {
       Left("Unable to interpret transaction")
@@ -69,8 +69,8 @@ object PositionEntry {
   private def txToBuy(transaction: Transaction, address: WalletAddress): Either[String, List[PositionEntry]] = {
     val transfersToAddress = transaction.logEvents.filter(_.isTransferToAddress(address))
 
-    if(transfersToAddress.nonEmpty) {
-      val (buy, transferIns) = if(transfersToAddress.size > 1) {
+    if (transfersToAddress.nonEmpty) {
+      val (buy, transferIns) = if (transfersToAddress.size > 1) {
         (transfersToAddress.head, transfersToAddress.tail)
       } else {
         (transfersToAddress.head, Nil)
@@ -81,16 +81,17 @@ object PositionEntry {
         fee          = transaction.computedFee()
         decimals     <- depositEvent.senderContractDecimals.toRight("Did not find contract decimals")
         amountSpent <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -decimals)).toEither.left.map(_ =>
-          "Cannot determine amount spent"
-        )
+                        "Cannot determine amount spent"
+                      )
         currency                <- depositEvent.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
         spent                   = FungibleData(amountSpent, currency)
-        (coinAddress, received) <- dataFromTransferEvent(buy)
+        (coinAddress, received) <- dataFromTransferInEvent(buy)
       } yield Buy(fee, spent, received, coinAddress, transaction.hash, transaction.instant)
 
       buyEither map { buy =>
-        buy :: transferIns.map(dataFromTransferEvent).rights.map {
-          case (address, data) => TransferIn(data, address, FungibleData.zero(WBNB), transaction.hash, transaction.instant)
+        buy :: transferIns.map(dataFromTransferInEvent).rights.map {
+          case (address, data) =>
+            TransferIn(data, address, FungibleData.zero(WBNB), transaction.hash, transaction.instant)
         }
       }
     } else {
@@ -128,34 +129,51 @@ object PositionEntry {
                 )
     } yield Contribute(FungibleData(txValue, WBNB), transaction.computedFee(), transaction.hash, transaction.instant)
 
-  private def txToSell(transaction: Transaction, walletAddress: WalletAddress): Either[String, Sell] = {
+  //Looks for a withdrawal event, if not found then looks for a swap.
+  private def txToSell(transaction: Transaction, walletAddress: WalletAddress): Either[String, List[PositionEntry]] = {
     val transfersToWallet   = transaction.transferEventsToWallet(walletAddress)
     val transfersFromWallet = transaction.transferEventsFromWallet(walletAddress)
 
-    for {
-      fromWalletDecimals <- transfersFromWallet.headOption
-                             .flatMap(_.senderContractDecimals)
-                             .toRight("Did not find contract decimals")
-      fromWalletCurrency <- transfersFromWallet.headOption
-                             .flatMap(_.senderContractSymbol)
-                             .toRight("Did not find currency")
-                             .flatMap(Currency(_))
-      toWalletDecimals <- transfersToWallet.headOption
-                           .flatMap(_.senderContractDecimals)
-                           .toRight("Did not find contract decimals")
-      toWalletCurrency <- transfersToWallet.headOption
-                           .flatMap(_.senderContractSymbol)
-                           .toRight("Did not find currency")
-                           .flatMap(Currency(_))
-      fromWalletAmount = transfersFromWallet.map(_.paramValue("value").map(BigDecimal(_))).values.sum * Math.pow(10, -fromWalletDecimals)
-      toWalletAmount = transfersToWallet.map(_.paramValue("value").map(BigDecimal(_))).values.sum * Math.pow(10, -toWalletDecimals)
-    } yield Sell(
-      FungibleData(fromWalletAmount, fromWalletCurrency),
-      FungibleData(toWalletAmount, toWalletCurrency),
-      transaction.computedFee(),
-      transaction.hash,
-      transaction.instant
-    )
+    @inline
+    def asTransferIn(ev: LogEvent): Either[String, TransferIn] =
+      for {
+        decimals <- ev.senderContractDecimals.toRight("Did not find decimals")
+        currency <- ev.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
+        amount   <- ev.paramValue("value").map(BigDecimal(_)).toRight("Did not find amount")
+        data     = FungibleData(amount * Math.pow(10, -decimals), currency)
+        from     <- ev.paramValue("from").toRight("Did not find sender").flatMap(refineV[WalletAddressPredicate](_))
+      } yield TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant)
+
+    val (receivedCandidate, receivedAmount, transferIns) = {
+      val maybeWithdrawal = transaction.logEvents.find(_.isWithdrawal())
+      maybeWithdrawal.fold(
+        (
+          transfersToWallet.headOption,
+          transfersToWallet.headOption.flatMap(_.paramValue("value")),
+          transfersToWallet.tail
+        )
+      )(withdrawal => (Some(withdrawal), withdrawal.paramValue("wad"), transfersToWallet))
+    }
+
+    val sellEither = for {
+      candidate <- receivedCandidate.toRight("No Withdrawal event")
+      amount    <- receivedAmount.map(BigDecimal(_)).toRight("Did not find amount")
+      decimals  <- candidate.senderContractDecimals.toRight("Did not find decimals")
+      currency  <- candidate.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
+      received  = FungibleData(amount * Math.pow(10, -decimals), currency)
+      sold = transfersFromWallet.map { ev =>
+        for {
+          decimals <- ev.senderContractDecimals.toRight("Did not find decimals")
+          currency <- ev.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
+          amount   <- ev.paramValue("value").map(BigDecimal(_)).toRight("Did not find amount")
+        } yield FungibleData(amount * Math.pow(10, -decimals), currency)
+      }.rights
+      //union fails if there are no transfers from our address.
+      //union also has the assumption of unique currency
+      soldUnion = sold.foldLeft(FungibleData.zero(sold.head.currency))((acc, el) => acc.add(el.amount))
+    } yield Sell(soldUnion, received, transaction.computedFee(), transaction.hash, transaction.instant)
+
+    sellEither.map(sell => sell +: transferIns.map(asTransferIn).rights)
   }
 
   private def txToTransferIn(transaction: Transaction): Either[String, TransferIn] =
@@ -176,13 +194,25 @@ object PositionEntry {
     val transferOuts = transaction.logEvents.filter(_.isTransferFromAddress(address))
     for {
       decimals <- transferOuts.headOption.flatMap(_.senderContractDecimals).toRight("Did not find contract decimals")
-      currency <- transferOuts.headOption.flatMap(_.senderContractSymbol).toRight("Did not find currency").flatMap(Currency(_))
-      toAddress <- transferOuts.headOption.flatMap(_.paramValue("to")).toRight("Did not find destination address").flatMap(refineV[WalletAddressPredicate](_))
+      currency <- transferOuts.headOption
+                   .flatMap(_.senderContractSymbol)
+                   .toRight("Did not find currency")
+                   .flatMap(Currency(_))
+      toAddress <- transferOuts.headOption
+                    .flatMap(_.paramValue("to"))
+                    .toRight("Did not find destination address")
+                    .flatMap(refineV[WalletAddressPredicate](_))
       amount = transferOuts.map(_.paramValue("value").map(BigDecimal(_))).values.sum * Math.pow(10, -decimals)
-    } yield TransferOut(FungibleData(amount, currency), toAddress, transaction.computedFee(), transaction.hash, transaction.instant)
+    } yield TransferOut(
+      FungibleData(amount, currency),
+      toAddress,
+      transaction.computedFee(),
+      transaction.hash,
+      transaction.instant
+    )
   }
 
-  private def dataFromTransferEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
+  private def dataFromTransferInEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
     for {
       senderDecimals <- event.senderContractDecimals.toRight("Did not find contract decimals")
       rawCurrency    <- event.senderContractSymbol.toRight("Did not find currency")
@@ -191,8 +221,23 @@ object PositionEntry {
       amount <- Try(BigDecimal(rawAmount) * Math.pow(10, -senderDecimals)).toEither.left.map(_ =>
                  "Cannot determine amount"
                )
-      senderAddress <- event.paramValue("from").toRight("Did not find sender address").flatMap(refineV[WalletAddressPredicate](_))
+      senderAddress <- event
+                        .paramValue("from")
+                        .toRight("Did not find sender address")
+                        .flatMap(refineV[WalletAddressPredicate](_))
     } yield (senderAddress, FungibleData(amount, currency))
+
+//  private def dataFromTransferOutEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
+//    for {
+//      senderDecimals <- event.senderContractDecimals.toRight("Did not find contract decimals")
+//      rawCurrency    <- event.senderContractSymbol.toRight("Did not find currency")
+//      currency       <- Currency(rawCurrency)
+//      rawAmount      <- event.paramValue("value").toRight("Cannot determine amount")
+//      amount <- Try(BigDecimal(rawAmount) * Math.pow(10, -senderDecimals)).toEither.left.map(_ =>
+//        "Cannot determine amount"
+//      )
+//      senderAddress <- event.paramValue("from").toRight("Did not find sender address").flatMap(refineV[WalletAddressPredicate](_))
+//    } yield (senderAddress, FungibleData(amount, currency))
 
   implicit class TransactionOps(transaction: Transaction) {
     def depositEvent(): Either[String, LogEvent] =
@@ -246,11 +291,10 @@ object PositionEntry {
         false
       }
 
-    def isApproval(): Boolean = {
+    def isApproval(): Boolean =
       transaction.logEvents.size == 1 && transaction.logEvents.exists(ev =>
         isApprovalEvent(ev) && ev.paramValue("owner").contains(transaction.fromAddress)
       )
-    }
 
     def isBuy(): Boolean =
       transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
@@ -282,15 +326,14 @@ object PositionEntry {
     def isTransferIn(): Boolean =
       transaction.logEvents.isEmpty
 
-    def isTransferOut(address: WalletAddress): Boolean = {
+    def isTransferOut(address: WalletAddress): Boolean =
       transaction.rawValue.toDouble == 0d && {
         val events = transaction.logEvents.filter(_.decoded.isDefined)
         events.size % 2 == 0 &&
-          events.grouped(2).count { pair =>
-            pair.head.isApproval() && pair.last.isTransferEvent()
-          } == events.size / 2
+        events.grouped(2).count { pair =>
+          pair.head.isApproval() && pair.last.isTransferEvent()
+        } == events.size / 2
       }
-    }
 
     def computedFee(): Fee = FungibleData(transaction.gasSpent * transaction.gasPrice * Math.pow(10, -18), WBNB)
   }
@@ -300,6 +343,10 @@ object PositionEntry {
 
     def isTransferEvent(): Boolean = logEvent.decoded.exists(_.name == "Transfer")
 
+    def isWithdrawal(): Boolean = logEvent.decoded.exists(_.name == "Withdrawal")
+
+    def isSwap(): Boolean = logEvent.decoded.exists(_.name == "Swap")
+
     def paramValue(paramName: String): Option[String] =
       logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
 
@@ -308,6 +355,9 @@ object PositionEntry {
 
     def isTransferToAddress(address: WalletAddress) =
       isTransferEvent() && paramValue("to").contains(address.value)
+
+    def isSwapToAddress(address: WalletAddress) =
+      isSwap() && paramValue("to").contains(address.value)
   }
 }
 
