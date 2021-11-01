@@ -72,6 +72,30 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       )
       assert(contribute)(isRight(equalTo(expected)))
     },
+    test("Interpret transaction as SELL of claimed tokens") {
+      val transaction = getTransaction("/covalent/transactions/sell_after_claim.json")
+      val sell = PositionEntry.fromTransaction(transaction, Address)
+      val expected = Sell(
+        amount = FungibleData(BigDecimal("9335310526620.73190"), Currency.unsafeFrom("NONO")),
+        received = FungibleData(BigDecimal("925.5416553017160106510"), Currency.unsafeFrom("BUSD")),
+        fee = FungibleData(BigDecimal("0.0036912200000000003"), WBNB),
+        hash = TransactionHash.unsafeApply("0x5ec20963f3fe609c288d12319f45385a633243b9db4f20123ff8a933a93a2df3"),
+        timestamp = Instant.parse("2021-10-08T19:13:37Z")
+      )
+      assert(sell)(isRight(equalTo(expected)))
+    },
+    test("Interpret transaction as Sell") {
+      val transaction = getTransaction("/covalent/transactions/sell1.json")
+      val sell = PositionEntry.fromTransaction(transaction, Address)
+      val expected = Sell(
+        amount = FungibleData(BigDecimal("432156304.4306867440"), Currency.unsafeFrom("FOOFIGHT")),
+        received = FungibleData(BigDecimal("1.717267572350952381"), Currency.unsafeFrom("BUSD")),
+        fee = FungibleData(BigDecimal("0.00496212"), WBNB),
+        hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
+        timestamp = Instant.parse("2021-10-18T14:04:18Z")
+      )
+      assert(sell)(isRight(equalTo(expected)))
+    },
     test("Interpret transaction as TransferIn") {
       val transaction = getTransaction("/covalent/transactions/transferIn.json")
       val transferIn  = PositionEntry.fromTransaction(transaction, Address)

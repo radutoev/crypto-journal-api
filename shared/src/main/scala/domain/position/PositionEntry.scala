@@ -17,6 +17,7 @@ sealed trait PositionEntry {
 }
 
 object PositionEntry {
+  //TODO By having this in PositionEntry I am making it aware of blockchain transactions. I need to move it somewhere else.
   def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, PositionEntry] =
     if (transaction.isAirDrop()) {
       txToAirDrop(transaction, walletAddress)
@@ -28,6 +29,8 @@ object PositionEntry {
       txToClaim(transaction, walletAddress)
     } else if (transaction.isContribute()) {
       txToContribute(transaction)
+    } else if (transaction.isSale()) {
+      txToSell(transaction, walletAddress)
     } else if (transaction.isTransferIn()) {
       txToTransferIn(transaction)
     } else {
@@ -104,6 +107,36 @@ object PositionEntry {
                 )
     } yield Contribute(FungibleData(txValue, WBNB), txFee(transaction), transaction.hash, transaction.instant)
 
+  private def txToSell(transaction: Transaction, walletAddress: WalletAddress): Either[String, Sell] = {
+    val transfersToWallet   = transaction.transferEventsToWallet(walletAddress)
+    val transfersFromWallet = transaction.transferEventsFromWallet(walletAddress)
+
+    for {
+      fromWalletDecimals <- transfersFromWallet.headOption
+                             .flatMap(_.senderContractDecimals)
+                             .toRight("Did not find contract decimals")
+      fromWalletCurrency <- transfersFromWallet.headOption
+                             .flatMap(_.senderContractSymbol)
+                             .toRight("Did not find currency")
+                             .flatMap(Currency(_))
+      toWalletDecimals <- transfersToWallet.headOption
+                           .flatMap(_.senderContractDecimals)
+                           .toRight("Did not find contract decimals")
+      toWalletCurrency <- transfersToWallet.headOption
+                           .flatMap(_.senderContractSymbol)
+                           .toRight("Did not find currency")
+                           .flatMap(Currency(_))
+      fromWalletAmount = transfersFromWallet.map(ev => readParamValue(ev, "value").map(BigDecimal(_))).values.sum * Math.pow(10, -fromWalletDecimals)
+      toWalletAmount = transfersToWallet.map(ev => readParamValue(ev, "value").map(BigDecimal(_))).values.sum * Math.pow(10, -toWalletDecimals)
+    } yield Sell(
+      FungibleData(fromWalletAmount, fromWalletCurrency),
+      FungibleData(toWalletAmount, toWalletCurrency),
+      txFee(transaction),
+      transaction.hash,
+      transaction.instant
+    )
+  }
+
   private def txToTransferIn(transaction: Transaction): Either[String, TransferIn] =
     for {
       txValue <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -18)).toEither.left.map(_ =>
@@ -160,6 +193,10 @@ object PositionEntry {
     def transferEventsToWallet(address: WalletAddress): List[LogEvent] =
       transaction.logEvents
         .filter(ev => isTransferEvent(ev) && readParamValue(ev, "to").contains(address.value))
+
+    def transferEventsFromWallet(address: WalletAddress): List[LogEvent] =
+      transaction.logEvents
+        .filter(ev => isTransferEvent(ev) && readParamValue(ev, "from").contains(address.value))
 
     private def isDepositEvent(event: LogEvent): Boolean =
       event.decoded.exists(_.name == "Deposit")
@@ -251,6 +288,9 @@ final case class Claim(
 ) extends PositionEntry
 
 final case class Contribute(spent: FungibleData, fee: Fee, hash: TransactionHash, timestamp: Instant)
+    extends PositionEntry
+
+final case class Sell(amount: FungibleData, received: FungibleData, fee: Fee, hash: TransactionHash, timestamp: Instant)
     extends PositionEntry
 
 final case class TransferIn(
