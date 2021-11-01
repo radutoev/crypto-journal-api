@@ -1,6 +1,6 @@
 package io.softwarechain.cryptojournal
 
-import domain.position.{ MarketPlay, Position, TransferInPlay, TransferOutPlay }
+import domain.position.{ MarketPlay, Position, TopUp, TransferOutPlay }
 
 import com.google.cloud.Timestamp
 
@@ -49,7 +49,7 @@ package object util {
   implicit class MarketPlaysListOps(marketPlays: List[MarketPlay]) {
     lazy val positions: List[Position] = marketPlays.collect { case p: Position => p }
 
-    lazy val transferIns: List[TransferInPlay] = marketPlays.collect { case t: TransferInPlay => t }
+    lazy val transferIns: List[TopUp] = marketPlays.collect { case t: TopUp => t }
 
     lazy val transferOuts: List[TransferOutPlay] = marketPlays.collect { case t: TransferOutPlay => t }
 

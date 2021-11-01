@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{ Currency, FungibleData, TransactionHash, TransactionType, Unknown, WalletAddress }
+import domain.model.{ Currency, FungibleData, TransactionHash, TransactionType, Unknown, WBNB, WalletAddress }
 import util.{ InstantOps, ListEitherOps, MarketPlaysListOps }
 import vo.TimeInterval
 
@@ -16,13 +16,13 @@ import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val positions: List[Position]           = plays.positions
-  lazy val transferIns: List[TransferInPlay]   = plays.transferIns
+  lazy val transferIns: List[TopUp]            = plays.transferIns
   lazy val transferOuts: List[TransferOutPlay] = plays.transferOuts
 
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed())
   lazy val openPositions: List[Position]   = positions.filter(_.isOpen())
 
-  def merge(other: MarketPlays): MarketPlays = {
+  def merge(other: MarketPlays): MarketPlays =
     ???
 //    var currencyPositionMap = Map.empty[Currency, Position]
 //    val otherPositions      = ArrayBuffer.empty[Position]
@@ -60,7 +60,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 //        transferOuts :::
 //        other.transferOuts).sortBy(_.openedAt)(Ordering[Instant])
 //    )
-  }
 
   def filter(interval: TimeInterval): MarketPlays =
     MarketPlays(positions.filter(_.inInterval(interval)))
@@ -77,45 +76,44 @@ object MarketPlays {
 
   def empty(): MarketPlays = MarketPlays(List.empty)
 
-
   //TODO I should return MarketPlays here.
   def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): List[MarketPlay] = {
-    val incoming: mutable.Map[Currency, ListBuffer[PositionEntry]] = mutable.Map.empty
+    val incoming: mutable.Map[Currency, ListBuffer[PositionEntry]]                = mutable.Map.empty
     val incomingByContract: mutable.Map[WalletAddress, ListBuffer[PositionEntry]] = mutable.Map.empty
-    val playsBuffer: ListBuffer[MarketPlay] = ListBuffer.empty
+    val playsBuffer: ListBuffer[MarketPlay]                                       = ListBuffer.empty
+    val topUpsBuffer: ListBuffer[TopUp]                                           = ListBuffer.empty
 
     @inline
-    def addToIncoming(currency: Currency, entry: PositionEntry): Unit = {
-      if(incoming.contains(currency)) {
+    def addToIncoming(currency: Currency, entry: PositionEntry): Unit =
+      if (incoming.contains(currency)) {
         incoming(currency).addOne(entry)
       } else {
         incoming.put(currency, ListBuffer(entry))
       }
-    }
 
     @inline
-    def addAllToIncoming(currency: Currency, entries: ListBuffer[PositionEntry]): Unit = {
-      if(incoming.contains(currency)) {
+    def addAllToIncoming(currency: Currency, entries: ListBuffer[PositionEntry]): Unit =
+      if (incoming.contains(currency)) {
         incoming(currency).addAll(ListBuffer.from(entries.toList))
       } else {
         incoming.put(currency, ListBuffer.from(entries))
       }
-    }
 
     @inline
-    def addToContractIncoming(walletAddress: WalletAddress, entry: PositionEntry): Unit = {
-      if(incomingByContract.contains(walletAddress)) {
+    def addToContractIncoming(walletAddress: WalletAddress, entry: PositionEntry): Unit =
+      if (incomingByContract.contains(walletAddress)) {
         incomingByContract(walletAddress).addOne(entry)
       } else {
         incomingByContract.put(walletAddress, ListBuffer(entry))
       }
-    }
 
     val entries = transactions
       .filter(_.successful)
-      .flatMap(tx => PositionEntry.fromTransaction(tx, wallet) match {
-        case Right(list) => list
-      })
+      .flatMap(tx =>
+        PositionEntry.fromTransaction(tx, wallet) match {
+          case Right(list) => list
+        }
+      )
       .sortBy(_.timestamp)(Ordering[Instant])
 
     entries.foreach {
@@ -144,17 +142,25 @@ object MarketPlays {
         playsBuffer.addOne(position)
         entries.clear()
 
-      case transferIn: TransferIn => ???
+      case transferIn: TransferIn =>
+        addToIncoming(transferIn.value.currency, transferIn)
 
       case transferOut: TransferOut => ???
     }
 
-  //TODO Handle the rest of the items that didn't have a closing Sell.
+    incoming.foreach {
+      case (currency, topUps) if currency == WBNB && topUps.nonEmpty =>
+        topUpsBuffer.addAll(topUps.asInstanceOf[ListBuffer[TransferIn]].map(t => TopUp(t.hash, t.value, t.fee, t.timestamp)))
+      case _ =>
+    }
+
+    //TODO Handle the rest of the items that didn't have a closing Sell.
 //    incoming.foreach {
 //      case (currency, entries) =>
 //        val restOfItems = incomingByContract.getOrElse()
 //    }
 
-    playsBuffer.toList
+    (playsBuffer.toList ::: topUpsBuffer.toList)
+      .sortBy(_.openedAt)(Ordering[Instant])
   }
 }

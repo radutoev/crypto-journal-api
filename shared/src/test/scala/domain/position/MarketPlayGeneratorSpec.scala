@@ -93,7 +93,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
 //      assert(1)(equalTo(plays.size)) &&
 //      assert(expected)(hasSameElementsDistinct(expected))
 //    },
-    test("Detect position from contribution and claim") {
+    test("Generate position from contribution and claim") {
       val file         = readFile("/covalent/position_generation/contribute_claim_sell.json").fromJson[List[Transaction]]
       val transactions = file.right.get
       val plays        = findMarketPlays(Address, transactions.map(_.toDomain()))
@@ -133,6 +133,21 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       )
       assert(1)(equalTo(plays.size)) &&
       assert(expected)(hasSameElements(plays))
+    },
+
+    test("Generate TopUp") {
+      val file         = readFile("/covalent/position_generation/transferIn.json").fromJson[List[Transaction]]
+      val transactions = file.right.get
+      val topUps        = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val expected = List(
+        TopUp(
+          txHash = TransactionHash.unsafeApply("0x5d7ec936bcefdaa9fbceef0fc7d6373b13756d6bc1ac91d72062cfe5c28d7e09"),
+          value = FungibleData(BigDecimal("2.2700000000000000000"), WBNB),
+          fee = FungibleData(BigDecimal(0.000105), WBNB),
+          timestamp = Instant.parse("2021-05-21T10:57:17Z")
+        )
+      )
+      assert(expected)(hasSameElements(topUps))
     }
   )
 

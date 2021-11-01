@@ -10,7 +10,7 @@ import eu.timepit.refined.collection.NonEmpty
 import java.time.Instant
 
 //TODO Should I handle PriceQuotes differently?? Maybe as an implicit on the functions??
-final case class TransferInPlay(
+final case class TopUp(
   txHash: TransactionHash,
   value: FungibleData,
   fee: Fee,

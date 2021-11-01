@@ -50,7 +50,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
           timestamp = Instant.parse("2021-10-18T12:27:24Z")
         ),
         TransferIn(
-          amount = FungibleData(BigDecimal("3.4736516581719474730"), Currency.unsafeFrom("BUSD")),
+          value = FungibleData(BigDecimal("3.4736516581719474730"), Currency.unsafeFrom("BUSD")),
           receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
           fee = FungibleData.zero(WBNB),
           hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
@@ -107,7 +107,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
           timestamp = Instant.parse("2021-10-18T14:04:18Z")
         ),
         TransferIn(
-          amount = FungibleData(BigDecimal("1.7172675723509523810"), Currency.unsafeFrom("BUSD")),
+          value = FungibleData(BigDecimal("1.7172675723509523810"), Currency.unsafeFrom("BUSD")),
           fee = FungibleData.zero(WBNB),
           receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
           hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
@@ -120,7 +120,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       val transaction = getTransaction("/covalent/transactions/transferIn.json")
       val transferIn  = PositionEntry.fromTransaction(transaction, Address)
       val expected = TransferIn(
-        amount = FungibleData(BigDecimal("0.001"), WBNB),
+        value = FungibleData(BigDecimal("0.001"), WBNB),
         fee = FungibleData(BigDecimal("0.000105"), WBNB),
         receivedFrom = WalletAddress.unsafeFrom("0x0c21496dcac5826c43747c39461e5dc9461e894a"),
         hash = TransactionHash.unsafeApply("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),

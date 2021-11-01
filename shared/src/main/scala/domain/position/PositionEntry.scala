@@ -62,10 +62,9 @@ object PositionEntry {
     )
   }
 
-  private def txToApproval(transaction: Transaction): Either[String, Approval] = {
+  private def txToApproval(transaction: Transaction): Either[String, Approval] =
     refineV[WalletAddressPredicate](transaction.toAddress)
       .map(toContract => Approval(transaction.computedFee(), toContract, transaction.hash, transaction.instant))
-  }
 
   //we consider the last transfer as th BUY, the rest are TransferIns.
   private def txToBuy(transaction: Transaction, address: WalletAddress): Either[String, List[PositionEntry]] = {
@@ -130,7 +129,13 @@ object PositionEntry {
                   "Cannot determine amount"
                 )
       toAddress <- refineV[WalletAddressPredicate](transaction.toAddress)
-    } yield Contribute(FungibleData(txValue, WBNB), toAddress, transaction.computedFee(), transaction.hash, transaction.instant)
+    } yield Contribute(
+      FungibleData(txValue, WBNB),
+      toAddress,
+      transaction.computedFee(),
+      transaction.hash,
+      transaction.instant
+    )
 
   //Looks for a withdrawal event, if not found then looks for a swap.
   private def txToSell(transaction: Transaction, walletAddress: WalletAddress): Either[String, List[PositionEntry]] = {
@@ -360,7 +365,8 @@ final case class AirDrop(
   timestamp: Instant
 ) extends PositionEntry
 
-final case class Approval(fee: Fee, forContract: WalletAddress, hash: TransactionHash, timestamp: Instant) extends PositionEntry
+final case class Approval(fee: Fee, forContract: WalletAddress, hash: TransactionHash, timestamp: Instant)
+    extends PositionEntry
 
 final case class Buy(
   fee: Fee,
@@ -386,7 +392,7 @@ final case class Sell(sold: FungibleData, received: FungibleData, fee: Fee, hash
     extends PositionEntry
 
 final case class TransferIn(
-  amount: FungibleData,
+  value: FungibleData,
   receivedFrom: WalletAddress,
   fee: Fee,
   hash: TransactionHash,

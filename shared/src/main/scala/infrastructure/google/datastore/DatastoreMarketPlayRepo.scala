@@ -10,7 +10,7 @@ import domain.position.{
   MarketPlays,
   Position,
   PositionEntry,
-  TransferInPlay,
+  TopUp,
   TransferOutPlay
 }
 import util.{ tryOrLeft, InstantOps, ListEitherOps }
@@ -96,7 +96,7 @@ final case class DatastoreMarketPlayRepo(
                   play match {
                     //TODO Why can entries be empty??
                     case p: Position if p.entries.nonEmpty            => p
-                    case t @ (_: TransferInPlay | _: TransferOutPlay) => t
+                    case t @ (_: TopUp | _: TransferOutPlay) => t
                   }
               })
               val nextCursor = results.getCursorAfter
@@ -208,7 +208,7 @@ final case class DatastoreMarketPlayRepo(
             }
             list.map(entityToPlay).rights.collect {
               case p: Position if p.entries.nonEmpty            => p
-              case t @ (_: TransferInPlay | _: TransferOutPlay) => t
+              case t @ (_: TopUp | _: TransferOutPlay) => t
             }
           }
       )
@@ -282,7 +282,7 @@ final case class DatastoreMarketPlayRepo(
   private def marketPlayToEntity(marketPlay: MarketPlay, address: WalletAddress): Entity =
     marketPlay match {
       case p: Position        => positionToEntity(p, address, datastoreConfig.marketPlay)
-      case t: TransferInPlay  => transferInToEntity(t, address, datastoreConfig.marketPlay)
+      case t: TopUp  => transferInToEntity(t, address, datastoreConfig.marketPlay)
       case t: TransferOutPlay => transferOutToEntity(t, address, datastoreConfig.marketPlay)
     }
 
@@ -342,7 +342,7 @@ final case class DatastoreMarketPlayRepo(
    * Converts a TransferIn to an Entity.
    * I map the timestamp to openedAt, so that I could later on use it as a consistent filter attribute for the read operations.
    */
-  private def transferInToEntity(transferIn: TransferInPlay, address: WalletAddress, kind: String): Entity =
+  private def transferInToEntity(transferIn: TopUp, address: WalletAddress, kind: String): Entity =
     Entity
       .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
       .set("address", address.value)
@@ -446,7 +446,7 @@ final case class DatastoreMarketPlayRepo(
 //    )
   }
 
-  private def entityToTransferIn(entity: Entity): Either[InvalidRepresentation, TransferInPlay] =
+  private def entityToTransferIn(entity: Entity): Either[InvalidRepresentation, TopUp] =
     for {
       id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
              .flatMap(rawIdStr =>
@@ -471,7 +471,7 @@ final case class DatastoreMarketPlayRepo(
                     Instant.ofEpochSecond(entity.getTimestamp("openedAt").getSeconds),
                     InvalidRepresentation("Invalid timestamp representation")
                   )
-    } yield TransferInPlay(
+    } yield TopUp(
       hash,
       FungibleData(value, currency),
       FungibleData(feeValue, feeCurrency),
