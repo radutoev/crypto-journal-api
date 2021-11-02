@@ -359,8 +359,9 @@ object Routes {
             case list =>
               Response.http(
                 status = Status.OK,
+                headers = Header("Content-Type", "application/json") :: Nil,
                 content = HttpData.CompleteData(
-                  Chunk.fromArray(list.map(fromPositionEntry(_).toJson).toJson.getBytes(HTTP_CHARSET))
+                  Chunk.fromArray(list.map(fromPositionEntry).toJson.getBytes(HTTP_CHARSET))
                 )
               )
           })

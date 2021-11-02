@@ -330,13 +330,8 @@ object PositionEntry {
       transaction.logEvents.isEmpty
 
     def isTransferOut(address: WalletAddress): Boolean =
-      transaction.rawValue.toDouble == 0d && {
-        val events = transaction.logEvents.filter(_.decoded.isDefined)
-        events.size % 2 == 0 &&
-        events.grouped(2).count { pair =>
-          pair.head.isApproval() && pair.last.isTransferEvent()
-        } == events.size / 2
-      }
+      transaction.rawValue.toDouble == 0d &&
+        transaction.logEvents.exists(_.isTransferFromAddress(address))
 
     def computedFee(): Fee = FungibleData(transaction.gasSpent * transaction.gasPrice * Math.pow(10, -18), WBNB)
   }
