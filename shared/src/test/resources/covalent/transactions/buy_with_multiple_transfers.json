@@ -1,0 +1,556 @@
+[
+  {
+    "block_signed_at": "2021-10-14T18:42:11Z",
+    "block_height": 11772438,
+    "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+    "tx_offset": 249,
+    "successful": true,
+    "from_address": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41",
+    "from_address_label": null,
+    "to_address": "0x10ed43c718714eb63d5aa57b78b54704e256024e",
+    "to_address_label": null,
+    "value": "1300000000000000000",
+    "value_quote": 609.4641052246094,
+    "gas_offered": 993261,
+    "gas_spent": 648531,
+    "gas_price": 5000000000,
+    "gas_quote": 1.5202167908670043,
+    "gas_quote_rate": 468.81854248046875,
+    "log_events": [
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1432,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
+          "0x00000000000000000000000010ed43c718714eb63d5aa57b78b54704e256024e",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Pancake LPs",
+        "sender_contract_ticker_symbol": "Cake-LP",
+        "sender_address": "0xe9d53ff96b991f9025f90844b11b3eca5047bbb0",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0xe9d53ff96b991f9025f90844b11b3eca5047bbb0.png",
+        "raw_log_data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000120a871cc00200000000000000000000000000000000000000000000000998cdd94dd27b1e2438480000000000000000000000000000000000000000000000000000000000000000",
+        "decoded": {
+          "name": "Swap",
+          "signature": "Swap(indexed address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, indexed address to)",
+          "params": [
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x10ed43c718714eb63d5aa57b78b54704e256024e"
+            },
+            {
+              "name": "amount0In",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "0"
+            },
+            {
+              "name": "amount1In",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "1300000000000000000"
+            },
+            {
+              "name": "amount0Out",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "11601929322865864768501832"
+            },
+            {
+              "name": "amount1Out",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "0"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1431,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Pancake LPs",
+        "sender_contract_ticker_symbol": "Cake-LP",
+        "sender_address": "0xe9d53ff96b991f9025f90844b11b3eca5047bbb0",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0xe9d53ff96b991f9025f90844b11b3eca5047bbb0.png",
+        "raw_log_data": "0x000000000000000000000000000000000000000000b8724bf6b4df5b8a6935c00000000000000000000000000000000000000000000000016be9f0a021e46b09",
+        "decoded": {
+          "name": "Sync",
+          "signature": "Sync(uint112 reserve0, uint112 reserve1)",
+          "params": [
+            {
+              "name": "reserve0",
+              "type": "uint112",
+              "indexed": false,
+              "decoded": true,
+              "value": "222982101871023649312028096"
+            },
+            {
+              "name": "reserve1",
+              "type": "uint112",
+              "indexed": false,
+              "decoded": true,
+              "value": "26222754875895474953"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1430,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xc864333d6121033635ab41b29ae52f10a22cf4438c3e4f1c4c68518feb2f8a98",
+          "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Emperor Doge",
+        "sender_contract_ticker_symbol": "EMPDOGE",
+        "sender_address": "0x0d1cd07e959a701dfd361c98d40ce48691d8718c",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x0d1cd07e959a701dfd361c98d40ce48691d8718c.png",
+        "raw_log_data": "0x000000000000000000000000000000000000000000000000000000000000004d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006c0000000000000000000000000000000000000000000000000000000000061a80",
+        "decoded": {
+          "name": "ProcessedDividendTracker",
+          "signature": "ProcessedDividendTracker(uint256 iterations, uint256 claims, uint256 lastProcessedIndex, indexed bool automatic, uint256 gas, indexed address processor)",
+          "params": [
+            {
+              "name": "iterations",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "77"
+            },
+            {
+              "name": "claims",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "0"
+            },
+            {
+              "name": "lastProcessedIndex",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "108"
+            },
+            {
+              "name": "automatic",
+              "type": "bool",
+              "indexed": true,
+              "decoded": true,
+              "value": true
+            },
+            {
+              "name": "gas",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "400000"
+            },
+            {
+              "name": "processor",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1429,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xa2c38e2d2fb7e3e1912d937fd1ca11ed6d51864dee4cfa7a7bf02becd7acf092",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41",
+          "0x0000000000000000000000000000000000000000000000000000000000000001"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "EMPDOGE_Dividend_Tracker",
+        "sender_contract_ticker_symbol": "EMPDOGE_Dividend_Tracker",
+        "sender_address": "0x668cff8bbf5a18be1d561a25c7b10de213372698",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x668cff8bbf5a18be1d561a25c7b10de213372698.png",
+        "raw_log_data": "0x00000000000000000000000000000000000000000000000000000000153a672f",
+        "decoded": {
+          "name": "Claim",
+          "signature": "Claim(indexed address account, uint256 amount, indexed bool automatic)",
+          "params": [
+            {
+              "name": "account",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "356149039"
+            },
+            {
+              "name": "automatic",
+              "type": "bool",
+              "indexed": true,
+              "decoded": true,
+              "value": true
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1428,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000668cff8bbf5a18be1d561a25c7b10de213372698",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 8,
+        "sender_name": "Dogecoin",
+        "sender_contract_ticker_symbol": "DOGE",
+        "sender_address": "0xba2ae424d960c26247dd6c32edc70b295c744c43",
+        "sender_address_label": null,
+        "sender_logo_url": "",
+        "raw_log_data": "0x00000000000000000000000000000000000000000000000000000000153a672f",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x668cff8bbf5a18be1d561a25c7b10de213372698"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "356149039"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1427,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xee503bee2bb6a87e57bc57db795f98137327401a0e7b7ce42e37926cc1a9ca4d",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "EMPDOGE_Dividend_Tracker",
+        "sender_contract_ticker_symbol": "EMPDOGE_Dividend_Tracker",
+        "sender_address": "0x668cff8bbf5a18be1d561a25c7b10de213372698",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x668cff8bbf5a18be1d561a25c7b10de213372698.png",
+        "raw_log_data": "0x00000000000000000000000000000000000000000000000000000000153a672f",
+        "decoded": {
+          "name": "DividendWithdrawn",
+          "signature": "DividendWithdrawn(indexed address to, uint256 weiAmount)",
+          "params": [
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "weiAmount",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "356149039"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1426,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "EMPDOGE_Dividend_Tracker",
+        "sender_contract_ticker_symbol": "EMPDOGE_Dividend_Tracker",
+        "sender_address": "0x668cff8bbf5a18be1d561a25c7b10de213372698",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x668cff8bbf5a18be1d561a25c7b10de213372698.png",
+        "raw_log_data": "0x00000000000000000000000000000000000000000008596b689310b7e9954572",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x0000000000000000000000000000000000000000"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "10093678510893302348596594"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1425,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000e9d53ff96b991f9025f90844b11b3eca5047bbb0",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Emperor Doge",
+        "sender_contract_ticker_symbol": "EMPDOGE",
+        "sender_address": "0x0d1cd07e959a701dfd361c98d40ce48691d8718c",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x0d1cd07e959a701dfd361c98d40ce48691d8718c.png",
+        "raw_log_data": "0x00000000000000000000000000000000000000000008596b689310b7e9954572",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0xe9d53ff96b991f9025f90844b11b3eca5047bbb0"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "10093678510893302348596594"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1424,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000e9d53ff96b991f9025f90844b11b3eca5047bbb0",
+          "0x0000000000000000000000000d1cd07e959a701dfd361c98d40ce48691d8718c"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Emperor Doge",
+        "sender_contract_ticker_symbol": "EMPDOGE",
+        "sender_address": "0x0d1cd07e959a701dfd361c98d40ce48691d8718c",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x0d1cd07e959a701dfd361c98d40ce48691d8718c.png",
+        "raw_log_data": "0x000000000000000000000000000000000000000000013f6270bac1c3348ef2d6",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0xe9d53ff96b991f9025f90844b11b3eca5047bbb0"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x0d1cd07e959a701dfd361c98d40ce48691d8718c"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "1508250811972562419905238"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1423,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x00000000000000000000000010ed43c718714eb63d5aa57b78b54704e256024e",
+          "0x000000000000000000000000e9d53ff96b991f9025f90844b11b3eca5047bbb0"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Wrapped BNB",
+        "sender_contract_ticker_symbol": "WBNB",
+        "sender_address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/0xb8c77482e45f1f44de1745f52c74426c631bdd52.png",
+        "raw_log_data": "0x000000000000000000000000000000000000000000000000120a871cc0020000",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x10ed43c718714eb63d5aa57b78b54704e256024e"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0xe9d53ff96b991f9025f90844b11b3eca5047bbb0"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "1300000000000000000"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-10-14T18:42:11Z",
+        "block_height": 11772438,
+        "tx_offset": 249,
+        "log_offset": 1422,
+        "tx_hash": "0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c",
+          "0x00000000000000000000000010ed43c718714eb63d5aa57b78b54704e256024e"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Wrapped BNB",
+        "sender_contract_ticker_symbol": "WBNB",
+        "sender_address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/0xb8c77482e45f1f44de1745f52c74426c631bdd52.png",
+        "raw_log_data": "0x000000000000000000000000000000000000000000000000120a871cc0020000",
+        "decoded": {
+          "name": "Deposit",
+          "signature": "Deposit(indexed address dst, uint256 wad)",
+          "params": [
+            {
+              "name": "dst",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x10ed43c718714eb63d5aa57b78b54704e256024e"
+            },
+            {
+              "name": "wad",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "1300000000000000000"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

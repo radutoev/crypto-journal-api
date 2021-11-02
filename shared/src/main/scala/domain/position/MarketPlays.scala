@@ -117,14 +117,14 @@ object MarketPlays {
       .sortBy(_.timestamp)(Ordering[Instant])
 
     entries.foreach {
-      case airDrop: AirDrop => ???
-//        addToIncoming(airDrop.received.currency, airDrop)
+      case airDrop: AirDrop =>
+        addToIncoming(airDrop.received.currency, airDrop)
 
-      case approval: Approval => ???
-//        addToContractIncoming(approval.forContract, approval)
+      case approval: Approval =>
+        addToContractIncoming(approval.forContract, approval)
 
-      case buy: Buy => ???
-//        addToIncoming(buy.received.currency, buy)
+      case buy: Buy =>
+        addToIncoming(buy.received.currency, buy)
 
       case claim: Claim =>
         val itemsToAdd = incomingByContract.getOrElse(claim.receivedFrom, ListBuffer.empty)
@@ -148,17 +148,12 @@ object MarketPlays {
       case transferOut: TransferOut => ???
     }
 
+    //TODO Handle the rest of the items that didn't have a closing Sell.
     incoming.foreach {
-      case (currency, topUps) if currency == WBNB && topUps.nonEmpty =>
-        topUpsBuffer.addAll(topUps.asInstanceOf[ListBuffer[TransferIn]].map(t => TopUp(t.hash, t.value, t.fee, t.timestamp)))
+      case (currency, transferIns) if currency == WBNB && transferIns.nonEmpty =>
+        topUpsBuffer.addAll(transferIns.asInstanceOf[ListBuffer[TransferIn]].map(t => TopUp(t.hash, t.value, t.fee, t.timestamp)))
       case _ =>
     }
-
-    //TODO Handle the rest of the items that didn't have a closing Sell.
-//    incoming.foreach {
-//      case (currency, entries) =>
-//        val restOfItems = incomingByContract.getOrElse()
-//    }
 
     (playsBuffer.toList ::: topUpsBuffer.toList)
       .sortBy(_.openedAt)(Ordering[Instant])

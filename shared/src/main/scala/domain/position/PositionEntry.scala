@@ -71,30 +71,40 @@ object PositionEntry {
     val transfersToAddress = transaction.logEvents.filter(_.isTransferToAddress(address))
 
     if (transfersToAddress.nonEmpty) {
-      val (buy, transferIns) = if (transfersToAddress.size > 1) {
-        (transfersToAddress.head, transfersToAddress.tail)
-      } else {
-        (transfersToAddress.head, Nil)
-      }
-
-      val buyEither = for {
+      for {
         depositEvent <- transaction.depositEvent()
-        fee          = transaction.computedFee()
-        decimals     <- depositEvent.senderContractDecimals.toRight("Did not find contract decimals")
+        depositDst <- depositEvent
+                       .paramValue("dst")
+                       .toRight("Did not find destination")
+                       .flatMap(refineV[WalletAddressPredicate](_))
+        transfersFromDeposit = transaction.logEvents.filter(_.isTransferFromAddress(depositDst))
+        depositDestinations = transfersFromDeposit
+          .map(_.paramValue("to"))
+          .values
+          .map(refineV[WalletAddressPredicate](_))
+          .rights
+        buyCandidates = transaction.logEvents.filter(ev =>
+          ev.isTransferToAddress(address) && depositDestinations.exists(ev.isTransferFromAddress(_))
+        )
+        buy <- if (buyCandidates.size != 1) Left("Unable to identify buy event") else Right(buyCandidates.head)
+        transferIns = transaction.logEvents.filter(ev =>
+          ev.isTransferToAddress(address) && ev.paramValue("from") != buy.paramValue("from")
+        )
+        fee      = transaction.computedFee()
+        decimals <- depositEvent.senderContractDecimals.toRight("Did not find contract decimals")
         amountSpent <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -decimals)).toEither.left.map(_ =>
                         "Cannot determine amount spent"
                       )
         currency                <- depositEvent.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
         spent                   = FungibleData(amountSpent, currency)
         (coinAddress, received) <- dataFromTransferInEvent(buy)
-      } yield Buy(fee, spent, received, coinAddress, transaction.hash, transaction.instant)
-
-      buyEither map { buy =>
-        buy :: transferIns.map(dataFromTransferInEvent).rights.map {
+      } yield Buy(fee, spent, received, coinAddress, transaction.hash, transaction.instant) :: transferIns
+        .map(dataFromTransferInEvent)
+        .rights
+        .map {
           case (address, data) =>
             TransferIn(data, address, FungibleData.zero(WBNB), transaction.hash, transaction.instant)
         }
-      }
     } else {
       Left("Unable to extract Buy from transaction")
     }
@@ -229,10 +239,7 @@ object PositionEntry {
       amount <- Try(BigDecimal(rawAmount) * Math.pow(10, -senderDecimals)).toEither.left.map(_ =>
                  "Cannot determine amount"
                )
-      senderAddress <- event
-                        .paramValue("from")
-                        .toRight("Did not find sender address")
-                        .flatMap(refineV[WalletAddressPredicate](_))
+      senderAddress <- refineV[WalletAddressPredicate](event.senderAddress)
     } yield (senderAddress, FungibleData(amount, currency))
 
   implicit class TransactionOps(transaction: Transaction) {
