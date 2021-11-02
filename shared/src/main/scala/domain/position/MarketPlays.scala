@@ -137,7 +137,15 @@ object MarketPlays {
 
       case sell: Sell =>
         val entries = incoming.getOrElse(sell.sold.currency, ListBuffer.empty)
+        if(entries.nonEmpty) {
+          val maybeLookupContract = findFirstOccurrenceOfTokenContract(entries.toList)
+          if(maybeLookupContract.isDefined && incomingByContract.contains(maybeLookupContract.get)) {
+            entries.addAll(incomingByContract(maybeLookupContract.get).toList)
+            incomingByContract(maybeLookupContract.get).clear()
+          }
+        }
         entries.addOne(sell)
+
         val position = Position(entries = entries.toList)
         playsBuffer.addOne(position)
         entries.clear()
@@ -148,14 +156,35 @@ object MarketPlays {
       case transferOut: TransferOut => ???
     }
 
-    //TODO Handle the rest of the items that didn't have a closing Sell.
+    incoming.foreach {
+      case (currency, entries) if entries.isEmpty => incoming.remove(currency)
+      case _                                      =>
+    }
+
     incoming.foreach {
       case (currency, transferIns) if currency == WBNB && transferIns.nonEmpty =>
-        topUpsBuffer.addAll(transferIns.asInstanceOf[ListBuffer[TransferIn]].map(t => TopUp(t.hash, t.value, t.fee, t.timestamp)))
-      case _ =>
+        topUpsBuffer.addAll(
+          transferIns.asInstanceOf[ListBuffer[TransferIn]].map(t => TopUp(t.hash, t.value, t.fee, t.timestamp))
+        )
+      case (_, items) if items.nonEmpty =>
+        val list = items.toList
+        val positionItems = findFirstOccurrenceOfTokenContract(list).flatMap(incomingByContract.get(_).map(_.toList)).getOrElse(Nil) ::: list
+        playsBuffer.addOne(Position(positionItems.sortBy(_.timestamp)(Ordering[Instant])))
     }
 
     (playsBuffer.toList ::: topUpsBuffer.toList)
       .sortBy(_.openedAt)(Ordering[Instant])
   }
+
+  private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] =
+    items.head match {
+      case AirDrop(receivedFrom, _, _, _, _)    => Some(receivedFrom)
+      case _: Approval                          => None
+      case Buy(_, _, _, coinAddress, _, _)      => Some(coinAddress)
+      case Claim(_, _, receivedFrom, _, _)      => Some(receivedFrom)
+      case Contribute(_, to, _, _, _)           => Some(to)
+      case _: Sell                              => None
+      case TransferIn(_, receivedFrom, _, _, _) => Some(receivedFrom)
+      case _: TransferOut                       => None
+    }
 }

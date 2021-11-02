@@ -128,17 +128,17 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       val transaction = getTransaction("/covalent/transactions/sell1.json")
       val sell = PositionEntry.fromTransaction(transaction, Address)
       val expected = List(
-        Sell(
-          sold = FungibleData(BigDecimal("432156304.4306867440"), Currency.unsafeFrom("FOOFIGHT")),
-          received = FungibleData(BigDecimal("0.4175743142140909320"), WBNB),
-          fee = FungibleData(BigDecimal("0.00496212"), WBNB),
-          hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
-          timestamp = Instant.parse("2021-10-18T14:04:18Z")
-        ),
         TransferIn(
           value = FungibleData(BigDecimal("1.7172675723509523810"), Currency.unsafeFrom("BUSD")),
           fee = FungibleData.zero(WBNB),
           receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
+          hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
+          timestamp = Instant.parse("2021-10-18T14:04:18Z")
+        ),
+        Sell(
+          sold = FungibleData(BigDecimal("432156304.4306867440"), Currency.unsafeFrom("FOOFIGHT")),
+          received = FungibleData(BigDecimal("0.4175743142140909320"), WBNB),
+          fee = FungibleData(BigDecimal("0.00496212"), WBNB),
           hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
           timestamp = Instant.parse("2021-10-18T14:04:18Z")
         )

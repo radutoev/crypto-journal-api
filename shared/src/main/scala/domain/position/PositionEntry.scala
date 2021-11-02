@@ -191,7 +191,7 @@ object PositionEntry {
       soldUnion = sold.foldLeft(FungibleData.zero(sold.head.currency))((acc, el) => acc.add(el.amount))
     } yield Sell(soldUnion, received, transaction.computedFee(), transaction.hash, transaction.instant)
 
-    sellEither.map(sell => sell +: transferIns.map(asTransferIn).rights)
+    sellEither.map(sell => transferIns.map(asTransferIn).rights :+ sell)
   }
 
   private def txToTransferIn(transaction: Transaction): Either[String, TransferIn] =
