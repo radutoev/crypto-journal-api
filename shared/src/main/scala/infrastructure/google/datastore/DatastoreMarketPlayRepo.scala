@@ -318,6 +318,7 @@ final case class DatastoreMarketPlayRepo(
       var builder = Entity
         .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(id))
         .set("address", StringValue.of(address.value))
+        .set("currency", StringValue.of(position.currency.map(_.value).getOrElse("")))
         .set("state", StringValue.of(position.state.toString))
         .set(
           "openedAt",

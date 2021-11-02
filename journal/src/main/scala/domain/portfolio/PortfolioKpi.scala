@@ -193,7 +193,7 @@ final case class PortfolioKpi(
       .map {
         case (currency, listOfPositions) =>
           (
-            currency,
+            currency.get, //TODO This is unsafe, refactor
             listOfPositions.map(_.fiatReturn.getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
             listOfPositions.map(_.fiatReturnPercentage().getOrElse(BigDecimal(0))).sum
           )

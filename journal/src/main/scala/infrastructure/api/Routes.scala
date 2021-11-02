@@ -1,11 +1,11 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import application.CryptoJournalApi
-import domain.model.{ ContextId, ContextIdPredicate, PlayIdPredicate, UserId, WalletAddressPredicate }
+import application.{CryptoJournalApi, PositionHelper}
+import domain.model.{ContextId, ContextIdPredicate, PlayIdPredicate, TransactionHashPredicate, UserId, WalletAddressPredicate}
 import domain.portfolio.KpiService
 import domain.position.error._
-import domain.position.{ JournalingService, MarketPlayService, MarketPlays }
+import domain.position.{JournalingService, MarketPlayService, MarketPlays}
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.DailyTradeData._
@@ -18,32 +18,23 @@ import infrastructure.api.dto.PositionJournalEntry._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{
-  DailyTradeData,
-  JournalEntry,
-  MarketPlay,
-  Ohlcv,
-  PortfolioKpi,
-  PortfolioStats,
-  PositionJournalEntry,
-  TagDistribution,
-  TradeSummary
-}
+import infrastructure.api.dto.{DailyTradeData, JournalEntry, MarketPlay, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
-import vo.filter.{ Count, KpiFilter, PlayFilter }
+import vo.filter.{Count, KpiFilter, PlayFilter}
 
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
-import pdi.jwt.{ Jwt, JwtAlgorithm }
+import io.softwarechain.cryptojournal.domain.blockchain.BlockchainRepo
+import pdi.jwt.{Jwt, JwtAlgorithm}
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{ Header, _ }
+import zhttp.http.{Header, _}
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 import java.util.UUID
 import scala.util.Try
 
@@ -66,6 +57,7 @@ object Routes {
 
   val api = CORS(
     health +++
+      test +++
       authenticate(forbidden, userId => contextId(badRequest, clientId => wallets(userId, clientId))) +++
       authenticate(forbidden, userId => contextId(badRequest, clientId => positions(userId, clientId))) +++
       authenticate(forbidden, userId => contextId(badRequest, clientId => portfolio(userId, clientId))) +++
@@ -351,6 +343,27 @@ object Routes {
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        data => Response.jsonString(data.map(o => Ohlcv(o)).toJson)
                      )
+      } yield response
+  }
+
+  private def test() = HttpApp.collectM {
+    case Method.GET -> Root / "test" / "address" / rawWalletAddress / "tx2entries" / rawTxHash =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+        txHash <- ZIO.fromEither(refineV[TransactionHashPredicate](rawTxHash)).orElseFail(BadRequest("Invalid tx hash"))
+        response <- PositionHelper.txToEntries(address, txHash)
+          .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), {
+            case Nil => Response.http(status = Status.NO_CONTENT)
+            case list =>
+              Response.http(
+                status = Status.OK,
+                content = HttpData.CompleteData(
+                  Chunk.fromArray(list.map(fromPositionEntry(_).toJson).toJson.getBytes(HTTP_CHARSET))
+                )
+              )
+          })
       } yield response
   }
 
