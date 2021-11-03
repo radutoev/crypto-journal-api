@@ -190,9 +190,9 @@ final case class PortfolioKpi(
     marketPlays.closedPositions
       .groupBy(_.currency)
       .map {
-        case (currency, listOfPositions) =>
+        case (Some(currency), listOfPositions) =>
           (
-            currency.get, //TODO This is unsafe, refactor
+            currency,
             listOfPositions.map(_.fiatReturn.getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
             listOfPositions.map(_.fiatReturnPercentage.getOrElse(BigDecimal(0))).sum
           )
