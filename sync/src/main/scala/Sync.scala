@@ -43,21 +43,23 @@ object Sync extends App {
                       case (txHash, addresses) =>
                         BlockchainRepo.fetchTransaction(txHash).map(_ -> addresses)
                     }
-                    .mapM {
-                      case (transaction, addresses) =>
-                        ZIO.foreach(addresses)(address =>
-                          MarketPlayRepo
-                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
-                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
-                            .map(marketPlays => address -> marketPlays)
-                        )
-                    }
-                    .foreach { newAddressMarketPlays =>
-                      ZIO.foreach(newAddressMarketPlays) {
-                        case (address, marketPlays) =>
-                          MarketPlayRepo.save(address, marketPlays.positions)
-                      }
-                    }
+        //TODO Redo logic for merging
+//                    .mapM {
+//                      case (transaction, addresses) =>
+//                        ZIO.foreach(addresses)(address =>
+//                          MarketPlayRepo
+//                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
+//                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
+//                            .map(marketPlays => address -> marketPlays)
+//                        )
+//                    }
+//                    .foreach { newAddressMarketPlays =>
+//                      ZIO.foreach(newAddressMarketPlays) {
+//                        case (address, marketPlays) =>
+//                          MarketPlayRepo.save(address, marketPlays.positions)
+//                      }
+//                    }
+                    .foreach(_ => UIO.unit)
                     .provideCustomLayer(listenerEnvironment(config))
                     .forever
                     .fork

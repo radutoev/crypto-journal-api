@@ -406,7 +406,6 @@ final case class TransferIn(
   timestamp: Instant
 ) extends PositionEntry
 
-//TODO transfer out represents me sending out coins to another address, but what happens when I want to exchange coins for FIAT??
 final case class TransferOut(
   amount: FungibleData,
   to: WalletAddress,

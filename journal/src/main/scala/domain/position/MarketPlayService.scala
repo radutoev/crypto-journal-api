@@ -154,11 +154,11 @@ final case class LiveMarketPlayService(
     val noPlaysEffect = logger.info(s"No positions to import for ${userWallet.address}")
 
     @inline
-    def handlePlayImport(plays: List[MarketPlay]): IO[MarketPlayError, Unit] =
+    def handlePlayImport(plays: MarketPlays): IO[MarketPlayError, Unit] =
       for {
         //Get open positions that might become closed with the new data coming in
         openPositions <- positionRepo.getPositions(userWallet.address, Open).map(MarketPlays(_))
-        merged        = openPositions.merge(MarketPlays(plays))
+        merged        = openPositions.merge(plays)
         _ <- positionRepo
               .save(userWallet.address, merged.plays)
               .mapError(throwable => MarketPlayImportError(userWallet.address, throwable))

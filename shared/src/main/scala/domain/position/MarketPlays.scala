@@ -61,6 +61,8 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 //        other.transferOuts).sortBy(_.openedAt)(Ordering[Instant])
 //    )
 
+  def isEmpty: Boolean = plays.isEmpty
+
   def filter(interval: TimeInterval): MarketPlays =
     MarketPlays(positions.filter(_.inInterval(interval)))
 
@@ -76,8 +78,7 @@ object MarketPlays {
 
   def empty(): MarketPlays = MarketPlays(List.empty)
 
-  //TODO I should return MarketPlays here.
-  def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): List[MarketPlay] = {
+  def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): MarketPlays = {
     val incoming: mutable.Map[Currency, ListBuffer[PositionEntry]]                = mutable.Map.empty
     val incomingByContract: mutable.Map[WalletAddress, ListBuffer[PositionEntry]] = mutable.Map.empty
     val playsBuffer: ListBuffer[MarketPlay]                                       = ListBuffer.empty
@@ -172,8 +173,9 @@ object MarketPlays {
         playsBuffer.addOne(Position(positionItems.sortBy(_.timestamp)(Ordering[Instant])))
     }
 
-    (playsBuffer.toList ::: topUpsBuffer.toList)
-      .sortBy(_.openedAt)(Ordering[Instant])
+    MarketPlays(
+      items = (playsBuffer.toList ::: topUpsBuffer.toList).sortBy(_.openedAt)(Ordering[Instant])
+    )
   }
 
   private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] =
