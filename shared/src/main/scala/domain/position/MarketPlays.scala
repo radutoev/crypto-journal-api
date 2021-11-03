@@ -159,6 +159,7 @@ object MarketPlays {
 
       //TODO Add implementation
       case transferOut: TransferOut => ()
+        println(s"Transfer Out - ${transferOut.hash.value}")
     }
 
     incoming.foreach {
