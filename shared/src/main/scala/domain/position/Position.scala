@@ -129,6 +129,7 @@ final case class Position(
 
   def isOpen(): Boolean = state == Open
 
+  //TODO Implement this.
   def closedAt(): Option[Instant] = entries.lastOption.map(_.timestamp)
   //    .collect {
   //    case entry if entry.`type` == Sell => entry.timestamp

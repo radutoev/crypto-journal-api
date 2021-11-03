@@ -4,27 +4,19 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.model._
 import domain.position.error._
-import domain.position.{
-  MarketPlay,
-  MarketPlayRepo,
-  MarketPlays,
-  Position,
-  PositionEntry,
-  TopUp,
-  TransferOutPlay
-}
-import util.{ tryOrLeft, InstantOps, ListEitherOps }
+import domain.position.{AirDrop, Approval, Buy, Claim, Contribute, MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, Sell, TopUp, TransferIn, TransferOut, TransferOutPlay}
+import util.{InstantOps, ListEitherOps, tryOrLeft}
 import vo.filter.PlayFilter
-import vo.pagination.{ CursorPredicate, Page, PaginationContext }
+import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
-import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -289,31 +281,75 @@ final case class DatastoreMarketPlayRepo(
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {
       val id      = UUID.randomUUID().toString
-      val entries = List.empty //TODO Implement this.
-//        position.entries.map { entry =>
-//        EntityValue.of(
-//          Entity
-//            .newBuilder(
-//              datastore
-//                .newKeyFactory()
-//                .addAncestor(PathElement.of(kind, id))
-//                .setKind("PositionEntry")
-//                .newKey(UUID.randomUUID().toString)
-//            )
-//            .set("type", StringValue.of(entry.`type`.toString))
-//            .set("value", DoubleValue.of(entry.value.amount.doubleValue))
-//            .set("valueCurrency", StringValue.of(entry.value.currency.value))
-//            .set("fee", DoubleValue.of(entry.fee.amount.doubleValue))
-//            .set("feeCurrency", StringValue.of(entry.fee.currency.value))
-//            .set(
-//              "timestamp",
-//              TimestampValue
-//                .of(Timestamp.ofTimeSecondsAndNanos(entry.timestamp.getEpochSecond, entry.timestamp.getNano))
-//            )
-//            .set("hash", entry.txHash.value)
-//            .build()
-//        )
-//      }
+      val entries = position.entries.map { entry =>
+        val key = datastore
+          .newKeyFactory()
+          .addAncestor(PathElement.of(kind, id))
+          .setKind("PositionEntry")
+          .newKey(UUID.randomUUID().toString)
+
+        var builder = Entity.newBuilder(key)
+
+        builder = entry match {
+          case AirDrop(receivedFrom, fee, received, _, _) =>
+            builder
+              .set("receivedFrom", StringValue.of(receivedFrom.value))
+              .set("received", StringValue.of(received.amount.toString()))
+              .set("receivedCurrency", StringValue.of(received.currency.value))
+
+          case Approval(_, forContract, _, _) =>
+            builder
+              .set("forContract", StringValue.of(forContract.value))
+
+          case Buy(_, spent, received, coinAddress, _, _) =>
+            builder
+              .set("spent", StringValue.of(spent.amount.toString()))
+              .set("spentCurrency", StringValue.of(spent.currency.value))
+              .set("coinAddress", StringValue.of(coinAddress.value))
+              .set("received", StringValue.of(received.amount.toString()))
+              .set("receivedCurrency", StringValue.of(received.currency.value))
+
+          case Claim(_, received, receivedFrom, _, _) =>
+            builder
+              .set("receivedFrom", StringValue.of(receivedFrom.value))
+              .set("received", StringValue.of(received.amount.toString()))
+              .set("receivedCurrency", StringValue.of(received.currency.value))
+
+          case Contribute(spent, to, _, _, _) =>
+            builder
+              .set("spent", StringValue.of(spent.amount.toString()))
+              .set("spentCurrency", StringValue.of(spent.currency.value))
+              .set("to", StringValue.of(to.value))
+
+          case Sell(sold, received, _, _, _) =>
+            builder
+              .set("sold", StringValue.of(sold.amount.toString()))
+              .set("soldCurrency", StringValue.of(sold.currency.value))
+              .set("received", StringValue.of(received.amount.toString()))
+              .set("receivedCurrency", StringValue.of(received.currency.value))
+
+          case TransferIn(value, receivedFrom, _, _, _) =>
+            builder
+              .set("value", StringValue.of(value.amount.toString()))
+              .set("valueCurrency", StringValue.of(value.currency.value))
+              .set("receivedFrom", StringValue.of(receivedFrom.value))
+
+          case TransferOut(amount, to, _, _, _) =>
+            builder
+              .set("amount", StringValue.of(amount.amount.toString()))
+              .set("amountCurrency", StringValue.of(amount.currency.value))
+              .set("to", StringValue.of(to.value))
+        }
+
+        EntityValue.of(
+          builder
+            .set("fee", StringValue.of(entry.fee.amount.toString()))
+            .set("feeCurrency", StringValue.of(entry.fee.currency.toString()))
+            .set("hash", StringValue.of(entry.hash.value))
+            .set("timestamp",  TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(entry.timestamp.getEpochSecond, entry.timestamp.getNano)))
+            .build()
+        )
+      }
 
       var builder = Entity
         .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(id))
