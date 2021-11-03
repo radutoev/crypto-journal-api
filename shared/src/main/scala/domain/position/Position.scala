@@ -129,11 +129,10 @@ final case class Position(
 
   def isOpen(): Boolean = state == Open
 
-  //TODO Implement this.
-  def closedAt(): Option[Instant] = entries.lastOption.map(_.timestamp)
-  //    .collect {
-  //    case entry if entry.`type` == Sell => entry.timestamp
-  //  }
+  def closedAt(): Option[Instant] = entries.lastOption
+    .collect {
+      case entry: Sell => entry.timestamp
+    }
 
   def inInterval(interval: TimeInterval): Boolean = {
     val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
