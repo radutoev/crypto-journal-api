@@ -4,19 +4,36 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.model._
 import domain.position.error._
-import domain.position.{AirDrop, Approval, Buy, Claim, Contribute, MarketPlay, MarketPlayRepo, MarketPlays, Position, PositionEntry, Sell, TopUp, TransferIn, TransferOut, TransferOutPlay}
-import util.{InstantOps, ListEitherOps, tryOrLeft}
+import domain.position.{
+  AirDrop,
+  Approval,
+  Buy,
+  Claim,
+  Contribute,
+  MarketPlay,
+  MarketPlayRepo,
+  MarketPlays,
+  Position,
+  PositionEntry,
+  Sell,
+  TopUp,
+  TransferIn,
+  TransferOut,
+  TransferOutPlay
+}
+import util.{ tryOrLeft, InstantOps, ListEitherOps }
 import vo.filter.PlayFilter
-import vo.pagination.{CursorPredicate, Page, PaginationContext}
+import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
-import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
 import eu.timepit.refined
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.position.PositionEntry.PositionEntryIdPredicate
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -87,7 +104,7 @@ final case class DatastoreMarketPlayRepo(
                 case Right(play) =>
                   play match {
                     //TODO Why can entries be empty??
-                    case p: Position if p.entries.nonEmpty            => p
+                    case p: Position if p.entries.nonEmpty   => p
                     case t @ (_: TopUp | _: TransferOutPlay) => t
                   }
               })
@@ -199,7 +216,7 @@ final case class DatastoreMarketPlayRepo(
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
             list.map(entityToPlay).rights.collect {
-              case p: Position if p.entries.nonEmpty            => p
+              case p: Position if p.entries.nonEmpty   => p
               case t @ (_: TopUp | _: TransferOutPlay) => t
             }
           }
@@ -274,13 +291,13 @@ final case class DatastoreMarketPlayRepo(
   private def marketPlayToEntity(marketPlay: MarketPlay, address: WalletAddress): Entity =
     marketPlay match {
       case p: Position        => positionToEntity(p, address, datastoreConfig.marketPlay)
-      case t: TopUp  => transferInToEntity(t, address, datastoreConfig.marketPlay)
+      case t: TopUp           => transferInToEntity(t, address, datastoreConfig.marketPlay)
       case t: TransferOutPlay => transferOutToEntity(t, address, datastoreConfig.marketPlay)
     }
 
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
     (position, address, kind) => {
-      val id      = UUID.randomUUID().toString
+      val id = UUID.randomUUID().toString
       val entries = position.entries.map { entry =>
         val key = datastore
           .newKeyFactory()
@@ -291,15 +308,17 @@ final case class DatastoreMarketPlayRepo(
         var builder = Entity.newBuilder(key)
 
         builder = entry match {
-          case AirDrop(receivedFrom, fee, received, _, _) =>
+          case AirDrop(receivedFrom, _, received, _, _) =>
             builder
               .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
+              .set("type", StringValue.of("AirDrop"))
 
           case Approval(_, forContract, _, _) =>
             builder
               .set("forContract", StringValue.of(forContract.value))
+              .set("type", StringValue.of("Approval"))
 
           case Buy(_, spent, received, coinAddress, _, _) =>
             builder
@@ -308,18 +327,21 @@ final case class DatastoreMarketPlayRepo(
               .set("coinAddress", StringValue.of(coinAddress.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
+              .set("type", StringValue.of("Buy"))
 
           case Claim(_, received, receivedFrom, _, _) =>
             builder
               .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
+              .set("type", StringValue.of("Claim"))
 
           case Contribute(spent, to, _, _, _) =>
             builder
               .set("spent", StringValue.of(spent.amount.toString()))
               .set("spentCurrency", StringValue.of(spent.currency.value))
               .set("to", StringValue.of(to.value))
+              .set("type", StringValue.of("Contribute"))
 
           case Sell(sold, received, _, _, _) =>
             builder
@@ -327,18 +349,21 @@ final case class DatastoreMarketPlayRepo(
               .set("soldCurrency", StringValue.of(sold.currency.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
+              .set("type", StringValue.of("Sell"))
 
           case TransferIn(value, receivedFrom, _, _, _) =>
             builder
               .set("value", StringValue.of(value.amount.toString()))
               .set("valueCurrency", StringValue.of(value.currency.value))
               .set("receivedFrom", StringValue.of(receivedFrom.value))
+              .set("type", StringValue.of("TransferIn"))
 
           case TransferOut(amount, to, _, _, _) =>
             builder
               .set("amount", StringValue.of(amount.amount.toString()))
               .set("amountCurrency", StringValue.of(amount.currency.value))
               .set("to", StringValue.of(to.value))
+              .set("type", StringValue.of("TransferOut"))
         }
 
         EntityValue.of(
@@ -346,7 +371,11 @@ final case class DatastoreMarketPlayRepo(
             .set("fee", StringValue.of(entry.fee.amount.toString()))
             .set("feeCurrency", StringValue.of(entry.fee.currency.toString()))
             .set("hash", StringValue.of(entry.hash.value))
-            .set("timestamp",  TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(entry.timestamp.getEpochSecond, entry.timestamp.getNano)))
+            .set(
+              "timestamp",
+              TimestampValue
+                .of(Timestamp.ofTimeSecondsAndNanos(entry.timestamp.getEpochSecond, entry.timestamp.getNano))
+            )
             .build()
         )
       }
@@ -442,45 +471,190 @@ final case class DatastoreMarketPlayRepo(
   }
 
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {
-    //TODO Implement this.
-    Left(InvalidRepresentation("Not implemented"))
-//    val entity = e.get()
-//    for {
-//      id <- tryOrLeft(entity.getKey().asInstanceOf[Key].getName, InvalidRepresentation("Entry has no key name"))
-//             .flatMap(rawIdStr =>
-//               refined
-//                 .refineV[PositionEntryIdPredicate](rawIdStr)
-//                 .left
-//                 .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
-//             )
-//      entryType <- tryOrLeft(
-//                    TransactionType(entity.getString("type")),
-//                    InvalidRepresentation("Invalid type representation")
-//                  )
-//      value <- tryOrLeft(entity.getDouble("value"), InvalidRepresentation("Invalid value representation"))
-//      currency <- tryOrLeft(
-//                   entity.getString("valueCurrency"),
-//                   InvalidRepresentation("Invalid value currency representation")
-//                 ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
-//      feeValue <- tryOrLeft(entity.getDouble("fee"), InvalidRepresentation("Invalid fee representation"))
-//      feeCurrency <- tryOrLeft(
-//                      entity.getString("feeCurrency"),
-//                      InvalidRepresentation("Invalid fee currency representation")
-//                    ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
-//      timestamp <- tryOrLeft(
-//                    Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
-//                    InvalidRepresentation("Invalid timestamp representation")
-//                  )
-//      hash <- tryOrLeft(entity.getString("hash"), InvalidRepresentation("Invalid hash representation"))
-//               .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
-//    } yield PositionEntry(
-//      entryType,
-//      FungibleData(value, currency),
-//      FungibleData(feeValue, feeCurrency),
-//      timestamp,
-//      hash,
-//      id = Some(id)
-//    )
+    val entity = e.get()
+
+    tryOrLeft(entity.getString("type"), InvalidRepresentation("PositionEntry type is missing")).flatMap { posType =>
+      val commonData = for {
+        id <- tryOrLeft(entity.getKey().asInstanceOf[Key].getName, InvalidRepresentation("Entry has no key name"))
+               .flatMap(rawIdStr =>
+                 refined
+                   .refineV[PositionEntryIdPredicate](rawIdStr)
+                   .left
+                   .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
+               )
+        feeAmount <- tryOrLeft(entity.getString("fee"), InvalidRepresentation("Invalid fee representation"))
+                      .map(BigDecimal(_))
+        feeCurrency <- tryOrLeft(
+                        entity.getString("feeCurrency"),
+                        InvalidRepresentation("Invalid fee currency representation")
+                      ).flatMap(refined.refineV[CurrencyPredicate](_).left.map(InvalidRepresentation))
+        timestamp <- tryOrLeft(
+                      Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds),
+                      InvalidRepresentation("Invalid timestamp representation")
+                    )
+        hash <- tryOrLeft(entity.getString("hash"), InvalidRepresentation("Invalid hash representation"))
+                 .flatMap(value => TransactionHash(value).left.map(InvalidRepresentation))
+      } yield (id, feeAmount, feeCurrency, timestamp, hash)
+
+      commonData.flatMap {
+        case (id, feeAmount, feeCurrency, timestamp, hash) =>
+          val fee = FungibleData(feeAmount, feeCurrency)
+          posType match {
+            case "AirDrop" =>
+              for {
+                receivedFrom <- tryOrLeft(
+                                 entity.getString("receivedFrom"),
+                                 InvalidRepresentation("Invalid receivedFrom representation")
+                               ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+                received <- tryOrLeft(
+                             entity.getString("received"),
+                             InvalidRepresentation("Invalid received representation")
+                           ).map(BigDecimal(_))
+                receivedCurrency <- tryOrLeft(
+                                     entity.getString("receivedCurrency"),
+                                     InvalidRepresentation("Invalid receivedCurrency representation")
+                                   ).map(Currency.unsafeFrom)
+              } yield AirDrop(
+                receivedFrom,
+                fee,
+                received = FungibleData(received, receivedCurrency),
+                hash,
+                timestamp
+              )
+
+            case "Approval" =>
+              for {
+                forContract <- tryOrLeft(
+                                entity.getString("forContract"),
+                                InvalidRepresentation("Invalid receivedFrom representation")
+                              ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+              } yield Approval(FungibleData(feeAmount, feeCurrency), forContract, hash, timestamp)
+
+            case "Buy" =>
+              for {
+                spent <- tryOrLeft(
+                          entity.getString("spent"),
+                          InvalidRepresentation("Invalid received representation")
+                        ).map(BigDecimal(_))
+                spentCurrency <- tryOrLeft(
+                                  entity.getString("spentCurrency"),
+                                  InvalidRepresentation("Invalid receivedCurrency representation")
+                                ).map(Currency.unsafeFrom)
+                received <- tryOrLeft(
+                             entity.getString("received"),
+                             InvalidRepresentation("Invalid received representation")
+                           ).map(BigDecimal(_))
+                receivedCurrency <- tryOrLeft(
+                                     entity.getString("receivedCurrency"),
+                                     InvalidRepresentation("Invalid receivedCurrency representation")
+                                   ).map(Currency.unsafeFrom)
+                coinAddress <- tryOrLeft(
+                                entity.getString("coinAddress"),
+                                InvalidRepresentation("Invalid receivedFrom representation")
+                              ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+              } yield Buy(
+                fee,
+                FungibleData(spent, spentCurrency),
+                FungibleData(received, receivedCurrency),
+                coinAddress,
+                hash,
+                timestamp
+              )
+
+            case "Claim" =>
+              for {
+                received <- tryOrLeft(
+                             entity.getString("received"),
+                             InvalidRepresentation("Invalid received representation")
+                           ).map(BigDecimal(_))
+                receivedCurrency <- tryOrLeft(
+                                     entity.getString("receivedCurrency"),
+                                     InvalidRepresentation("Invalid receivedCurrency representation")
+                                   ).map(Currency.unsafeFrom)
+                receivedFrom <- tryOrLeft(
+                                 entity.getString("receivedFrom"),
+                                 InvalidRepresentation("Invalid receivedFrom representation")
+                               ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+              } yield Claim(fee, FungibleData(received, receivedCurrency), receivedFrom, hash, timestamp)
+
+            case "Contribute" =>
+              for {
+                spent <- tryOrLeft(
+                          entity.getString("spent"),
+                          InvalidRepresentation("Invalid received representation")
+                        ).map(BigDecimal(_))
+                spentCurrency <- tryOrLeft(
+                                  entity.getString("spentCurrency"),
+                                  InvalidRepresentation("Invalid spentCurrency representation")
+                                ).map(Currency.unsafeFrom)
+                to <- tryOrLeft(
+                       entity.getString("to"),
+                       InvalidRepresentation("Invalid to representation")
+                     ).map(rawTo => WalletAddress.unsafeFrom(rawTo))
+              } yield Contribute(FungibleData(spent, spentCurrency), to, fee, hash, timestamp)
+
+            case "Sell" =>
+              for {
+                sold <- tryOrLeft(
+                         entity.getString("sold"),
+                         InvalidRepresentation("Invalid received representation")
+                       ).map(BigDecimal(_))
+                soldCurrency <- tryOrLeft(
+                                 entity.getString("soldCurrency"),
+                                 InvalidRepresentation("Invalid receivedCurrency representation")
+                               ).map(Currency.unsafeFrom)
+                received <- tryOrLeft(
+                             entity.getString("received"),
+                             InvalidRepresentation("Invalid received representation")
+                           ).map(BigDecimal(_))
+                receivedCurrency <- tryOrLeft(
+                                     entity.getString("receivedCurrency"),
+                                     InvalidRepresentation("Invalid receivedCurrency representation")
+                                   ).map(Currency.unsafeFrom)
+              } yield Sell(
+                FungibleData(sold, soldCurrency),
+                FungibleData(received, receivedCurrency),
+                fee,
+                hash,
+                timestamp
+              )
+
+            case "TransferIn" =>
+              for {
+                value <- tryOrLeft(
+                         entity.getString("value"),
+                         InvalidRepresentation("Invalid sold representation")
+                       ).map(BigDecimal(_))
+                valueCurrency <- tryOrLeft(
+                                 entity.getString("valueCurrency"),
+                                 InvalidRepresentation("Invalid soldCurrency representation")
+                               ).map(Currency.unsafeFrom)
+                receivedFrom <- tryOrLeft(
+                                 entity.getString("receivedFrom"),
+                                 InvalidRepresentation("Invalid receivedFrom representation")
+                               ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+              } yield TransferIn(FungibleData(value, valueCurrency), receivedFrom, fee, hash, timestamp)
+
+            case "TransferOut" =>
+              for {
+                amount <- tryOrLeft(
+                           entity.getString("amount"),
+                           InvalidRepresentation("Invalid amount representation")
+                         ).map(BigDecimal(_))
+                amountCurrency <- tryOrLeft(
+                                   entity.getString("amountCurrency"),
+                                   InvalidRepresentation("Invalid soldCurrency representation")
+                                 ).map(Currency.unsafeFrom)
+                to <- tryOrLeft(
+                       entity.getString("to"),
+                       InvalidRepresentation("Invalid to representation")
+                     ).map(rawTo => WalletAddress.unsafeFrom(rawTo))
+              } yield TransferOut(FungibleData(amount, amountCurrency), to, fee, hash, timestamp)
+
+            case _ => Left(InvalidRepresentation(s"Invalid PositionEntry type $posType"))
+          }
+      }
+    }
   }
 
   private def entityToTransferIn(entity: Entity): Either[InvalidRepresentation, TopUp] =

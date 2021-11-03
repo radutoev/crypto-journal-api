@@ -1,10 +1,12 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ LogEvent, Transaction }
-import domain.model.{ Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate }
-import util.{ ListEitherOps, ListOptionOps }
+import domain.blockchain.{LogEvent, Transaction}
+import domain.model.{Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
+import util.{ListEitherOps, ListOptionOps}
 
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
 
 import java.time.Instant
@@ -17,6 +19,9 @@ sealed trait PositionEntry {
 }
 
 object PositionEntry {
+  type PositionEntryIdPredicate = NonEmpty
+  type PositionEntryId = String Refined PositionEntryIdPredicate
+
   //TODO By having this in PositionEntry I am making it aware of blockchain transactions. I need to move it somewhere else.
   def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, List[PositionEntry]] =
     if (transaction.isAirDrop()) {
