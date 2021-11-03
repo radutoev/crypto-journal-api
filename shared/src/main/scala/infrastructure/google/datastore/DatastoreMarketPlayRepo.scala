@@ -393,8 +393,8 @@ final case class DatastoreMarketPlayRepo(
         .set("entries", ListValue.newBuilder().set(entries.asJava).build())
         .set("playType", "position")
 
-      if (position.closedAt().isDefined) {
-        val closedAt = position.closedAt().get
+      if (position.closedAt.isDefined) {
+        val closedAt = position.closedAt.get
         builder = builder.set(
           "closedAt",
           TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(closedAt.getEpochSecond, closedAt.getNano))

@@ -14,7 +14,7 @@ final case class Position(
   journal: Option[JournalEntry] = None,
   id: Option[PlayId] = None
 ) extends MarketPlay {
-  def timeInterval(): TimeInterval = closedAt().fold(TimeInterval(openedAt))(closed => TimeInterval(openedAt, closed))
+  lazy val timeInterval: TimeInterval = closedAt.fold(TimeInterval(openedAt))(closed => TimeInterval(openedAt, closed))
 
   /**
    * Total cost is calculated from all outgoing values of DEX reference currency found in the positions entries.
@@ -52,7 +52,7 @@ final case class Position(
    * Percentage difference calculated as:
    * ((totalCost - fiatReturn) / totalCost) * 100.
    */
-  def fiatReturnPercentage(): Option[BigDecimal] =
+  lazy val fiatReturnPercentage: Option[BigDecimal] =
     if (state == Open) {
       None
     } else {
@@ -85,7 +85,7 @@ final case class Position(
   /**
    * @return Order size if only one buy or order size divided by number of buys if multiple buys in position.
    */
-  def averageOrderSize(): FungibleData =
+  lazy val averageOrderSize: FungibleData =
     //TODO Implement this.
     ???
 //    val nrOfBuys = entries.count(_.isBuy())
@@ -98,45 +98,47 @@ final case class Position(
   /**
    * @return Entry coin fiat price
    */
-  def entryPrice(): Option[PriceQuote] =
+  lazy val entryPrice: Option[PriceQuote] =
     priceQuotes.flatMap(implicit quotes => quotes.findPrice(entries.head.timestamp))
 
   /**
    * @return Exit coin fiat price
    */
-  def exitPrice(): Option[PriceQuote] =
-    if (closedAt().isDefined) {
+  lazy val exitPrice: Option[PriceQuote] =
+    if (closedAt.isDefined) {
       priceQuotes.flatMap(implicit quotes => quotes.findPrice(entries.last.timestamp))
     } else {
       None
     }
 
-  def numberOfExecutions(): Int = entries.size
+  lazy val numberOfExecutions: Int = entries.size
 
-  def numberOfCoins(): BigDecimal = totalCoins.amount
+  lazy val numberOfCoins: BigDecimal = totalCoins.amount
 
-  def holdTime(): Option[Long] = closedAt().map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
+  lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
-  def isWin(): Option[Boolean] = fiatReturn.map(_.amount.compareTo(BigDecimal(0)) > 0)
+  lazy val isWin: Option[Boolean] = fiatReturn.map(_.amount.compareTo(BigDecimal(0)) > 0)
 
-  def isLoss(): Option[Boolean] = isWin().map(b => !b)
+  lazy val isLoss: Option[Boolean] = isWin.map(b => !b)
 
-  //TODO Implement this
-  def state: State = Open
-//    entries.lastOption.fold[State](Open)(last => if (last.isSell()) Closed else Open)
+  def state: State =
+    entries.lastOption.fold[State](Open) {
+      case _: Sell => Closed
+      case _ => Open
+    }
 
-  def isClosed(): Boolean = state == Closed
+  lazy val isClosed: Boolean = state == Closed
 
-  def isOpen(): Boolean = state == Open
+  lazy val isOpen: Boolean = state == Open
 
-  def closedAt(): Option[Instant] = entries.lastOption
+  lazy val closedAt: Option[Instant] = entries.lastOption
     .collect {
       case entry: Sell => entry.timestamp
     }
 
   def inInterval(interval: TimeInterval): Boolean = {
     val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
-    closedAt().fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
+    closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
   }
 
   lazy val outgoingSum: FungibleData = {

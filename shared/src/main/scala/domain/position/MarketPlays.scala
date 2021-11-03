@@ -19,8 +19,8 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val transferIns: List[TopUp]            = plays.transferIns
   lazy val transferOuts: List[TransferOutPlay] = plays.transferOuts
 
-  lazy val closedPositions: List[Position] = positions.filter(_.isClosed())
-  lazy val openPositions: List[Position]   = positions.filter(_.isOpen())
+  lazy val closedPositions: List[Position] = positions.filter(_.isClosed)
+  lazy val openPositions: List[Position]   = positions.filter(_.isOpen)
 
   def merge(other: MarketPlays): MarketPlays =
     ???

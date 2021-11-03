@@ -103,7 +103,7 @@ final case class LiveMarketPlayService(
         .mapBoth(PriceQuotesError, PriceQuotes.apply)
         .map(priceQuotes =>
           marketPlays.map {
-            case p: Position => p.copy(priceQuotes = Some(priceQuotes.subset(p.timeInterval())))
+            case p: Position => p.copy(priceQuotes = Some(priceQuotes.subset(p.timeInterval)))
             case t: TopUp =>
               t.copy(priceQuotes =
                 //TODO Extract TimeInterval generation
@@ -133,7 +133,7 @@ final case class LiveMarketPlayService(
       })
 
   private def enrichPosition(position: Position): Task[Position] = {
-    val interval = position.timeInterval()
+    val interval = position.timeInterval
     priceQuoteRepo
       .getQuotes(interval)
       .map(PriceQuotes.apply)

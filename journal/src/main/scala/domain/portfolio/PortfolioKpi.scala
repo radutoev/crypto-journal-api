@@ -51,7 +51,7 @@ final case class PortfolioKpi(
       val totalCount = reference.size
       val winCount = reference.count { position =>
         //.get is safe because win will be present on all closed positions.
-        position.isWin().get
+        position.isWin.get
       }
       winCount / totalCount.toFloat
     } else {
@@ -78,7 +78,7 @@ final case class PortfolioKpi(
   }
 
   lazy val totalWins: Int Refined NonNegative = {
-    refineV.unsafeFrom(marketPlays.closedPositions.count(_.isWin().get))
+    refineV.unsafeFrom(marketPlays.closedPositions.count(_.isWin.get))
   }
 
   lazy val totalLoses: Int Refined NonNegative = {
@@ -95,7 +95,7 @@ final case class PortfolioKpi(
     }
 
     marketPlays.closedPositions.foreach { p =>
-      p.isWin() match {
+      p.isWin match {
         case Some(value) =>
           if (value) {
             streak = streak + 1
@@ -119,7 +119,7 @@ final case class PortfolioKpi(
     }
 
     marketPlays.closedPositions.foreach { p =>
-      p.isWin() match {
+      p.isWin match {
         case Some(value) =>
           if (value) {
             onReset()
@@ -135,19 +135,19 @@ final case class PortfolioKpi(
 
   //TODO Do I need to include TransferIns?
   lazy val totalCoins: BigDecimal = {
-    marketPlays.positions.map(_.numberOfCoins()).sum
+    marketPlays.positions.map(_.numberOfCoins).sum
   }
 
   lazy val avgWinningHoldTime: Duration = {
-    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isWin().isDefined && p.isWin().get)))
+    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isWin.isDefined && p.isWin.get)))
   }
 
   lazy val avgLosingHoldTime: Duration = {
-    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isLoss().isDefined && p.isLoss().get)))
+    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isLoss.isDefined && p.isLoss.get)))
   }
 
   def avgHoldTime(items: List[Position]): Long = {
-    val list = items.map(_.holdTime()).collect {
+    val list = items.map(_.holdTime).collect {
       case Some(value) => value
     }
     if (list.nonEmpty) {
@@ -195,7 +195,7 @@ final case class PortfolioKpi(
           (
             currency.get, //TODO This is unsafe, refactor
             listOfPositions.map(_.fiatReturn.getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
-            listOfPositions.map(_.fiatReturnPercentage().getOrElse(BigDecimal(0))).sum
+            listOfPositions.map(_.fiatReturnPercentage.getOrElse(BigDecimal(0))).sum
           )
       }
       .toList
@@ -204,7 +204,7 @@ final case class PortfolioKpi(
 
   def periodReturn(): PeriodDistribution = {
     val returnByDate = marketPlays.closedPositions
-      .map(p => p.closedAt().get.toLocalDate().atStartOfDay() -> p.fiatReturn.get)
+      .map(p => p.closedAt.get.toLocalDate().atStartOfDay() -> p.fiatReturn.get)
       .groupBy(_._1)
       .view
       .mapValues(_.map(_._2).sumFungibleData())
@@ -232,7 +232,7 @@ final case class PortfolioKpi(
 
     val positionToReturnPercentage = journaledPositions.flatMap {
       case (journal, p) =>
-        journal.tags.map(s => s -> p.fiatReturnPercentage().getOrElse(BigDecimal(0)))
+        journal.tags.map(s => s -> p.fiatReturnPercentage.getOrElse(BigDecimal(0)))
     }.groupBy(_._1).view.mapValues(_.map(_._2).sum).toMap
 
     positionToFiatReturn.view.map {
@@ -253,7 +253,7 @@ final case class PortfolioKpi(
 
     val positionToReturnPercentage = journaledPositions.flatMap {
       case (journal, p) =>
-        journal.tags.map(s => s -> p.fiatReturnPercentage().getOrElse(BigDecimal(0)))
+        journal.tags.map(s => s -> p.fiatReturnPercentage.getOrElse(BigDecimal(0)))
     }.groupBy(_._1).view.mapValues(_.map(_._2).sum).toMap
 
     positionToFiatReturn.view.map {
@@ -264,8 +264,8 @@ final case class PortfolioKpi(
 
   lazy val dailyContribution: Map[DayFormat, DailyTradeData] = {
     marketPlays.closedPositions
-      .filter(p => interval.contains(p.closedAt().get))
-      .map(p => p.closedAt().get.atBeginningOfDay() -> p)
+      .filter(p => interval.contains(p.closedAt.get))
+      .map(p => p.closedAt.get.atBeginningOfDay() -> p)
       .groupBy(_._1)
       .map {
         case (day, list) =>
