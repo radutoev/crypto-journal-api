@@ -20,7 +20,7 @@ case class AccountBalance(marketPlays: MarketPlays) {
 //    .sumFungibleData()
 
   //TODO Reimplement this
-  lazy val trend: List[FungibleData] = ??? // marketPlays.trend(_.fiatValue())
+  lazy val trend: List[FungibleData] = List.empty // marketPlays.trend(_.fiatValue())
 
   def performance(relativeTo: AccountBalance): Performance =
     value.compare(relativeTo.value) match {

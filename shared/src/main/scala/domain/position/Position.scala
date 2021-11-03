@@ -22,15 +22,21 @@ final case class Position(
    *
    * @return
    */
-  lazy val totalCost: Option[FungibleData] = {
-    totalFees.map(fees => FungibleData(outgoingSum.add(fees.amount).amount.abs, USD))
+  lazy val totalFiatCost: Option[FungibleData] = {
+    totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
   }
 
   /**
    * @return Fiat sum of all fees for all entries in this position
    */
   lazy val totalFees: Option[FungibleData] = {
-    priceQuotes.map(implicit quotes => entries.map(_.fee).sumFungibleData())
+    priceQuotes.map(quotes =>
+      entries
+        .flatMap(entry =>
+          quotes.findPrice(entry.timestamp).map(quote => entry.fee.amount * quote.price).map(FungibleData(_, USD))
+        )
+        .sumFungibleData()
+    )
   }
 
   /**
@@ -41,10 +47,10 @@ final case class Position(
    * FungibleData for a closed position.
    */
   lazy val fiatReturn: Option[FungibleData] = {
-    if (state == Open) {
-      None
+    if (state == Closed) {
+      totalFiatCost.map(cost => fiatSellValue.subtract(cost.amount))
     } else {
-      totalCost.map(_.subtract(incomingSum.amount))
+      None
     }
   }
 
@@ -57,7 +63,7 @@ final case class Position(
       None
     } else {
       for {
-        totalCost  <- totalCost
+        totalCost  <- totalFiatCost
         fiatReturn <- fiatReturn
       } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount + totalCost.amount)
     }
@@ -85,10 +91,10 @@ final case class Position(
    */
   lazy val averageOrderSize: BigDecimal = {
     val nrOfBuys = entries.count {
-      case _:TransferOut | _:Sell => false
-      case _ => true
+      case _: TransferOut | _: Sell => false
+      case _                        => true
     }
-    if(nrOfBuys > 0) {
+    if (nrOfBuys > 0) {
       orderSize / nrOfBuys
     } else {
       BigDecimal(0)
@@ -113,7 +119,20 @@ final case class Position(
 
   lazy val numberOfExecutions: Int = entries.size
 
-  lazy val numberOfCoins: BigDecimal = totalCoins.amount
+  /**
+   * Number of coins that are part of this Position
+   */
+  lazy val numberOfCoins: BigDecimal =
+    entries.map {
+      case AirDrop(_, _, received, _, _)   => Some(received)
+      case _: Approval                     => None
+      case Buy(_, _, received, _, _, _)    => Some(received)
+      case Claim(_, received, _, _, _)     => Some(received)
+      case _: Contribute                   => None
+      case Sell(sold, _, _, _, _)          => Some(sold.negate())
+      case t: TransferIn                   => Some(t.value)
+      case TransferOut(amount, _, _, _, _) => Some(amount.negate())
+    }.values.sumFungibleData().amount
 
   lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
@@ -140,42 +159,44 @@ final case class Position(
     closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
   }
 
-  //TODO I have coins that are different than WBNB, so I cannot find the correct price quote!.
-  lazy val outgoingSum: FungibleData = {
+  lazy val fiatCost: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
         case _: AirDrop  => None
         case _: Approval => None
         case Buy(_, spent, _, _, _, timestamp) =>
-          quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
+          if(spent.currency == WBNB) {
+            quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
+          } else {
+            None
+          }
         case _: Claim => None
         case Contribute(spent, _, _, _, timestamp) =>
-          quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
-        case s: Sell =>
-          quotes.findPrice(s.timestamp).map(quote => s.sold.amount * quote.price).map(FungibleData(_, USD))
-        case _: TransferIn  => None
-        case t: TransferOut =>
-          quotes.findPrice(t.timestamp).map(quote => t.amount.amount * quote.price).map(FungibleData(_, USD))
-      }.values.sumFungibleData()
-    }.getOrElse(FungibleData.zero(USD))
-  }
-
-  //TODO I have coins that are different than WBNB, so I cannot find the correct price quote!.
-  lazy val incomingSum: FungibleData = {
-    priceQuotes.map { quotes =>
-      entries.map {
-        case _: AirDrop    => None
-        case _: Approval   => None
-        case _: Buy        => None
-        case _: Claim      => None
-        case _: Contribute => None
+          if(spent.currency == WBNB) {
+            quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
+          } else None
+        case _: Sell        => None
         case _: TransferIn  => None
         case _: TransferOut => None
-        case _              => Some(FungibleData.zero(USD))
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
   }
 
+  private lazy val fiatSellValue: FungibleData = {
+    priceQuotes.map { quotes =>
+      entries.map {
+        case Sell(received, _, _, _, timestamp) =>
+          if(received.currency == WBNB) {
+            quotes.findPrice(timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
+          } else {
+            None
+          }
+        case _ => None
+      }.values.sumFungibleData()
+    }.getOrElse(FungibleData.zero(USD))
+  }
+
+  //TODO Ensure I have only one currency.
   lazy val currency: Option[Currency] = {
     entries.map {
       case a: AirDrop                      => Some(a.received.currency)

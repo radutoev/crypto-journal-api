@@ -105,7 +105,7 @@ object dto {
         position.state.toString,
         position.openedAt,
         position.closedAt,
-        position.totalCost.asJson,
+        position.totalFiatCost.asJson,
         position.totalFees.asJson,
         position.fiatReturn.asJson,
         position.totalCoins.asJson,
