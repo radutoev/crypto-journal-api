@@ -26,17 +26,17 @@ object PositionEntry {
   def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, List[PositionEntry]] =
     if (transaction.isAirDrop()) {
       txToAirDrop(transaction, walletAddress).map(List(_))
-    } else if (transaction.isApproval()) {
+    } else if (transaction.isApproval(walletAddress)) {
       txToApproval(transaction).map(List(_))
     } else if (transaction.isBuy(walletAddress)) {
       txToBuy(transaction, walletAddress)
-    } else if (transaction.isClaim()) {
+    } else if (transaction.isClaim(walletAddress)) {
       txToClaim(transaction, walletAddress).map(List(_))
-    } else if (transaction.isContribute()) {
+    } else if (transaction.isContribute(walletAddress)) {
       txToContribute(transaction).map(List(_))
-    } else if (transaction.isSale()) {
+    } else if (transaction.isSell(walletAddress)) {
       txToSell(transaction, walletAddress)
-    } else if (transaction.isTransferIn()) {
+    } else if (transaction.isTransferIn(walletAddress)) {
       txToTransferIn(transaction).map(List(_))
     } else if (transaction.isTransferOut(walletAddress)) {
       txToTransferOut(transaction, walletAddress).map(List(_))
@@ -300,13 +300,15 @@ object PositionEntry {
         false
       }
 
-    def isApproval(): Boolean =
+    def isApproval(address: WalletAddress): Boolean = {
+      transaction.initiatedByAddress(address) &&
       transaction.logEvents.size == 1 && transaction.logEvents.exists(ev =>
         isApprovalEvent(ev) && ev.paramValue("owner").contains(transaction.fromAddress)
       )
+    }
 
     def isBuy(address: WalletAddress): Boolean = {
-      transaction.fromAddress == address.value &&
+      transaction.initiatedByAddress(address) &&
       transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
         ev.decoded.exists(decoded =>
           decoded.name == "Transfer" && decoded.params.exists(param =>
@@ -316,15 +318,20 @@ object PositionEntry {
       )
     }
 
-    def isClaim(): Boolean =
-      transaction.logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
+    def isClaim(address: WalletAddress): Boolean = {
+      transaction.initiatedByAddress(address) &&
+        transaction.logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
+    }
 
-    def isContribute(): Boolean =
+    def isContribute(address: WalletAddress): Boolean = {
+      transaction.initiatedByAddress(address) &&
       transaction.rawValue.toDouble != 0d && transaction.logEvents.headOption.exists(ev =>
         ev.decoded.isEmpty && ev.senderAddress == transaction.toAddress
       )
+    }
 
-    def isSale(): Boolean =
+    def isSell(address: WalletAddress): Boolean =
+      transaction.initiatedByAddress(address) &&
       transaction.logEvents.exists(ev =>
         ev.decoded.exists(decoded =>
           decoded.name == "Swap" &&
@@ -334,12 +341,14 @@ object PositionEntry {
         )
       )
 
-    def isTransferIn(): Boolean =
-      transaction.logEvents.isEmpty
+    def isTransferIn(address: WalletAddress): Boolean =
+      transaction.logEvents.isEmpty || transaction.logEvents.exists(_.isTransferToAddress(address))
 
     def isTransferOut(address: WalletAddress): Boolean =
       transaction.rawValue.toDouble == 0d &&
         transaction.logEvents.exists(_.isTransferFromAddress(address))
+
+    def initiatedByAddress(address: WalletAddress): Boolean = transaction.fromAddress == address.value
 
     def computedFee(): Fee = FungibleData(transaction.gasSpent * transaction.gasPrice * Math.pow(10, -18), WBNB)
   }
