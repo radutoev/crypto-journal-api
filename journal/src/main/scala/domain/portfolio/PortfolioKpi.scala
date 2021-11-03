@@ -133,7 +133,6 @@ final case class PortfolioKpi(
     refineV.unsafeFrom(max)
   }
 
-  //TODO Do I need to include TransferIns?
   lazy val totalCoins: BigDecimal = {
     marketPlays.positions.map(_.numberOfCoins).sum
   }
