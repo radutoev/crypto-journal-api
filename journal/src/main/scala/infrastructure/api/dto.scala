@@ -48,8 +48,8 @@ object dto {
     totalFees: Option[FungibleData],
     fiatReturn: Option[FungibleData],
     totalCoins: FungibleData,
-    orderSize: FungibleData,
-    averageOrderSize: FungibleData,
+    orderSize: BigDecimal,
+    averageOrderSize: BigDecimal,
     entryPrice: Option[PriceQuote],
     exitPrice: Option[PriceQuote],
     numberOfExecutions: Int,
@@ -101,7 +101,7 @@ object dto {
 
     def fromPosition(position: CJPosition): Position =
       Position(
-        position.currency.map(_.value).getOrElse(""), //TODO Can i just return empty here??
+        position.currency.map(_.value).getOrElse(""),
         position.state.toString,
         position.openedAt,
         position.closedAt,
@@ -109,14 +109,14 @@ object dto {
         position.totalFees.asJson,
         position.fiatReturn.asJson,
         position.totalCoins.asJson,
-        position.orderSize.asJson,
-        position.averageOrderSize.asJson,
+        position.orderSize,
+        position.averageOrderSize,
         position.entryPrice.asJson,
         position.exitPrice.asJson,
         position.numberOfExecutions,
         position.holdTime,
         position.isWin.map(isWin => if (isWin) true else false),
-        position.entries.map(entry => fromPositionEntry(entry)), //(position.priceQuotes.getOrElse(PriceQuotes.empty()))),
+        position.entries.map(entry => fromPositionEntry(entry)),
         position.id.map(_.value),
         position.journal.map(_.toDto).getOrElse(JournalEntry(None, List.empty, List.empty, None))
       )

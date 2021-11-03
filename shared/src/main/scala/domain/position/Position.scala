@@ -72,28 +72,28 @@ final case class Position(
       case Buy(_, _, received, _, _, _)  => Some(received)
       case Claim(_, received, _, _, _)   => Some(received)
       case _: Contribute                 => None
-
-      //a position cannot have TransferIns nor TransferOuts
-      case _: TransferIn  => None
-      case _: TransferOut => None
+      case _: Sell                       => None
+      case t: TransferIn                 => Some(t.value)
+      case _: TransferOut                => None
     }.values.sumFungibleData()
   }
 
-  /* Alias with totalCoins */
-  lazy val orderSize: FungibleData = totalCoins
+  lazy val orderSize: BigDecimal = totalCoins.amount
 
   /**
    * @return Order size if only one buy or order size divided by number of buys if multiple buys in position.
    */
-  lazy val averageOrderSize: FungibleData =
-    //TODO Implement this.
-    ???
-//    val nrOfBuys = entries.count(_.isBuy())
-//    if (nrOfBuys > 0) {
-//      orderSize().divide(nrOfBuys)
-//    } else {
-//      FungibleData.zero(currency)
-//    }
+  lazy val averageOrderSize: BigDecimal = {
+    val nrOfBuys = entries.count {
+      case _:TransferOut | _:Sell => false
+      case _ => true
+    }
+    if(nrOfBuys > 0) {
+      orderSize / nrOfBuys
+    } else {
+      BigDecimal(0)
+    }
+  }
 
   /**
    * @return Entry coin fiat price
@@ -124,51 +124,51 @@ final case class Position(
   def state: State =
     entries.lastOption.fold[State](Open) {
       case _: Sell => Closed
-      case _ => Open
+      case _       => Open
     }
 
   lazy val isClosed: Boolean = state == Closed
 
   lazy val isOpen: Boolean = state == Open
 
-  lazy val closedAt: Option[Instant] = entries.lastOption
-    .collect {
-      case entry: Sell => entry.timestamp
-    }
+  lazy val closedAt: Option[Instant] = entries.lastOption.collect {
+    case entry: Sell => entry.timestamp
+  }
 
   def inInterval(interval: TimeInterval): Boolean = {
     val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
     closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
   }
 
+  //TODO I have coins that are different than WBNB, so I cannot find the correct price quote!.
   lazy val outgoingSum: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
         case _: AirDrop  => None
-        case _: Approval => Some(FungibleData(0, WBNB))
+        case _: Approval => None
         case Buy(_, spent, _, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
         case _: Claim => None
         case Contribute(spent, _, _, _, timestamp) =>
           quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
-
-        //a position cannot have TransferIns nor TransferOuts
+        case s: Sell =>
+          quotes.findPrice(s.timestamp).map(quote => s.sold.amount * quote.price).map(FungibleData(_, USD))
         case _: TransferIn  => None
-        case _: TransferOut => None
+        case t: TransferOut =>
+          quotes.findPrice(t.timestamp).map(quote => t.amount.amount * quote.price).map(FungibleData(_, USD))
       }.values.sumFungibleData()
     }.getOrElse(FungibleData.zero(USD))
   }
 
+  //TODO I have coins that are different than WBNB, so I cannot find the correct price quote!.
   lazy val incomingSum: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
-        case _: AirDrop  => None
-        case _: Approval => None
-        case _: Buy      => None
-        case _: Claim    => None
+        case _: AirDrop    => None
+        case _: Approval   => None
+        case _: Buy        => None
+        case _: Claim      => None
         case _: Contribute => None
-
-        //a position cannot have TransferIns nor TransferOuts
         case _: TransferIn  => None
         case _: TransferOut => None
         case _              => Some(FungibleData.zero(USD))
@@ -178,13 +178,13 @@ final case class Position(
 
   lazy val currency: Option[Currency] = {
     entries.map {
-      case a: AirDrop => Some(a.received.currency)
-      case _: Approval => None
-      case Buy(_, _, received, _, _, _) => Some(received.currency)
-      case Claim(_, received, _, _, _) => Some(received.currency)
-      case _: Contribute => None
-      case Sell(sold, _, _, _, _) => Some(sold.currency)
-      case TransferIn(amount, _, _, _, _) => Some(amount.currency)
+      case a: AirDrop                      => Some(a.received.currency)
+      case _: Approval                     => None
+      case Buy(_, _, received, _, _, _)    => Some(received.currency)
+      case Claim(_, received, _, _, _)     => Some(received.currency)
+      case _: Contribute                   => None
+      case Sell(sold, _, _, _, _)          => Some(sold.currency)
+      case TransferIn(amount, _, _, _, _)  => Some(amount.currency)
       case TransferOut(amount, _, _, _, _) => Some(amount.currency)
     }.values
       .filter(c => !Set(WBNB).contains(c))

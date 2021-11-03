@@ -72,7 +72,7 @@ final case class DatastoreUserWalletRepo(
       case t: Throwable           => WalletFetchError(address, t)
     }.flatMap(entity => ZIO.fromOption(Option(entity)).orElseFail(WalletNotFound(userId, address)))
       .flatMap(entity => ZIO.fromEither(entityToWallet(entity)))
-      .tapError(err => logger.warn(err.toString)) //TODO Maybe show??
+      .tapError(err => logger.warn(err.toString))
 
   private val userWalletPk: (UserId, WalletAddress) => Key = (userId, address) =>
     datastore.newKeyFactory().setKind(datastoreConfig.userWallet).newKey(s"${userId.value}#${address.value}")
