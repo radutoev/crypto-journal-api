@@ -22,8 +22,8 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed)
   lazy val openPositions: List[Position]   = positions.filter(_.isOpen)
 
-  def merge(other: MarketPlays): MarketPlays =
-    ???
+  //TODO implement merge.
+  def merge(other: MarketPlays): MarketPlays = other
 //    var currencyPositionMap = Map.empty[Currency, Position]
 //    val otherPositions      = ArrayBuffer.empty[Position]
 //
@@ -112,6 +112,9 @@ object MarketPlays {
       .filter(_.successful)
       .flatMap(tx =>
         PositionEntry.fromTransaction(tx, wallet) match {
+          case Left(reason) =>
+            println(reason) //TODO Maybe have an accumulator of errors to log by the invoker of the method.
+            List.empty
           case Right(list) => list
         }
       )
@@ -154,7 +157,8 @@ object MarketPlays {
       case transferIn: TransferIn =>
         addToIncoming(transferIn.value.currency, transferIn)
 
-      case transferOut: TransferOut => ???
+      //TODO Add implementation
+      case transferOut: TransferOut => ()
     }
 
     incoming.foreach {

@@ -28,7 +28,7 @@ object PositionEntry {
       txToAirDrop(transaction, walletAddress).map(List(_))
     } else if (transaction.isApproval()) {
       txToApproval(transaction).map(List(_))
-    } else if (transaction.isBuy()) {
+    } else if (transaction.isBuy(walletAddress)) {
       txToBuy(transaction, walletAddress)
     } else if (transaction.isClaim()) {
       txToClaim(transaction, walletAddress).map(List(_))
@@ -41,7 +41,7 @@ object PositionEntry {
     } else if (transaction.isTransferOut(walletAddress)) {
       txToTransferOut(transaction, walletAddress).map(List(_))
     } else {
-      Left("Unable to interpret transaction")
+      Left(s"Unable to interpret transaction ${transaction.hash.value}")
     }
 
   private def txToAirDrop(transaction: Transaction, walletAddress: WalletAddress): Either[String, AirDrop] = {
@@ -91,7 +91,7 @@ object PositionEntry {
         buyCandidates = transaction.logEvents.filter(ev =>
           ev.isTransferToAddress(address) && depositDestinations.exists(ev.isTransferFromAddress(_))
         )
-        buy <- if (buyCandidates.size != 1) Left("Unable to identify buy event") else Right(buyCandidates.head)
+        buy <- if (buyCandidates.size != 1) Left(s"Unable to identify buy event ${transaction.hash.value}") else Right(buyCandidates.head)
         transferIns = transaction.logEvents.filter(ev =>
           ev.isTransferToAddress(address) && ev.paramValue("from") != buy.paramValue("from")
         )
@@ -191,6 +191,7 @@ object PositionEntry {
           amount   <- ev.paramValue("value").map(BigDecimal(_)).toRight("Did not find amount")
         } yield FungibleData(amount * Math.pow(10, -decimals), currency)
       }.rights
+      _ <- if(sold.isEmpty) Left(s"Invalid sold event for ${transaction.hash.value}") else Right(sold)
       //union fails if there are no transfers from our address.
       //union also has the assumption of unique currency
       soldUnion = sold.foldLeft(FungibleData.zero(sold.head.currency))((acc, el) => acc.add(el.amount))
@@ -304,7 +305,8 @@ object PositionEntry {
         isApprovalEvent(ev) && ev.paramValue("owner").contains(transaction.fromAddress)
       )
 
-    def isBuy(): Boolean =
+    def isBuy(address: WalletAddress): Boolean = {
+      transaction.fromAddress == address.value &&
       transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
         ev.decoded.exists(decoded =>
           decoded.name == "Transfer" && decoded.params.exists(param =>
@@ -312,6 +314,7 @@ object PositionEntry {
           )
         )
       )
+    }
 
     def isClaim(): Boolean =
       transaction.logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
