@@ -9,7 +9,7 @@ import eu.timepit.refined.collection.NonEmpty
 
 import java.time.Instant
 
-final case class TransferOutPlay(
+final case class Withdraw(
   txHash: TransactionHash,
   value: FungibleData,
   fee: Fee,

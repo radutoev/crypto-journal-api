@@ -5,7 +5,7 @@ import domain.market.{Ohlcv => CJOhlcv}
 import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
 import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
 import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTransferIn, TransferOutPlay => CJTransferOut}
+import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTransferIn, Withdraw => CJTransferOut}
 import domain.position.model.ScamStrategy
 import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}

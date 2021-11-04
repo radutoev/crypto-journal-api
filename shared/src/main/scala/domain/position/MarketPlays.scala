@@ -17,7 +17,7 @@ import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
 final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val positions: List[Position]           = plays.positions
   lazy val transferIns: List[TopUp]            = plays.transferIns
-  lazy val transferOuts: List[TransferOutPlay] = plays.transferOuts
+  lazy val transferOuts: List[Withdraw] = plays.transferOuts
 
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed)
   lazy val openPositions: List[Position]   = positions.filter(_.isOpen)
@@ -83,6 +83,7 @@ object MarketPlays {
     val incomingByContract: mutable.Map[WalletAddress, ListBuffer[PositionEntry]] = mutable.Map.empty
     val playsBuffer: ListBuffer[MarketPlay]                                       = ListBuffer.empty
     val topUpsBuffer: ListBuffer[TopUp]                                           = ListBuffer.empty
+    val withdrawBuffer: ListBuffer[Withdraw]  = ListBuffer.empty
 
     @inline
     def addToCurrencyBuffer(currency: Currency, entry: PositionEntry): Unit =
@@ -167,10 +168,12 @@ object MarketPlays {
     }
 
     currencyBuffer.foreach {
-      case (currency, transferIns) if currency == WBNB && transferIns.nonEmpty =>
-        topUpsBuffer.addAll(
-          transferIns.asInstanceOf[ListBuffer[TransferIn]].map(t => TopUp(t.hash, t.value, t.fee, t.timestamp))
-        )
+      case (currency, directTransfers) if currency == WBNB && directTransfers.nonEmpty =>
+        directTransfers.foreach {
+          case tIn: TransferIn => topUpsBuffer.addOne(TopUp(tIn.hash, tIn.value, tIn.fee, tIn.timestamp))
+          case tOut: TransferOut => withdrawBuffer.addOne(Withdraw(tOut.hash, tOut.amount, tOut.fee, tOut.timestamp))
+          case _ =>
+        }
       case (_, items) if items.nonEmpty =>
         val list = items.toList
         val positionItems = findFirstOccurrenceOfTokenContract(list)

@@ -1,6 +1,6 @@
 package io.softwarechain.cryptojournal
 
-import domain.position.{ MarketPlay, Position, TopUp, TransferOutPlay }
+import domain.position.{ MarketPlay, Position, TopUp, Withdraw }
 
 import com.google.cloud.Timestamp
 
@@ -51,7 +51,7 @@ package object util {
 
     lazy val transferIns: List[TopUp] = marketPlays.collect { case t: TopUp => t }
 
-    lazy val transferOuts: List[TransferOutPlay] = marketPlays.collect { case t: TransferOutPlay => t }
+    lazy val transferOuts: List[Withdraw] = marketPlays.collect { case t: Withdraw => t }
 
     def mostRecentFirst(): List[MarketPlay] = marketPlays.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
