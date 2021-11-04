@@ -1,0 +1,76 @@
+[
+  {
+    "block_signed_at": "2021-09-17T17:00:58Z",
+    "block_height": 10998437,
+    "tx_hash": "0x33229054c2e5998cc35a6775e5659ddad997a26474eb8f1c615f3ce79b14ff1b",
+    "tx_offset": 28,
+    "successful": true,
+    "from_address": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41",
+    "from_address_label": null,
+    "to_address": "0x639acba969203137d173d89031a73c60721e5e11",
+    "to_address_label": null,
+    "value": "500000000000000000",
+    "value_quote": 205.9159698486328,
+    "gas_offered": 80750000,
+    "gas_spent": 121740,
+    "gas_price": 5000000000,
+    "gas_quote": 0.25068210169372557,
+    "gas_quote_rate": 411.8319396972656,
+    "log_events": [
+      {
+        "block_signed_at": "2021-09-17T17:00:58Z",
+        "block_height": 10998437,
+        "tx_offset": 28,
+        "log_offset": 90,
+        "tx_hash": "0x33229054c2e5998cc35a6775e5659ddad997a26474eb8f1c615f3ce79b14ff1b",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0x623b3804fa71d67900d064613da8f94b9617215ee90799290593e1745087ad18",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 0,
+        "sender_name": null,
+        "sender_contract_ticker_symbol": null,
+        "sender_address": "0x639acba969203137d173d89031a73c60721e5e11",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x639acba969203137d173d89031a73c60721e5e11.png",
+        "raw_log_data": "0x00000000000000000000000000000000000000000000000006f05b59d3b200000000000000000000000000000000000000000000000000001bc16d674ec80000",
+        "decoded": {
+          "name": "TokenPurchase",
+          "signature": "TokenPurchase(indexed address purchaser, indexed address beneficiary, uint256 value, uint256 amount)",
+          "params": [
+            {
+              "name": "purchaser",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "beneficiary",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "500000000000000000"
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "2000000000000000000"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

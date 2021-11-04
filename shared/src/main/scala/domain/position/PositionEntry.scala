@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.{LogEvent, Transaction}
-import domain.model.{Currency, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
+import domain.model.{Currency, CurrencyPredicate, Fee, FungibleData, TransactionHash, WBNB, WalletAddress, WalletAddressPredicate}
 import util.{ListEitherOps, ListOptionOps}
 
 import eu.timepit.refined.api.Refined
@@ -20,11 +20,13 @@ sealed trait PositionEntry {
 
 object PositionEntry {
   type PositionEntryIdPredicate = NonEmpty
-  type PositionEntryId = String Refined PositionEntryIdPredicate
+  type PositionEntryId          = String Refined PositionEntryIdPredicate
 
   //TODO By having this in PositionEntry I am making it aware of blockchain transactions. I need to move it somewhere else.
-  def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, List[PositionEntry]] =
-    if (transaction.isAirDrop()) {
+  def fromTransaction(transaction: Transaction, walletAddress: WalletAddress): Either[String, List[PositionEntry]] = {
+    lazy val transferOutData = transaction.transferOutData(walletAddress)
+
+    if (transaction.isAirDrop) {
       txToAirDrop(transaction, walletAddress).map(List(_))
     } else if (transaction.isApproval(walletAddress)) {
       txToApproval(transaction).map(List(_))
@@ -38,11 +40,12 @@ object PositionEntry {
       txToSell(transaction, walletAddress)
     } else if (transaction.isTransferIn(walletAddress)) {
       txToTransferIn(transaction).map(List(_))
-    } else if (transaction.isTransferOut(walletAddress)) {
-      txToTransferOut(transaction, walletAddress).map(List(_))
+    } else if (transferOutData.isDefined) {
+      transferOutData.get
     } else {
       Left(s"Unable to interpret transaction ${transaction.hash.value}")
     }
+  }
 
   private def txToAirDrop(transaction: Transaction, walletAddress: WalletAddress): Either[String, AirDrop] = {
     lazy val amountOfCoins = transaction
@@ -91,7 +94,8 @@ object PositionEntry {
         buyCandidates = transaction.logEvents.filter(ev =>
           ev.isTransferToAddress(address) && depositDestinations.exists(ev.isTransferFromAddress(_))
         )
-        buy <- if (buyCandidates.size != 1) Left(s"Unable to identify buy event ${transaction.hash.value}") else Right(buyCandidates.head)
+        buy <- if (buyCandidates.size != 1) Left(s"Unable to identify buy event ${transaction.hash.value}")
+              else Right(buyCandidates.head)
         transferIns = transaction.logEvents.filter(ev =>
           ev.isTransferToAddress(address) && ev.paramValue("from") != buy.paramValue("from")
         )
@@ -168,7 +172,7 @@ object PositionEntry {
       } yield TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant)
 
     val (receivedCandidate, receivedAmount, transferIns) = {
-      val maybeWithdrawal = transaction.logEvents.find(_.isWithdrawal())
+      val maybeWithdrawal = transaction.logEvents.find(_.isWithdrawal)
       maybeWithdrawal.fold(
         (
           transfersToWallet.headOption,
@@ -191,7 +195,7 @@ object PositionEntry {
           amount   <- ev.paramValue("value").map(BigDecimal(_)).toRight("Did not find amount")
         } yield FungibleData(amount * Math.pow(10, -decimals), currency)
       }.rights
-      _ <- if(sold.isEmpty) Left(s"Invalid sold event for ${transaction.hash.value}") else Right(sold)
+      _ <- if (sold.isEmpty) Left(s"Invalid sold event for ${transaction.hash.value}") else Right(sold)
       //union fails if there are no transfers from our address.
       //union also has the assumption of unique currency
       soldUnion = sold.foldLeft(FungibleData.zero(sold.head.currency))((acc, el) => acc.add(el.amount))
@@ -213,28 +217,6 @@ object PositionEntry {
       transaction.hash,
       transaction.instant
     )
-
-  private def txToTransferOut(transaction: Transaction, address: WalletAddress): Either[String, TransferOut] = {
-    val transferOuts = transaction.logEvents.filter(_.isTransferFromAddress(address))
-    for {
-      decimals <- transferOuts.headOption.flatMap(_.senderContractDecimals).toRight("Did not find contract decimals")
-      currency <- transferOuts.headOption
-                   .flatMap(_.senderContractSymbol)
-                   .toRight("Did not find currency")
-                   .flatMap(Currency(_))
-      toAddress <- transferOuts.headOption
-                    .flatMap(_.paramValue("to"))
-                    .toRight("Did not find destination address")
-                    .flatMap(refineV[WalletAddressPredicate](_))
-      amount = transferOuts.map(_.paramValue("value").map(BigDecimal(_))).values.sum * Math.pow(10, -decimals)
-    } yield TransferOut(
-      FungibleData(amount, currency),
-      toAddress,
-      transaction.computedFee(),
-      transaction.hash,
-      transaction.instant
-    )
-  }
 
   private def dataFromTransferInEvent(event: LogEvent): Either[String, (WalletAddress, FungibleData)] =
     for {
@@ -261,21 +243,21 @@ object PositionEntry {
      */
     def lastTransferEventToWallet(): Either[String, LogEvent] =
       transaction.logEvents
-        .find(ev => ev.isTransferEvent() && ev.paramValue("to").contains(transaction.fromAddress))
+        .find(ev => ev.isTransferEvent && ev.paramValue("to").contains(transaction.fromAddress))
         .toRight("Unable to interpret Transfer event")
 
     def firstTransferEvent(): Either[String, LogEvent] =
       transaction.logEvents
-        .findLast(_.isTransferEvent())
+        .findLast(_.isTransferEvent)
         .toRight("Unable to interpret Transfer event")
 
     def transferEventsToWallet(address: WalletAddress): List[LogEvent] =
       transaction.logEvents
-        .filter(ev => ev.isTransferEvent() && ev.paramValue("to").contains(address.value))
+        .filter(ev => ev.isTransferEvent && ev.paramValue("to").contains(address.value))
 
     def transferEventsFromWallet(address: WalletAddress): List[LogEvent] =
       transaction.logEvents
-        .filter(ev => ev.isTransferEvent() && ev.paramValue("from").contains(address.value))
+        .filter(ev => ev.isTransferEvent && ev.paramValue("from").contains(address.value))
 
     private def isDepositEvent(event: LogEvent): Boolean =
       event.decoded.exists(_.name == "Deposit")
@@ -283,13 +265,13 @@ object PositionEntry {
     private def isApprovalEvent(logEvent: LogEvent): Boolean =
       logEvent.decoded.exists(_.name == "Approval")
 
-    def isAirDrop(): Boolean =
+    def isAirDrop: Boolean =
       if (transaction.logEvents.nonEmpty) {
         val eventsInChronologicalOrder = transaction.logEvents.reverse
         (for {
           firstTransferValue <- eventsInChronologicalOrder.head.paramValue("value").map(BigDecimal(_))
           valueForAllTransfers = eventsInChronologicalOrder.tail
-            .filter(_.isTransferEvent())
+            .filter(_.isTransferEvent)
             .map(_.paramValue("value").map(BigDecimal(_)))
             .collect {
               case Some(value) => value
@@ -300,53 +282,88 @@ object PositionEntry {
         false
       }
 
-    def isApproval(address: WalletAddress): Boolean = {
+    def isApproval(address: WalletAddress): Boolean =
       transaction.initiatedByAddress(address) &&
-      transaction.logEvents.size == 1 && transaction.logEvents.exists(ev =>
+        transaction.logEvents.size == 1 && transaction.logEvents.exists(ev =>
         isApprovalEvent(ev) && ev.paramValue("owner").contains(transaction.fromAddress)
       )
-    }
 
-    def isBuy(address: WalletAddress): Boolean = {
+    def isBuy(address: WalletAddress): Boolean =
       transaction.initiatedByAddress(address) &&
-      transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
+        transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
         ev.decoded.exists(decoded =>
           decoded.name == "Transfer" && decoded.params.exists(param =>
             param.name == "to" && param.`type` == "address" && param.value == transaction.fromAddress
           )
         )
       )
-    }
 
-    def isClaim(address: WalletAddress): Boolean = {
+    def isClaim(address: WalletAddress): Boolean =
       transaction.initiatedByAddress(address) &&
         transaction.logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
-    }
 
-    def isContribute(address: WalletAddress): Boolean = {
+    def isContribute(address: WalletAddress): Boolean =
       transaction.initiatedByAddress(address) &&
-      transaction.rawValue.toDouble != 0d && transaction.logEvents.headOption.exists(ev =>
+        transaction.rawValue.toDouble != 0d && transaction.logEvents.headOption.exists(ev =>
         ev.decoded.isEmpty && ev.senderAddress == transaction.toAddress
       )
-    }
 
     def isSell(address: WalletAddress): Boolean =
       transaction.initiatedByAddress(address) &&
-      transaction.logEvents.exists(ev =>
-        ev.decoded.exists(decoded =>
-          decoded.name == "Swap" &&
-            decoded.params.exists(param =>
-              param.name == "sender" && param.`type` == "address" && param.value == transaction.toAddress
-            )
+        transaction.logEvents.exists(ev =>
+          ev.decoded.exists(decoded =>
+            decoded.name == "Swap" &&
+              decoded.params.exists(param =>
+                param.name == "sender" && param.`type` == "address" && param.value == transaction.toAddress
+              )
+          )
         )
-      )
 
     def isTransferIn(address: WalletAddress): Boolean =
       transaction.logEvents.isEmpty || transaction.logEvents.exists(_.isTransferToAddress(address))
 
-    def isTransferOut(address: WalletAddress): Boolean =
-      transaction.rawValue.toDouble == 0d &&
-        transaction.logEvents.exists(_.isTransferFromAddress(address))
+    def transferOutData(address: WalletAddress): Option[Either[String, List[PositionEntry]]] = {
+      val txValue                 = transaction.rawValue.toDouble
+      lazy val hasDirectTransfers = txValue == 0d && transaction.logEvents.exists(_.isTransferFromAddress(address))
+      lazy val possibleTokenBuys  = txValue != 0d && transaction.logEvents.exists(_.isTokenPurchase(address))
+
+      val transferOuts: Option[Either[String, List[TransferOut]]] = if (hasDirectTransfers) {
+        val tOuts = transaction.logEvents.filter(_.isTransferFromAddress(address))
+          .map { ev =>
+            for {
+              currency <- ev.senderContractSymbol.toRight("Did not find currency").flatMap(refineV[CurrencyPredicate](_))
+              decimals <- ev.senderContractDecimals.toRight("Did not find decimals")
+              toAddress <- ev.paramValue("to").toRight("Did not find destination address")
+                        .flatMap(refineV[WalletAddressPredicate](_))
+              amount <- ev.paramValue("value").map(BigDecimal(_) * Math.pow(10, -decimals)).toRight("Did not find value")
+            } yield TransferOut(FungibleData(amount, currency),
+              toAddress,
+              transaction.computedFee(),
+              transaction.hash,
+              transaction.instant)
+          }
+          .rights
+
+        Some(Right(tOuts))
+      } else if(possibleTokenBuys) {
+        val candidates = transaction.logEvents.filter(_.isTokenPurchase(address))
+          .map(ev => {
+            refineV[WalletAddressPredicate](ev.senderAddress)
+              .map(toAddress => TransferOut(FungibleData(txValue * Math.pow(10, -18), WBNB), toAddress, computedFee(), transaction.hash, transaction.instant))
+          })
+        Some {
+          Right {
+            candidates.collect {
+              case Right(tOut) => tOut
+            }
+          }
+        }
+      } else {
+        None
+      }
+
+      transferOuts
+    }
 
     def initiatedByAddress(address: WalletAddress): Boolean = transaction.fromAddress == address.value
 
@@ -354,25 +371,23 @@ object PositionEntry {
   }
 
   implicit class LogEventOps(logEvent: LogEvent) {
-    def isApproval(): Boolean = logEvent.decoded.exists(_.name == "Approval")
+    def isApproval: Boolean = logEvent.decoded.exists(_.name == "Approval")
 
-    def isTransferEvent(): Boolean = logEvent.decoded.exists(_.name == "Transfer")
+    def isTransferEvent: Boolean = logEvent.decoded.exists(_.name == "Transfer")
 
-    def isWithdrawal(): Boolean = logEvent.decoded.exists(_.name == "Withdrawal")
-
-    def isSwap(): Boolean = logEvent.decoded.exists(_.name == "Swap")
+    def isWithdrawal: Boolean = logEvent.decoded.exists(_.name == "Withdrawal")
 
     def paramValue(paramName: String): Option[String] =
       logEvent.decoded.flatMap(_.params.find(_.name == paramName).map(_.value))
 
-    def isTransferFromAddress(address: WalletAddress) =
-      isTransferEvent() && paramValue("from").contains(address.value)
+    def isTransferFromAddress(address: WalletAddress): Boolean =
+      isTransferEvent && paramValue("from").contains(address.value)
 
-    def isTransferToAddress(address: WalletAddress) =
-      isTransferEvent() && paramValue("to").contains(address.value)
+    def isTransferToAddress(address: WalletAddress): Boolean =
+      isTransferEvent && paramValue("to").contains(address.value)
 
-    def isSwapToAddress(address: WalletAddress) =
-      isSwap() && paramValue("to").contains(address.value)
+    def isTokenPurchase(address: WalletAddress): Boolean =
+      logEvent.decoded.exists(_.name == "TokenPurchase") && paramValue("purchaser").contains(address.value)
   }
 }
 

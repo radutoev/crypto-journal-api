@@ -168,6 +168,21 @@ object PositionEntrySpec extends DefaultRunnableSpec {
         timestamp = Instant.parse("2021-09-05T17:51:04Z")
       )
       assert(transferOut)(isRight(hasSameElements(List(expected))))
+    },
+
+    test("Interpret transaction as TransferOut from TokenPurchase") {
+      val transaction = getTransaction("/covalent/transactions/token_purchase_as_transferOut.json")
+      val transferOutList = PositionEntry.fromTransaction(transaction, Address)
+      val expected = List(
+        TransferOut(
+          amount = FungibleData(BigDecimal("0.5"), WBNB),
+          to = WalletAddress.unsafeFrom("0x639acba969203137d173d89031a73c60721e5e11"),
+          fee = FungibleData(BigDecimal("0.0006087"), WBNB),
+          hash = TransactionHash.unsafeApply("0x33229054c2e5998cc35a6775e5659ddad997a26474eb8f1c615f3ce79b14ff1b"),
+          timestamp = Instant.parse("2021-09-17T17:00:58Z")
+        )
+      )
+      assert(transferOutList)(isRight(hasSameElements(expected)))
     }
   )
 
