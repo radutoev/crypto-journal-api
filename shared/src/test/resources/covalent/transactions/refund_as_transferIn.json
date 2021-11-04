@@ -1,0 +1,61 @@
+[
+  {
+    "block_signed_at": "2021-08-10T22:00:52Z",
+    "block_height": 9920343,
+    "tx_hash": "0xe1140a79a9ada19379b9755a0946582265d97b5f15e04469a3c03ce67065e76c",
+    "tx_offset": 206,
+    "successful": true,
+    "from_address": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41",
+    "from_address_label": null,
+    "to_address": "0x4a1e8df79fb01e1e127bf0a8640418cfe8916b7c",
+    "to_address_label": null,
+    "value": "0",
+    "value_quote": 0.0,
+    "gas_offered": 69574,
+    "gas_spent": 30498,
+    "gas_price": 5000000000,
+    "gas_quote": 0.0578252010836792,
+    "gas_quote_rate": 379.2065124511719,
+    "log_events": [
+      {
+        "block_signed_at": "2021-08-10T22:00:52Z",
+        "block_height": 9920343,
+        "tx_offset": 206,
+        "log_offset": 760,
+        "tx_hash": "0xe1140a79a9ada19379b9755a0946582265d97b5f15e04469a3c03ce67065e76c",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xd7dee2702d63ad89917b6a4da9981c90c4d24f8c2bdfd64c604ecae57d8d0651",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 0,
+        "sender_name": null,
+        "sender_contract_ticker_symbol": null,
+        "sender_address": "0x6c0d23538eae2893e87b9a2365da929e9665393a",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/56/0x6c0d23538eae2893e87b9a2365da929e9665393a.png",
+        "raw_log_data": "0x00000000000000000000000000000000000000000000000002bbe274ccc08000",
+        "decoded": {
+          "name": "Refunded",
+          "signature": "Refunded(indexed address from, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "197000000000000000"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]
