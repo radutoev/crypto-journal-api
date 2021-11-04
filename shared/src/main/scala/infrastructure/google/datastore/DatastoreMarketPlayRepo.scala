@@ -320,10 +320,12 @@ final case class DatastoreMarketPlayRepo(
               .set("forContract", StringValue.of(forContract.value))
               .set("type", StringValue.of("Approval"))
 
-          case Buy(_, spent, received, coinAddress, _, _, spentOriginal) => //TODO Add support for spentOriginal
+          case Buy(_, spent, received, coinAddress, _, _, spentOriginal) =>
             builder
               .set("spent", StringValue.of(spent.amount.toString()))
               .set("spentCurrency", StringValue.of(spent.currency.value))
+              .set("spentOriginal", StringValue.of(spentOriginal.map(orig => orig.amount.toString()).getOrElse()))
+              .set("spentOriginalCurrency",StringValue.of(spentOriginal.map(orig => orig.currency.value).getOrElse()))
               .set("coinAddress", StringValue.of(coinAddress.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
@@ -538,8 +540,21 @@ final case class DatastoreMarketPlayRepo(
                         ).map(BigDecimal(_))
                 spentCurrency <- tryOrLeft(
                                   entity.getString("spentCurrency"),
-                                  InvalidRepresentation("Invalid receivedCurrency representation")
+                                  InvalidRepresentation("Invalid spentCurrency representation")
                                 ).map(Currency.unsafeFrom)
+                spentOriginalValue <- tryOrLeft(
+                  entity.getString("spentOriginal"),
+                  InvalidRepresentation("Invalid spentOriginal representation")
+                )
+                spentOriginalCurrency <- tryOrLeft(
+                  entity.getString("spentCurrency"),
+                  InvalidRepresentation("Invalid spentCurrency representation")
+                )
+                spentOriginal = if(spentOriginalValue.nonEmpty) {
+                  Some(FungibleData(BigDecimal(spentOriginalValue), Currency.unsafeFrom(spentOriginalCurrency)))
+                } else {
+                  None
+                }
                 received <- tryOrLeft(
                              entity.getString("received"),
                              InvalidRepresentation("Invalid received representation")
@@ -558,7 +573,8 @@ final case class DatastoreMarketPlayRepo(
                 FungibleData(received, receivedCurrency),
                 coinAddress,
                 hash,
-                timestamp
+                timestamp,
+                spentOriginal
               )
 
             case "Claim" =>
