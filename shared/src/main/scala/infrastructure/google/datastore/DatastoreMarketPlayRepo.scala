@@ -320,7 +320,7 @@ final case class DatastoreMarketPlayRepo(
               .set("forContract", StringValue.of(forContract.value))
               .set("type", StringValue.of("Approval"))
 
-          case Buy(_, spent, received, coinAddress, _, _) =>
+          case Buy(_, spent, received, coinAddress, _, _, spentOriginal) => //TODO Add support for spentOriginal
             builder
               .set("spent", StringValue.of(spent.amount.toString()))
               .set("spentCurrency", StringValue.of(spent.currency.value))
@@ -622,13 +622,13 @@ final case class DatastoreMarketPlayRepo(
             case "TransferIn" =>
               for {
                 value <- tryOrLeft(
-                         entity.getString("value"),
-                         InvalidRepresentation("Invalid sold representation")
-                       ).map(BigDecimal(_))
+                          entity.getString("value"),
+                          InvalidRepresentation("Invalid sold representation")
+                        ).map(BigDecimal(_))
                 valueCurrency <- tryOrLeft(
-                                 entity.getString("valueCurrency"),
-                                 InvalidRepresentation("Invalid soldCurrency representation")
-                               ).map(Currency.unsafeFrom)
+                                  entity.getString("valueCurrency"),
+                                  InvalidRepresentation("Invalid soldCurrency representation")
+                                ).map(Currency.unsafeFrom)
                 receivedFrom <- tryOrLeft(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")

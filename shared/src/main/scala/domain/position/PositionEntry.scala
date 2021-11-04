@@ -214,31 +214,34 @@ object PositionEntry {
     }
 
     def buyData(address: WalletAddress): Option[Either[String, List[PositionEntry]]] = {
-      lazy val isBuy = transaction.initiatedByAddress(address) &&
-        transaction.rawValue.toDouble != 0d && transaction.logEvents.exists(ev =>
-        ev.decoded.exists(decoded =>
-          decoded.name == "Transfer" && decoded.params.exists(param =>
-            param.name == "to" && param.`type` == "address" && param.value == transaction.fromAddress
+      lazy val isBnbBuy = transaction.initiatedByAddress(address) &&
+        transaction.rawValue.toDouble != 0d &&
+        transaction.logEvents.exists(ev =>
+          ev.decoded.exists(decoded =>
+            decoded.name == "Transfer" && decoded.params.exists(param =>
+              param.name == "to" && param.`type` == "address" && param.value == transaction.fromAddress
+            )
           )
-        )
       )
 
-      if(isBuy) {
+      lazy val isBuyWithOtherCoin = {
+        val transfers = transaction.logEvents.filter(_.isTransferEvent)
+        //most recent is first.
+        val isFirstTransferFromAddress = transfers.lastOption.exists(_.isTransferFromAddress(address))
+        val isAllowedBuyCurrency = transfers.lastOption.exists(ev => ev.senderContractSymbol.exists(Set("BUSD").contains))
+        val isLastTransferToAddress = transfers.headOption.exists(_.isTransferToAddress(address))
+        isFirstTransferFromAddress && isLastTransferToAddress && isAllowedBuyCurrency
+      }
+
+      if(isBnbBuy) {
         val transfersToAddress = transaction.logEvents.filter(_.isTransferToAddress(address))
         Some {
           if (transfersToAddress.nonEmpty) {
             for {
               depositEvent <- transaction.depositEvent()
-              depositDst <- depositEvent
-                .paramValue("dst")
-                .toRight("Did not find destination")
-                .flatMap(refineV[WalletAddressPredicate](_))
+              depositDst <- depositEvent.paramValue("dst").toRight("Did not find destination").flatMap(refineV[WalletAddressPredicate](_))
               transfersFromDeposit = transaction.logEvents.filter(_.isTransferFromAddress(depositDst))
-              depositDestinations = transfersFromDeposit
-                .map(_.paramValue("to"))
-                .values
-                .map(refineV[WalletAddressPredicate](_))
-                .rights
+              depositDestinations = transfersFromDeposit.map(_.paramValue("to")).values.map(refineV[WalletAddressPredicate](_)).rights
               buyCandidates = transaction.logEvents.filter(ev =>
                 ev.isTransferToAddress(address) && depositDestinations.exists(ev.isTransferFromAddress(_))
               )
@@ -266,6 +269,37 @@ object PositionEntry {
             Left("Unable to extract Buy from transaction")
           }
         }
+      } else if(isBuyWithOtherCoin) {
+        val transfers = transaction.logEvents.filter(_.isTransferEvent)
+        val buyOptional = for {
+          //sentTo is the coin router
+          (spentOriginal, sentTo) <- transfers.lastOption.flatMap(ev =>
+            for {
+              amount   <- ev.paramValue("value").map(BigDecimal(_))
+              decimals <- ev.senderContractDecimals
+              currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
+              toAddress <- ev.paramValue("to").flatMap(refineV[WalletAddressPredicate](_).toOption)
+            } yield (FungibleData(amount * Math.pow(10, -decimals), currency), toAddress)
+          )
+          spent <- transfers.findLast(_.isTransferFromAddress(sentTo)).flatMap(ev =>
+            for {
+              amount <- ev.paramValue("value").map(BigDecimal(_))
+              decimals <- ev.senderContractDecimals
+              currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
+            } yield FungibleData(amount * Math.pow(10, -decimals), currency)
+          )
+          (received, coinAddress) <- transfers.headOption.flatMap(ev =>
+            for {
+              amount   <- ev.paramValue("value").map(BigDecimal(_))
+              decimals <- ev.senderContractDecimals
+              currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
+              address  <- refineV[WalletAddressPredicate](ev.senderAddress).toOption
+            } yield (FungibleData(amount * Math.pow(10, -decimals), currency), address)
+          )
+        } yield Buy(computedFee(), spent, received, coinAddress, transaction.hash, transaction.instant, Some(spentOriginal))
+
+        //TODO I should look for other transferIns.
+        Some(buyOptional.map(List(_)).toRight("Unable to decode Buy"))
       } else {
         None
       }
@@ -549,7 +583,8 @@ final case class Buy(
   received: FungibleData,
   coinAddress: WalletAddress,
   hash: TransactionHash,
-  timestamp: Instant
+  timestamp: Instant,
+  spentOriginal: Option[FungibleData] = None
 ) extends PositionEntry
 
 final case class Claim(

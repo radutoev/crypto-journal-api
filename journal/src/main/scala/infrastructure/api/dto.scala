@@ -64,7 +64,7 @@ object dto {
   sealed trait PositionEntry
   final case class AirDrop(receivedFrom: String, fee: FungibleData, received: FungibleData, hash: String, timestamp: Instant) extends PositionEntry
   final case class Approval(fee: FungibleData, forContract: String, hash: String, timestamp: Instant) extends PositionEntry
-  final case class Buy(fee: FungibleData, spent: FungibleData, received: FungibleData, coinAddress: String, hash: String, timestamp: Instant) extends PositionEntry
+  final case class Buy(fee: FungibleData, spent: FungibleData, received: FungibleData, coinAddress: String, hash: String, timestamp: Instant, spenOriginal: Option[FungibleData]) extends PositionEntry
   final case class Claim(fee: FungibleData, received: FungibleData, receivedFrom: String, hash: String, timestamp: Instant) extends PositionEntry
   final case class Contribute(spent: FungibleData, to: String, fee: FungibleData, hash: String, timestamp: Instant) extends PositionEntry
   final case class Sell(sold: FungibleData, received: FungibleData, fee: FungibleData, hash: String, timestamp: Instant) extends PositionEntry
@@ -127,8 +127,8 @@ object dto {
           AirDrop(receivedFrom.value, FungibleData(fee.amount, fee.currency.value), FungibleData(received.amount, received.currency.value), hash.value, timestamp)
         case position.Approval(fee, forContract, hash, timestamp) =>
           Approval(FungibleData(fee.amount, fee.currency.value), forContract.value, hash.value, timestamp)
-        case position.Buy(fee, spent, received, coinAddress, hash, timestamp) =>
-          Buy(FungibleData(fee.amount, fee.currency.value), FungibleData(spent.amount, spent.currency.value), FungibleData(received.amount, received.currency.value), coinAddress.value, hash.value, timestamp)
+        case position.Buy(fee, spent, received, coinAddress, hash, timestamp, spentOriginal) =>
+          Buy(FungibleData(fee.amount, fee.currency.value), FungibleData(spent.amount, spent.currency.value), FungibleData(received.amount, received.currency.value), coinAddress.value, hash.value, timestamp, spentOriginal.map(f => FungibleData(f.amount, f.currency.value)))
         case position.Claim(fee, received, receivedFrom, hash, timestamp) =>
           Claim(FungibleData(fee.amount, fee.currency.value), FungibleData(received.amount, received.currency.value), receivedFrom.value, hash.value, timestamp)
         case position.Contribute(spent, to, fee, hash, timestamp) =>

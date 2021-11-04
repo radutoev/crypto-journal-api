@@ -141,9 +141,9 @@ object MarketPlays {
 
       case sell: Sell =>
         val entries = currencyBuffer.getOrElse(sell.sold.currency, ListBuffer.empty)
-        if(entries.nonEmpty) {
+        if (entries.nonEmpty) {
           val maybeLookupContract = findFirstOccurrenceOfTokenContract(entries.toList)
-          if(maybeLookupContract.isDefined && incomingByContract.contains(maybeLookupContract.get)) {
+          if (maybeLookupContract.isDefined && incomingByContract.contains(maybeLookupContract.get)) {
             entries.addAll(incomingByContract(maybeLookupContract.get).toList)
             incomingByContract(maybeLookupContract.get).clear()
           }
@@ -173,7 +173,9 @@ object MarketPlays {
         )
       case (_, items) if items.nonEmpty =>
         val list = items.toList
-        val positionItems = findFirstOccurrenceOfTokenContract(list).flatMap(incomingByContract.get(_).map(_.toList)).getOrElse(Nil) ::: list
+        val positionItems = findFirstOccurrenceOfTokenContract(list)
+          .flatMap(incomingByContract.get(_).map(_.toList))
+          .getOrElse(Nil) ::: list
         playsBuffer.addOne(Position(positionItems.sortBy(_.timestamp)(Ordering[Instant])))
     }
 
@@ -186,7 +188,7 @@ object MarketPlays {
     items.head match {
       case AirDrop(receivedFrom, _, _, _, _)    => Some(receivedFrom)
       case _: Approval                          => None
-      case Buy(_, _, _, coinAddress, _, _)      => Some(coinAddress)
+      case Buy(_, _, _, coinAddress, _, _, _)   => Some(coinAddress)
       case Claim(_, _, receivedFrom, _, _)      => Some(receivedFrom)
       case Contribute(_, to, _, _, _)           => Some(to)
       case _: Sell                              => None
