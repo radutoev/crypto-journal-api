@@ -79,25 +79,25 @@ object MarketPlays {
   def empty(): MarketPlays = MarketPlays(List.empty)
 
   def findMarketPlays(wallet: WalletAddress, transactions: List[Transaction]): MarketPlays = {
-    val incoming: mutable.Map[Currency, ListBuffer[PositionEntry]]                = mutable.Map.empty
+    val currencyBuffer: mutable.Map[Currency, ListBuffer[PositionEntry]]          = mutable.Map.empty
     val incomingByContract: mutable.Map[WalletAddress, ListBuffer[PositionEntry]] = mutable.Map.empty
     val playsBuffer: ListBuffer[MarketPlay]                                       = ListBuffer.empty
     val topUpsBuffer: ListBuffer[TopUp]                                           = ListBuffer.empty
 
     @inline
-    def addToIncoming(currency: Currency, entry: PositionEntry): Unit =
-      if (incoming.contains(currency)) {
-        incoming(currency).addOne(entry)
+    def addToCurrencyBuffer(currency: Currency, entry: PositionEntry): Unit =
+      if (currencyBuffer.contains(currency)) {
+        currencyBuffer(currency).addOne(entry)
       } else {
-        incoming.put(currency, ListBuffer(entry))
+        currencyBuffer.put(currency, ListBuffer(entry))
       }
 
     @inline
-    def addAllToIncoming(currency: Currency, entries: ListBuffer[PositionEntry]): Unit =
-      if (incoming.contains(currency)) {
-        incoming(currency).addAll(ListBuffer.from(entries.toList))
+    def addAllToCurrencyBuffer(currency: Currency, entries: ListBuffer[PositionEntry]): Unit =
+      if (currencyBuffer.contains(currency)) {
+        currencyBuffer(currency).addAll(ListBuffer.from(entries.toList))
       } else {
-        incoming.put(currency, ListBuffer.from(entries))
+        currencyBuffer.put(currency, ListBuffer.from(entries))
       }
 
     @inline
@@ -122,25 +122,25 @@ object MarketPlays {
 
     entries.foreach {
       case airDrop: AirDrop =>
-        addToIncoming(airDrop.received.currency, airDrop)
+        addToCurrencyBuffer(airDrop.received.currency, airDrop)
 
       case approval: Approval =>
         addToContractIncoming(approval.forContract, approval)
 
       case buy: Buy =>
-        addToIncoming(buy.received.currency, buy)
+        addToCurrencyBuffer(buy.received.currency, buy)
 
       case claim: Claim =>
         val itemsToAdd = incomingByContract.getOrElse(claim.receivedFrom, ListBuffer.empty)
         itemsToAdd.addOne(claim)
-        addAllToIncoming(claim.received.currency, itemsToAdd)
+        addAllToCurrencyBuffer(claim.received.currency, itemsToAdd)
         itemsToAdd.clear()
 
       case contrib: Contribute =>
         addToContractIncoming(contrib.to, contrib)
 
       case sell: Sell =>
-        val entries = incoming.getOrElse(sell.sold.currency, ListBuffer.empty)
+        val entries = currencyBuffer.getOrElse(sell.sold.currency, ListBuffer.empty)
         if(entries.nonEmpty) {
           val maybeLookupContract = findFirstOccurrenceOfTokenContract(entries.toList)
           if(maybeLookupContract.isDefined && incomingByContract.contains(maybeLookupContract.get)) {
@@ -155,19 +155,18 @@ object MarketPlays {
         entries.clear()
 
       case transferIn: TransferIn =>
-        addToIncoming(transferIn.value.currency, transferIn)
+        addToCurrencyBuffer(transferIn.value.currency, transferIn)
 
-      //TODO Add implementation
-      case transferOut: TransferOut => ()
-        println(s"Transfer Out - ${transferOut.hash.value}")
+      case transferOut: TransferOut =>
+        addToCurrencyBuffer(transferOut.amount.currency, transferOut)
     }
 
-    incoming.foreach {
-      case (currency, entries) if entries.isEmpty => incoming.remove(currency)
+    currencyBuffer.foreach {
+      case (currency, entries) if entries.isEmpty => currencyBuffer.remove(currency)
       case _                                      =>
     }
 
-    incoming.foreach {
+    currencyBuffer.foreach {
       case (currency, transferIns) if currency == WBNB && transferIns.nonEmpty =>
         topUpsBuffer.addAll(
           transferIns.asInstanceOf[ListBuffer[TransferIn]].map(t => TopUp(t.hash, t.value, t.fee, t.timestamp))
