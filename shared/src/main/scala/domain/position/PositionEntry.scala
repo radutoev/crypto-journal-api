@@ -450,11 +450,18 @@ object PositionEntry {
           )
         }
       } else if (hasDirectTransfers) {
-        None //TODO Handle this case also.
-//        transaction.logEvents.filter(_.isTransferToAddress(address))
-//          .map { ev =>
-//
-//          }
+        val transferIns = transaction.logEvents.filter(_.isTransferToAddress(address))
+          .map { ev =>
+            for {
+              decimals <- ev.senderContractDecimals
+              value    <- ev.paramValue("value").map(BigDecimal(_))
+              currency <- ev.senderContractSymbol.flatMap(refineV[CurrencyPredicate](_).toOption)
+              received = FungibleData(value * Math.pow(10, -decimals), currency)
+              from     <- ev.paramValue("from").flatMap(refineV[WalletAddressPredicate](_).toOption)
+              fee      = FungibleData.zero(WBNB) //I am not sure if the fee is 0 or not here.
+            } yield TransferIn(received, from, fee, transaction.hash, transaction.instant)
+          }.values
+        Some(Right(transferIns))
       } else if (hasRefunds) {
         val refunds = transaction.logEvents
           .filter(_.isRefund(address))

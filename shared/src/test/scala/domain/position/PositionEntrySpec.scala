@@ -188,17 +188,33 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       )
       assert(transferIns)(isRight(hasSameElements(expected)))
     },
+    test("Interpret transaction as TransferIn when receiving tokens in a transaction not initiated by the address") {
+      val transaction = getTransaction("/covalent/transactions/transferIn_from_another_tx.json")
+      val transferIns = PositionEntry.fromTransaction(transaction, Address)
+      val expected = List(
+        TransferIn(
+          value = FungibleData(BigDecimal("5.413473528139433736"), Currency.unsafeFrom("BUSD")),
+          fee = FungibleData.zero(WBNB),
+          receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
+          hash = TransactionHash.unsafeApply("0x18481a5b77c7008773ecadf47106925ecdb1a22d34269a3c059165be0e53c303"),
+          timestamp = Instant.parse("2021-10-18T13:30:09Z")
+        )
+      )
+      assert(transferIns)(isRight(hasSameElements(expected)))
+    },
     test("Interpret transaction as TransferOut") {
       val transaction = getTransaction("/covalent/transactions/transferOut.json")
-      val transferOut = PositionEntry.fromTransaction(transaction, Address)
-      val expected = TransferOut(
-        amount = FungibleData(BigDecimal("3.0000000000000000000"), Currency.unsafeFrom("USDT")),
-        fee = FungibleData(BigDecimal("0.0005780500000000001"), WBNB),
-        to = WalletAddress.unsafeFrom("0x31efc4aeaa7c39e54a33fdc3c46ee2bd70ae0a09"),
-        hash = TransactionHash.unsafeApply("0x01dc748a38922295ef5090a627c3b6125f06b166fada29b4d996a34af1fb05bc"),
-        timestamp = Instant.parse("2021-09-05T17:51:04Z")
+      val transferOuts = PositionEntry.fromTransaction(transaction, Address)
+      val expected = List(
+        TransferOut(
+          amount = FungibleData(BigDecimal("3.0000000000000000000"), Currency.unsafeFrom("USDT")),
+          fee = FungibleData(BigDecimal("0.0005780500000000001"), WBNB),
+          to = WalletAddress.unsafeFrom("0x31efc4aeaa7c39e54a33fdc3c46ee2bd70ae0a09"),
+          hash = TransactionHash.unsafeApply("0x01dc748a38922295ef5090a627c3b6125f06b166fada29b4d996a34af1fb05bc"),
+          timestamp = Instant.parse("2021-09-05T17:51:04Z")
+        )
       )
-      assert(transferOut)(isRight(hasSameElements(List(expected))))
+      assert(transferOuts)(isRight(hasSameElements(expected)))
     },
     test("Interpret transaction as TransferOut from TokenPurchase") {
       val transaction     = getTransaction("/covalent/transactions/token_purchase_as_transferOut.json")
