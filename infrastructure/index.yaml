@@ -1,9 +1,15 @@
 indexes:
-  - kind: PositionTest
+  - kind: MarketPlayTest
     ancestor: no
     properties:
       - name: address
       - name: state
       - name: currency
+      - name: openedAt
+        direction: desc
+  - kind: MarketPlayTest
+    ancestor: no
+    properties:
+      - name: address
       - name: openedAt
         direction: desc
