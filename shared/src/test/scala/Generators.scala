@@ -1,6 +1,5 @@
 package io.softwarechain.cryptojournal
 
-import domain.model.{ Currency, FungibleData, TransactionHashPredicate, TransactionType, Unknown }
 import domain.position.{ Position, PositionEntry }
 
 import eu.timepit.refined.refineV

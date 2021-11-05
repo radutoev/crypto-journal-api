@@ -3,37 +3,21 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
+import domain.position.PositionEntry.PositionEntryIdPredicate
+import domain.position._
 import domain.position.error._
-import domain.position.{
-  AirDrop,
-  Approval,
-  Buy,
-  Claim,
-  Contribute,
-  MarketPlay,
-  MarketPlayRepo,
-  MarketPlays,
-  Position,
-  PositionEntry,
-  Sell,
-  TopUp,
-  TransferIn,
-  TransferOut,
-  Withdraw
-}
-import util.{ tryOrLeft, InstantOps, ListEitherOps }
+import util.{InstantOps, ListEitherOps, tryOrLeft}
 import vo.filter.PlayFilter
-import vo.pagination.{ CursorPredicate, Page, PaginationContext }
+import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
-import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.domain.position.PositionEntry.PositionEntryIdPredicate
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID

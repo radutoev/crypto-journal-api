@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ ContextId, Currency, PlayId, State, WalletAddress }
+import domain.model.{ ContextId, Currency, PlayId, WalletAddress }
 import domain.position.error.MarketPlayError
 import vo.filter.PlayFilter
 import vo.pagination.Page
