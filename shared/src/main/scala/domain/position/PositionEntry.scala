@@ -1,18 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ LogEvent, Transaction }
-import domain.model.{
-  Currency,
-  CurrencyPredicate,
-  Fee,
-  FungibleData,
-  TransactionHash,
-  WBNB,
-  WalletAddress,
-  WalletAddressPredicate
-}
-import util.{ ListEitherOps, ListOptionOps }
+import domain.blockchain.{LogEvent, Transaction}
+import domain.model._
+import util.{ListEitherOps, ListOptionOps}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty

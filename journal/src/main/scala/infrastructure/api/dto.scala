@@ -1,32 +1,25 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.market.{ Ohlcv => CJOhlcv }
-import domain.model.{ MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData }
-import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
-import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
-import domain.position.{
-  JournalEntry => CJJournalEntry,
-  MarketPlay => CJMarketPlay,
-  Position => CJPosition,
-  PositionEntry => CJPositionEntry,
-  PositionJournalEntry => CJPositionJournalEntry,
-  TopUp => CJTopUp,
-  Withdraw => CJWithdraw
-}
+import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
+import domain.market.{Ohlcv => CJOhlcv}
+import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
+import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
+import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTopUp, Withdraw => CJWithdraw}
 import domain.position.model.ScamStrategy
-import domain.pricequote.{ PriceQuote => CJPriceQuote }
-import domain.wallet.{ Wallet => CJWallet }
+import domain.pricequote.{PriceQuote => CJPriceQuote}
+import domain.wallet.{Wallet => CJWallet}
 import vo.filter.Count
-import vo.{ PeriodDistribution => CJPeriodDistribution }
+import vo.{PeriodDistribution => CJPeriodDistribution}
 import infrastructure.api.dto.MarketPlay._
 import util.ListEitherOps
 
 import eu.timepit.refined.refineV
 import domain.position
-import zio.json.{ DeriveJsonCodec, JsonCodec }
 
-import java.time.{ Duration, Instant }
+import zio.json.{DeriveJsonCodec, JsonCodec}
+
+import java.time.{Duration, Instant}
 
 object dto {
   sealed trait MarketPlay

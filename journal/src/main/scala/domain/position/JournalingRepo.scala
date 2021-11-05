@@ -1,9 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ PlayId, UserId }
 import domain.position.error._
 
+import io.softwarechain.cryptojournal.domain.model.{PlayId, UserId}
 import zio.IO
 
 trait JournalingRepo {

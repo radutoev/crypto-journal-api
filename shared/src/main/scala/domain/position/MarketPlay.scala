@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ FungibleData, PlayId }
+import domain.model.{FungibleData, PlayId}
 
 import java.time.Instant
 

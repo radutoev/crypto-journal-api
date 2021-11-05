@@ -2,10 +2,10 @@ package io.softwarechain.cryptojournal
 package domain.blockchain
 
 import domain.blockchain.error.TransactionsGetError
-import domain.model.{ TransactionHash, WalletAddress }
+import domain.model.{TransactionHash, WalletAddress}
 
 import zio.stream.ZStream
-import zio.{ Has, Task, ZIO }
+import zio.{Has, Task, ZIO}
 
 import java.time.Instant
 

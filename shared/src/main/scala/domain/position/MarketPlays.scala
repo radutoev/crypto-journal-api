@@ -2,16 +2,14 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.{ Currency, FungibleData, WBNB, WalletAddress }
-import util.{ InstantOps, ListEitherOps, MarketPlaysListOps }
+import domain.model.fungible.OptionalFungibleDataOps
+import domain.model.{Currency, FungibleData, WBNB, WalletAddress}
+import util.{InstantOps, MarketPlaysListOps}
 import vo.TimeInterval
-
-import eu.timepit.refined
-import eu.timepit.refined.collection.NonEmpty
 
 import java.time.Instant
 import scala.collection.mutable
-import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
+import scala.collection.mutable.ListBuffer
 
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {

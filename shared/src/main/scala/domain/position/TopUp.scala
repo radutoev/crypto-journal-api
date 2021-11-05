@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ Fee, FungibleData, PlayId, TransactionHash }
+import domain.model.{Fee, FungibleData, PlayId, TransactionHash}
 import domain.pricequote.PriceQuotes
 
 import eu.timepit.refined

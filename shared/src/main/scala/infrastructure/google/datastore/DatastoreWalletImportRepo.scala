@@ -2,17 +2,17 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{ WalletAddress, WalletAddressPredicate }
+import domain.model.{WalletAddress, WalletAddressPredicate}
 import domain.wallet.error._
-import domain.wallet.model.{ Importing, WalletImportStatus }
-import domain.wallet.{ error, WalletImportRepo }
-import util.{ tryOrLeft, ListEitherOps }
+import domain.wallet.model.{Importing, WalletImportStatus}
+import domain.wallet.{WalletImportRepo, error}
+import util.{ListEitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer}
 
 import scala.jdk.CollectionConverters._
 

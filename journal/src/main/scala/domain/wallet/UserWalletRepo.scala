@@ -1,10 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
-import domain.model.{ UserId, WalletAddress }
 import error.WalletError
-
-import zio.{ Has, IO, ZIO }
+import io.softwarechain.cryptojournal.domain.model.{UserId, WalletAddress}
+import zio.{Has, IO, ZIO}
 
 trait UserWalletRepo {
   def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit]

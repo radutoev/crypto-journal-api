@@ -2,19 +2,19 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{ BlockchainRepo, Transaction }
-import domain.model._
+import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import domain.wallet.Wallet
 import util.MarketPlaysListOps
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
-import zio.logging.{ Logger, Logging }
+import io.softwarechain.cryptojournal.domain.model.{ContextId, PlayId, UserId, WalletAddress}
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 

@@ -1,20 +1,20 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{ Currency, FungibleData, Mistake, Percentage, Tag, TradeCountPredicate }
-import domain.portfolio.PortfolioKpi.FungibleDataOps
-import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate }
-import domain.position.{ MarketPlays, Position }
-import util.{ InstantOps, MarketPlaysListOps }
+import domain.model.fungible.{FungibleDataKeyOps, FungibleDataOps}
+import domain.model._
+import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
+import domain.position.{MarketPlays, Position}
+import util.InstantOps
 import vo.filter.Count
-import vo.{ PeriodDistribution, TimeInterval }
+import vo.{PeriodDistribution, TimeInterval}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
 import java.time.format.DateTimeFormatter
-import java.time.{ DayOfWeek, Duration, Month, ZoneId }
+import java.time.{DayOfWeek, Duration, Month, ZoneId}
 
 /**
  * @param marketPlays source to compute the KPIs for
@@ -280,11 +280,4 @@ final case class PortfolioKpi(
   private val DayFormatter = DateTimeFormatter
     .ofPattern("yyyy-MM-dd")
     .withZone(ZoneId.systemDefault())
-}
-
-object PortfolioKpi {
-  implicit class FungibleDataOps[Key](items: List[(Key, FungibleData)]) {
-    def sumByKey(): Map[Key, FungibleData] =
-      items.groupBy(_._1).view.mapValues(_.map(_._2).sumFungibleData()).toMap
-  }
 }

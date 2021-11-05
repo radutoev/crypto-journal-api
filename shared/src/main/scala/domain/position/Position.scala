@@ -1,12 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
+import domain.model.fungible.FungibleDataOps
 import domain.model._
-import domain.pricequote.{ PriceQuote, PriceQuotes }
+import domain.pricequote.{PriceQuote, PriceQuotes}
 import util.ListOptionOps
 import vo.TimeInterval
 
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
 
 final case class Position(
   entries: List[PositionEntry],

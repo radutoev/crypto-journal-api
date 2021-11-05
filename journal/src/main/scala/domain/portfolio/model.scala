@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{ FungibleData, TradeCount }
+import domain.model.{FungibleData, TradeCount}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty

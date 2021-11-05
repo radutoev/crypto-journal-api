@@ -3,8 +3,8 @@ package infrastructure.covalent
 
 import config.CovalentConfig
 import domain.blockchain.error.TransactionsGetError
-import domain.blockchain.{ BlockchainRepo, Transaction }
-import domain.model.{ TransactionHash, WalletAddress }
+import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.model.{TransactionHash, WalletAddress}
 import infrastructure.covalent.dto.TransactionQueryResponse
 
 import eu.timepit.refined.api.Refined
@@ -13,9 +13,9 @@ import eu.timepit.refined.string.Url
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
 import zio.json._
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO }
+import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 

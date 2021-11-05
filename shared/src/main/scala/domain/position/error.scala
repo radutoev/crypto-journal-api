@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ ContextId, PlayId, UserId, WalletAddress }
+import domain.model.{ContextId, PlayId, UserId, WalletAddress}
 import vo.pagination.PaginationContext
 
 object error {

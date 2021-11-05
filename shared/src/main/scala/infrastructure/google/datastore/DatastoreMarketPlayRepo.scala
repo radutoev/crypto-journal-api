@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model._
+import domain.model.{ContextId, ContextIdPredicate, Currency, CurrencyPredicate, FungibleData, PlayId, PlayIdPredicate, TransactionHash, WalletAddress}
 import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._

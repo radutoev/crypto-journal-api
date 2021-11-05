@@ -2,10 +2,10 @@ package io.softwarechain.cryptojournal
 package application
 
 import domain.blockchain.BlockchainRepo
-import domain.model.{ TransactionHash, WalletAddress }
+import domain.model.{TransactionHash, WalletAddress}
 import domain.position.PositionEntry
 
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object PositionHelper {
   def txToEntries(

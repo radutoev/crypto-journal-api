@@ -1,13 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
-import domain.model.{ UserId, WalletAddress }
 import domain.position.MarketPlayService
 import domain.wallet.error.WalletError
-import domain.wallet.model.{ ImportDone, WalletImportStatus }
+import domain.wallet.model.{ImportDone, WalletImportStatus}
 
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, URLayer }
+import io.softwarechain.cryptojournal.domain.model.{UserId, WalletAddress}
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, URLayer}
 
 trait WalletService {
   def addWallet(userId: UserId, walletAddress: WalletAddress): IO[WalletError, Unit]

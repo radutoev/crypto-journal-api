@@ -2,7 +2,8 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.FungibleData
-import domain.model.FungibleData.{ Bigger, Equal, Lower }
+import domain.model.FungibleData.{Bigger, Equal, Lower}
+import domain.model.fungible.OptionalFungibleDataOps
 import domain.portfolio.model.Performance.NoChangeInPerformance
 import domain.portfolio.model._
 import domain.position.MarketPlays
