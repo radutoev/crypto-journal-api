@@ -18,6 +18,11 @@ final case class Position(
   lazy val timeInterval: TimeInterval = closedAt.fold(TimeInterval(openedAt))(closed => TimeInterval(openedAt, closed))
 
   /**
+   * Number of transactions that are part of this position.
+   */
+  lazy val numberOfExecutions: Int = entries.map(_.hash).distinct.size
+
+  /**
    * Total cost is calculated from all outgoing values of DEX reference currency found in the positions entries.
    * It is an absolute value.
    *
@@ -26,6 +31,14 @@ final case class Position(
   lazy val totalFiatCost: Option[FungibleData] = {
     totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
   }
+
+  /**
+   * 1. Fees - fiat and bnb
+   * 2. Cost (fiat, crypto ~ should have BNB with optional BUSD)
+   * 3. Total Cost (fiat, crypto) - sums up fees.
+   * 4. Position Return (USD and BNB + percentage)
+   * 5. Traded Currency.
+   * */
 
   /**
    * @return Fiat sum of all fees for all entries in this position
@@ -118,8 +131,6 @@ final case class Position(
       None
     }
 
-  lazy val numberOfExecutions: Int = entries.size
-
   /**
    * Number of coins that are part of this Position
    */
@@ -135,8 +146,6 @@ final case class Position(
       case TransferOut(amount, _, _, _, _, _) => Some(amount.negate())
     }.values.sumFungibleData().amount
 
-  lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
-
   lazy val isWin: Option[Boolean] = fiatReturn.map(_.amount.compareTo(BigDecimal(0)) > 0)
 
   lazy val isLoss: Option[Boolean] = isWin.map(b => !b)
@@ -151,14 +160,13 @@ final case class Position(
 
   lazy val isOpen: Boolean = state == Open
 
+  lazy val openedAt: Instant = entries.head.timestamp
+
   lazy val closedAt: Option[Instant] = entries.lastOption.collect {
     case entry: Sell => entry.timestamp
   }
 
-  def inInterval(interval: TimeInterval): Boolean = {
-    val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
-    closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
-  }
+  lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
   lazy val fiatCost: FungibleData = {
     priceQuotes.map { quotes =>
@@ -214,5 +222,8 @@ final case class Position(
       .headOption
   }
 
-  lazy val openedAt: Instant = entries.head.timestamp
+  def inInterval(interval: TimeInterval): Boolean = {
+    val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
+    closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
+  }
 }
