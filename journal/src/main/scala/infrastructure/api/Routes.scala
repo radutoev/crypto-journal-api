@@ -168,18 +168,6 @@ object Routes {
                      .fold(marketPlayErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
-//    case Method.GET -> Root / "addresses" / rawWalletAddress / "positions" / "diff" =>
-//      for {
-//        address <- ZIO
-//                    .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-//                    .orElseFail(BadRequest("Invalid address"))
-//
-//        response <- CryptoJournalApi
-//                     .diff(address)
-//                     .provideSomeLayer[Has[PositionService]](JwtUserContext.layer(userId))
-//                     .fold(positionErrorToHttpResponse, _.asResponse())
-//      } yield response
-
     case Method.GET -> Root / "positions" / rawPositionId =>
       for {
         positionId <- ZIO

@@ -5,9 +5,9 @@ import domain.market.{Ohlcv => CJOhlcv}
 import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
 import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
 import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTransferIn, Withdraw => CJTransferOut}
+import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTopUp, Withdraw => CJWithdraw}
 import domain.position.model.ScamStrategy
-import domain.pricequote.{PriceQuotes, PriceQuote => CJPriceQuote}
+import domain.pricequote.{PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
 import vo.filter.Count
 import vo.{PeriodDistribution => CJPeriodDistribution}
@@ -23,7 +23,7 @@ import java.time.{Duration, Instant}
 object dto {
   sealed trait MarketPlay
 
-  final case class TransferInPlay(
+  final case class TopUp(
     hash: String,
     value: FungibleData,
     fee: FungibleData,
@@ -31,7 +31,7 @@ object dto {
     timestamp: Instant
   ) extends MarketPlay
 
-  final case class TransferOutPlay(
+  final case class Withdrawal(
     hash: String,
     value: FungibleData,
     fee: FungibleData,
@@ -89,14 +89,14 @@ object dto {
 //    implicit val transferOutCodec: JsonCodec[TransferOut] = DeriveJsonCodec.gen[TransferOut]
     implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
 
-    implicit val transferInPlayCodec: JsonCodec[TransferInPlay]   = DeriveJsonCodec.gen[TransferInPlay]
+    implicit val transferInPlayCodec: JsonCodec[TopUp]   = DeriveJsonCodec.gen[TopUp]
     implicit val marketPlayCodec: JsonCodec[MarketPlay]       = DeriveJsonCodec.gen[MarketPlay]
 
     def fromMarketPlay(m: CJMarketPlay): MarketPlay =
       m match {
         case pos: CJPosition => fromPosition(pos)
-        case t: CJTransferIn => fromTransferIn(t)
-        case tOut: CJTransferOut => fromTransferOut(tOut)
+        case t: CJTopUp => fromTopUp(t)
+        case tOut: CJWithdraw => fromWithdrawal(tOut)
       }
 
     def fromPosition(position: CJPosition): Position =
@@ -141,8 +141,8 @@ object dto {
           TransferOut(FungibleData(amount.amount, amount.currency.value), to.value, FungibleData(fee.amount, fee.currency.value), hash.value, timestamp)
       }
 
-    private def fromTransferIn(t: CJTransferIn): TransferInPlay =
-      TransferInPlay(
+    private def fromTopUp(t: CJTopUp): TopUp =
+      TopUp(
         hash = t.txHash.value,
         value = t.value.asJson,
         fee = t.fee.asJson,
@@ -150,8 +150,8 @@ object dto {
         timestamp = t.timestamp
       )
 
-    private def fromTransferOut(t: CJTransferOut): TransferOutPlay =
-      TransferOutPlay(
+    private def fromWithdrawal(t: CJWithdraw): Withdrawal =
+      Withdrawal(
         hash = t.txHash.value,
         value = t.value.asJson,
         fee = t.fee.asJson,
