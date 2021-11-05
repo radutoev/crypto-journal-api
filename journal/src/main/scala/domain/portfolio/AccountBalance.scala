@@ -1,12 +1,12 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{FungibleData, USD}
-import domain.model.FungibleData.{Bigger, Equal, Lower}
+import domain.model.{ FungibleData, USD }
+import domain.model.FungibleData.{ Bigger, Equal, Lower }
 import domain.portfolio.model.Performance.NoChangeInPerformance
-import domain.portfolio.model.{Decrease, Increase, Performance}
+import domain.portfolio.model.{ Decrease, Increase, Performance }
 import domain.position.model.HideFromStats
-import domain.position.{MarketPlays, Position}
+import domain.position.{ MarketPlays, Position }
 
 case class AccountBalance(marketPlays: MarketPlays) {
   //TODO Should the value for the account balance take into consideration the fees as well?

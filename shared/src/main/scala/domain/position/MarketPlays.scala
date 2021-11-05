@@ -15,8 +15,8 @@ import scala.collection.mutable.{ ArrayBuffer, ListBuffer }
 
 //most recent items first.
 final case class MarketPlays(plays: List[MarketPlay]) {
-  lazy val positions: List[Position]           = plays.positions
-  lazy val transferIns: List[TopUp]            = plays.transferIns
+  lazy val positions: List[Position]    = plays.positions
+  lazy val transferIns: List[TopUp]     = plays.transferIns
   lazy val transferOuts: List[Withdraw] = plays.transferOuts
 
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed)
@@ -83,7 +83,7 @@ object MarketPlays {
     val incomingByContract: mutable.Map[WalletAddress, ListBuffer[PositionEntry]] = mutable.Map.empty
     val playsBuffer: ListBuffer[MarketPlay]                                       = ListBuffer.empty
     val topUpsBuffer: ListBuffer[TopUp]                                           = ListBuffer.empty
-    val withdrawBuffer: ListBuffer[Withdraw]  = ListBuffer.empty
+    val withdrawBuffer: ListBuffer[Withdraw]                                      = ListBuffer.empty
 
     @inline
     def addToCurrencyBuffer(currency: Currency, entry: PositionEntry): Unit =
@@ -170,9 +170,9 @@ object MarketPlays {
     currencyBuffer.foreach {
       case (currency, directTransfers) if currency == WBNB && directTransfers.nonEmpty =>
         directTransfers.foreach {
-          case tIn: TransferIn => topUpsBuffer.addOne(TopUp(tIn.hash, tIn.value, tIn.fee, tIn.timestamp))
+          case tIn: TransferIn   => topUpsBuffer.addOne(TopUp(tIn.hash, tIn.value, tIn.fee, tIn.timestamp))
           case tOut: TransferOut => withdrawBuffer.addOne(Withdraw(tOut.hash, tOut.amount, tOut.fee, tOut.timestamp))
-          case _ =>
+          case _                 =>
         }
       case (_, items) if items.nonEmpty =>
         val list = items.toList

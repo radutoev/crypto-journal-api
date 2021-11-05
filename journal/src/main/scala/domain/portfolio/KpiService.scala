@@ -1,18 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.portfolio.error.{InvalidPortfolioError, PortfolioError, PortfolioKpiGenerationError}
-import domain.position.{MarketPlayService, MarketPlays}
+import domain.portfolio.error.{ InvalidPortfolioError, PortfolioError, PortfolioKpiGenerationError }
+import domain.position.{ MarketPlayService, MarketPlays }
 import domain.position.error.MarketPlayError
 import domain.wallet.Wallet
 import vo.TimeInterval
-import vo.filter.{KpiFilter, PlayFilter}
-import util.{BeginningOfCrypto, InstantOps}
+import vo.filter.{ KpiFilter, PlayFilter }
+import util.{ BeginningOfCrypto, InstantOps }
 
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, UIO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, UIO, URLayer }
 
 trait KpiService {
   def portfolioKpi(userWallet: Wallet)(kpiFilter: KpiFilter): IO[PortfolioError, PortfolioKpi]

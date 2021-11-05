@@ -20,7 +20,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
     test("Generate position from contribution and claim") {
       val file         = readFile("/covalent/position_generation/contribute_claim_sell.json").fromJson[List[Transaction]]
       val transactions = file.right.get
-      val marketPlays        = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val marketPlays  = findMarketPlays(Address, transactions.map(_.toDomain()))
       val expected = List(
         Position(
           entries = List(
@@ -58,11 +58,10 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       assert(1)(equalTo(marketPlays.plays.size)) &&
       assert(expected)(hasSameElements(marketPlays.plays))
     },
-
     test("Generate TopUp") {
       val file         = readFile("/covalent/position_generation/transferIn.json").fromJson[List[Transaction]]
       val transactions = file.right.get
-      val topUps        = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val topUps       = findMarketPlays(Address, transactions.map(_.toDomain()))
       val expected = List(
         TopUp(
           txHash = TransactionHash.unsafeApply("0x5d7ec936bcefdaa9fbceef0fc7d6373b13756d6bc1ac91d72062cfe5c28d7e09"),
@@ -73,11 +72,10 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       )
       assert(expected)(hasSameElements(topUps.plays))
     },
-
     test("Buys into open and closed positions") {
       val file         = readFile("/covalent/position_generation/buy_into_open_close.json").fromJson[List[Transaction]]
       val transactions = file.right.get
-      val marketPlays = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val marketPlays  = findMarketPlays(Address, transactions.map(_.toDomain()))
       val expected = List(
         Position(
           entries = List(
@@ -94,18 +92,21 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
         Position(
           entries = List(
             TransferIn(
-              value =  FungibleData(BigDecimal("3.561490390"), Currency.unsafeFrom("DOGE")),
+              value = FungibleData(BigDecimal("3.561490390"), Currency.unsafeFrom("DOGE")),
               receivedFrom = WalletAddress.unsafeFrom("0xba2ae424d960c26247dd6c32edc70b295c744c43"),
               fee = FungibleData.zero(WBNB),
               hash = TransactionHash.unsafeApply("0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3"),
               timestamp = Instant.parse("2021-10-14T18:42:11Z")
-            ),
+            )
           )
         ),
         Position(
           entries = List(
             TransferIn(
-              value =  FungibleData(BigDecimal("10093678.5108933023485965940"), Currency.unsafeFrom("EMPDOGE_Dividend_Tracker")),
+              value = FungibleData(
+                BigDecimal("10093678.5108933023485965940"),
+                Currency.unsafeFrom("EMPDOGE_Dividend_Tracker")
+              ),
               receivedFrom = WalletAddress.unsafeFrom("0x668cff8bbf5a18be1d561a25c7b10de213372698"),
               fee = FungibleData.zero(WBNB),
               hash = TransactionHash.unsafeApply("0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3"),
@@ -113,7 +114,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
             )
           )
         ),
-        Position (
+        Position(
           entries = List(
             Buy(
               spent = FungibleData(BigDecimal("0.25"), WBNB),
@@ -146,7 +147,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
             )
           )
         ),
-        Position (
+        Position(
           entries = List(
             TransferIn(
               value = FungibleData(BigDecimal("3.4736516581719474730"), Currency.unsafeFrom("BUSD")),
@@ -161,7 +162,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
               receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
               hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
               timestamp = Instant.parse("2021-10-18T14:04:18Z")
-            ),
+            )
           )
         )
       ).sortBy(_.openedAt)(Ordering[Instant])

@@ -2,18 +2,18 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{MistakePredicate, PlayId, PlayIdPredicate, TagPredicate, UserId, UserIdPredicate}
+import domain.model.{ MistakePredicate, PlayId, PlayIdPredicate, TagPredicate, UserId, UserIdPredicate }
 import domain.position.error._
 import domain.position.model.ScamStrategy
-import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
-import infrastructure.google.datastore.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
-import util.{ListEitherOps, tryOrLeft}
+import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
+import infrastructure.google.datastore.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
+import util.{ tryOrLeft, ListEitherOps }
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import scala.jdk.CollectionConverters._
 
@@ -46,8 +46,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .tapError(throwable => logger.warn(throwable.getMessage))
       .mapBoth(
         JournalFetchError,
-        results =>
-          results.asScala.toList.map(entityToJournalEntry).rights
+        results => results.asScala.toList.map(entityToJournalEntry).rights
       )
   }
 
@@ -125,9 +124,11 @@ object DatastoreJournalingRepo {
                      .toList
                  )
       scamStrategy <- tryOrLeft(
-        if (entity.contains("scamStrategy")) entity.getString("scamStrategy") else "",
-        InvalidRepresentation("Invalid scamStrategy representation")
-      ).map(rawScamStrategy => if(rawScamStrategy.nonEmpty) ScamStrategy(rawScamStrategy).toOption else None)
+                       if (entity.contains("scamStrategy")) entity.getString("scamStrategy") else "",
+                       InvalidRepresentation("Invalid scamStrategy representation")
+                     ).map(rawScamStrategy =>
+                       if (rawScamStrategy.nonEmpty) ScamStrategy(rawScamStrategy).toOption else None
+                     )
     } yield JournalEntry(notes, tags, mistakes, scamStrategy, Some(userId), Some(positionId))
   }
 }

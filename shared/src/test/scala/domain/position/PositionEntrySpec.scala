@@ -90,8 +90,8 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       assert(buyAndTransferIns)(isRight(hasSameElements(expected)))
     },
     test("Interpret transaction as Buy with other coin") {
-      val transaction       = getTransaction("/covalent/transactions/buy_with_busd.json")
-      val buys = PositionEntry.fromTransaction(transaction, Address)
+      val transaction = getTransaction("/covalent/transactions/buy_with_busd.json")
+      val buys        = PositionEntry.fromTransaction(transaction, Address)
       val expected = List(
         Buy(
           spent = FungibleData(BigDecimal("1.575485922586737678"), WBNB),
@@ -203,7 +203,7 @@ object PositionEntrySpec extends DefaultRunnableSpec {
       assert(transferIns)(isRight(hasSameElements(expected)))
     },
     test("Interpret transaction as TransferOut") {
-      val transaction = getTransaction("/covalent/transactions/transferOut.json")
+      val transaction  = getTransaction("/covalent/transactions/transferOut.json")
       val transferOuts = PositionEntry.fromTransaction(transaction, Address)
       val expected = List(
         TransferOut(

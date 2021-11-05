@@ -82,7 +82,7 @@ lazy val journal = project
       "dev.zio"              %% "zio-test-sbt"        % zioVersion % Test,
       "io.d11"               %% "zhttp"               % zioHttpVersion,
       "ch.qos.logback"       % "logback-classic"      % logbackVersion,
-      "org.reactivestreams"  % "reactive-streams"     % reactiveVersion,
+      "org.reactivestreams"  % "reactive-streams"     % reactiveVersion
     )
   )
   .dependsOn(shared)
