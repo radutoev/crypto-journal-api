@@ -11,16 +11,14 @@ import zio.test.Assertion._
 import zio.test._
 
 import java.time.Instant
-import scala.io.Source
 
-object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
+object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
   private val Address = refineV[WalletAddressPredicate].unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41")
 
   override def spec = suite("MarketPlaysGeneratorSpec")(
     test("Generate position from contribution and claim") {
-      val file         = readFile("/covalent/position_generation/contribute_claim_sell.json").fromJson[List[Transaction]]
-      val transactions = file.right.get
-      val marketPlays  = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val transactions = getTransactions("/covalent/position_generation/contribute_claim_sell.json")
+      val marketPlays  = findMarketPlays(Address, transactions)
       val expected = List(
         Position(
           entries = List(
@@ -170,11 +168,4 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec {
       assert(expected)(hasSameElements(marketPlays.plays))
     }
   )
-
-  private def readFile(src: String) = {
-    val source        = Source.fromURL(getClass.getResource(src))
-    val rawJsonString = source.mkString
-    source.close()
-    rawJsonString
-  }
 }
