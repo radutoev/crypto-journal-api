@@ -5,6 +5,7 @@ indexes:
       - name: address
       - name: state
       - name: currency
+      - name: playType
       - name: openedAt
         direction: desc
   - kind: MarketPlayTest

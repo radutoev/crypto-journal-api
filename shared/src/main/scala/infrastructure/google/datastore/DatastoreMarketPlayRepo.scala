@@ -103,8 +103,7 @@ final case class DatastoreMarketPlayRepo(
               val marketPlays = MarketPlays(results.asScala.toList.map(entityToPlay).collect {
                 case Right(play) =>
                   play match {
-                    //TODO Why can entries be empty??
-                    case p: Position if p.entries.nonEmpty   => p
+                    case p: Position                  => p
                     case t @ (_: TopUp | _: Withdraw) => t
                   }
               })
@@ -216,7 +215,7 @@ final case class DatastoreMarketPlayRepo(
               list = list.filter(e => moreRecentThan(e, startDateFilter.get))
             }
             list.map(entityToPlay).rights.collect {
-              case p: Position if p.entries.nonEmpty   => p
+              case p: Position                  => p
               case t @ (_: TopUp | _: Withdraw) => t
             }
           }
@@ -229,7 +228,7 @@ final case class DatastoreMarketPlayRepo(
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty) { results =>
             //TODO Why do we have empty entries.
-            results.asScala.toList.map(entityToPosition).collect { case Right(p) if p.entries.nonEmpty => p }
+            results.asScala.toList.map(entityToPosition).collect { case Right(p) => p }
           }
       )
 
@@ -290,9 +289,9 @@ final case class DatastoreMarketPlayRepo(
 
   private def marketPlayToEntity(marketPlay: MarketPlay, address: WalletAddress): Entity =
     marketPlay match {
-      case p: Position        => positionToEntity(p, address, datastoreConfig.marketPlay)
-      case t: TopUp           => transferInToEntity(t, address, datastoreConfig.marketPlay)
-      case t: Withdraw => transferOutToEntity(t, address, datastoreConfig.marketPlay)
+      case p: Position => positionToEntity(p, address, datastoreConfig.marketPlay)
+      case t: TopUp    => topUpToEntity(t, address, datastoreConfig.marketPlay)
+      case t: Withdraw => withdrawalToEntity(t, address, datastoreConfig.marketPlay)
     }
 
   private val positionToEntity: (Position, WalletAddress, String) => Entity =
@@ -325,7 +324,10 @@ final case class DatastoreMarketPlayRepo(
               .set("spent", StringValue.of(spent.amount.toString()))
               .set("spentCurrency", StringValue.of(spent.currency.value))
               .set("spentOriginal", StringValue.of(spentOriginal.map(orig => orig.amount.toString()).getOrElse("")))
-              .set("spentOriginalCurrency",StringValue.of(spentOriginal.map(orig => orig.currency.value).getOrElse("")))
+              .set(
+                "spentOriginalCurrency",
+                StringValue.of(spentOriginal.map(orig => orig.currency.value).getOrElse(""))
+              )
               .set("coinAddress", StringValue.of(coinAddress.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
@@ -407,48 +409,48 @@ final case class DatastoreMarketPlayRepo(
     }
 
   /**
-   * Converts a TransferIn to an Entity.
+   * Converts a topUp to an Entity.
    * I map the timestamp to openedAt, so that I could later on use it as a consistent filter attribute for the read operations.
    */
-  private def transferInToEntity(transferIn: TopUp, address: WalletAddress, kind: String): Entity =
+  private def topUpToEntity(topUp: TopUp, address: WalletAddress, kind: String): Entity =
     Entity
       .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
       .set("address", address.value)
-      .set("hash", transferIn.txHash.value)
-      .set("value", DoubleValue.of(transferIn.value.amount.doubleValue))
-      .set("valueCurrency", StringValue.of(transferIn.value.currency.value))
-      .set("fee", DoubleValue.of(transferIn.fee.amount.doubleValue))
-      .set("feeCurrency", StringValue.of(transferIn.fee.currency.value))
+      .set("hash", topUp.txHash.value)
+      .set("value", DoubleValue.of(topUp.value.amount.doubleValue))
+      .set("valueCurrency", StringValue.of(topUp.value.currency.value))
+      .set("fee", DoubleValue.of(topUp.fee.amount.doubleValue))
+      .set("feeCurrency", StringValue.of(topUp.fee.currency.value))
       .set(
         "openedAt",
         TimestampValue
-          .of(Timestamp.ofTimeSecondsAndNanos(transferIn.timestamp.getEpochSecond, transferIn.timestamp.getNano))
+          .of(Timestamp.ofTimeSecondsAndNanos(topUp.timestamp.getEpochSecond, topUp.timestamp.getNano))
       )
-      .set("playType", "transferIn")
+      .set("playType", "topUp")
       .build()
 
-  private def transferOutToEntity(transferOut: Withdraw, address: WalletAddress, kind: String): Entity =
+  private def withdrawalToEntity(withdrawal: Withdraw, address: WalletAddress, kind: String): Entity =
     Entity
       .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
       .set("address", address.value)
-      .set("hash", transferOut.txHash.value)
-      .set("value", DoubleValue.of(transferOut.value.amount.doubleValue))
-      .set("valueCurrency", StringValue.of(transferOut.value.currency.value))
-      .set("fee", DoubleValue.of(transferOut.fee.amount.doubleValue))
-      .set("feeCurrency", StringValue.of(transferOut.fee.currency.value))
+      .set("hash", withdrawal.txHash.value)
+      .set("value", DoubleValue.of(withdrawal.value.amount.doubleValue))
+      .set("valueCurrency", StringValue.of(withdrawal.value.currency.value))
+      .set("fee", DoubleValue.of(withdrawal.fee.amount.doubleValue))
+      .set("feeCurrency", StringValue.of(withdrawal.fee.currency.value))
       .set(
         "openedAt",
         TimestampValue
-          .of(Timestamp.ofTimeSecondsAndNanos(transferOut.timestamp.getEpochSecond, transferOut.timestamp.getNano))
+          .of(Timestamp.ofTimeSecondsAndNanos(withdrawal.timestamp.getEpochSecond, withdrawal.timestamp.getNano))
       )
-      .set("playType", "transferOut")
+      .set("playType", "withdrawal")
       .build()
 
   private def entityToPlay(e: Entity): Either[InvalidRepresentation, MarketPlay] =
     e.getString("playType").strip() match {
-      case "position"    => entityToPosition(e)
-      case "transferIn"  => entityToTransferIn(e)
-      case "transferOut" => entityToTransferOut(e)
+      case "position"   => entityToPosition(e)
+      case "topUp"      => entityToTopUp(e)
+      case "withdrawal" => entityToWithdrawal(e)
     }
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
@@ -543,14 +545,14 @@ final case class DatastoreMarketPlayRepo(
                                   InvalidRepresentation("Invalid spentCurrency representation")
                                 ).map(Currency.unsafeFrom)
                 spentOriginalValue <- tryOrLeft(
-                  entity.getString("spentOriginal"),
-                  InvalidRepresentation("Invalid spentOriginal representation")
-                )
+                                       entity.getString("spentOriginal"),
+                                       InvalidRepresentation("Invalid spentOriginal representation")
+                                     )
                 spentOriginalCurrency <- tryOrLeft(
-                  entity.getString("spentCurrency"),
-                  InvalidRepresentation("Invalid spentCurrency representation")
-                )
-                spentOriginal = if(spentOriginalValue.nonEmpty) {
+                                          entity.getString("spentCurrency"),
+                                          InvalidRepresentation("Invalid spentCurrency representation")
+                                        )
+                spentOriginal = if (spentOriginalValue.nonEmpty) {
                   Some(FungibleData(BigDecimal(spentOriginalValue), Currency.unsafeFrom(spentOriginalCurrency)))
                 } else {
                   None
@@ -673,7 +675,7 @@ final case class DatastoreMarketPlayRepo(
     }
   }
 
-  private def entityToTransferIn(entity: Entity): Either[InvalidRepresentation, TopUp] =
+  private def entityToTopUp(entity: Entity): Either[InvalidRepresentation, TopUp] =
     for {
       id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
              .flatMap(rawIdStr =>
@@ -706,7 +708,7 @@ final case class DatastoreMarketPlayRepo(
       id = Some(id)
     )
 
-  private def entityToTransferOut(entity: Entity): Either[InvalidRepresentation, Withdraw] =
+  private def entityToWithdrawal(entity: Entity): Either[InvalidRepresentation, Withdraw] =
     for {
       id <- tryOrLeft(entity.getKey.getName, InvalidRepresentation("Entity has no key name"))
              .flatMap(rawIdStr =>
