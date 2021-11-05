@@ -1,22 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.model.{
-//  AirDrop,
-//  Approval,
-//  Buy,
-//  Claim,
-//  Contribute,
-  Currency,
-  Fee,
-  FungibleData,
-//  Sell,
-  TransactionHash,
-  TransactionType,
-//  TransferIn,
-//  TransferOut,
-  Unknown
-}
+import domain.model.TransactionHash
 
 import java.time.Instant
 
