@@ -198,7 +198,7 @@ final case class Position(
   private lazy val fiatSellValue: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
-        case Sell(received, _, _, _, timestamp, _) =>
+        case Sell(_, received, _, _, timestamp, _) =>
           if (received.currency == WBNB) {
             quotes.findPrice(timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
           } else {
