@@ -17,6 +17,8 @@ object error {
   final case class PaginationContextNotFoundError(contextId: ContextId)   extends MarketPlayError
   final case class PaginationContextFetchError(contextId: ContextId)      extends MarketPlayError
 
+  final case class InvalidPosition(reason: String) extends MarketPlayError
+
   final case class PriceQuotesError(throwable: Throwable) extends MarketPlayError
 
   final case class CheckpointFetchError(address: WalletAddress, throwable: Throwable) extends MarketPlayError

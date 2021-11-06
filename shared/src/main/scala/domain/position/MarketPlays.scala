@@ -144,6 +144,7 @@ object MarketPlays {
 
       case sell: Sell =>
         val entries = currencyBuffer.getOrElse(sell.sold.currency, ListBuffer.empty)
+
         if (entries.nonEmpty) {
           val maybeLookupContract = findFirstOccurrenceOfTokenContract(entries.toList)
           if (maybeLookupContract.isDefined && incomingByContract.contains(maybeLookupContract.get)) {
@@ -153,8 +154,8 @@ object MarketPlays {
         }
         entries.addOne(sell)
 
-        val position = Position(entries = entries.toList)
-        playsBuffer.addOne(position)
+        playsBuffer.addOne(Position.unsafeApply(entries = entries.toList.sortBy(_.timestamp)(Ordering[Instant])))
+
         entries.clear()
 
       case transferIn: TransferIn =>
@@ -181,7 +182,7 @@ object MarketPlays {
         val positionItems = findFirstOccurrenceOfTokenContract(list)
           .flatMap(incomingByContract.get(_).map(_.toList))
           .getOrElse(Nil) ::: list
-        playsBuffer.addOne(Position(positionItems.sortBy(_.timestamp)(Ordering[Instant])))
+        playsBuffer.addOne(Position.unsafeApply(positionItems.sortBy(_.timestamp)(Ordering[Instant])))
     }
 
     MarketPlays(

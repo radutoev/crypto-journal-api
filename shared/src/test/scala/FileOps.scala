@@ -4,6 +4,7 @@ import infrastructure.covalent.dto.Transaction
 
 import zio.json.DecoderOps
 
+import java.time.Instant
 import scala.io.Source
 
 trait FileOps {
@@ -12,7 +13,7 @@ trait FileOps {
 
   def getTransactions(file: String) = {
     val f = readFile(file).fromJson[List[Transaction]]
-    f.right.get.map(tx => tx.toDomain())
+    f.right.get.map(tx => tx.toDomain()).sortBy(_.instant)(Ordering[Instant])
   }
 
   def readFile(src: String) = {

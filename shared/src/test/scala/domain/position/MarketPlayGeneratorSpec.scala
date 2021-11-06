@@ -20,7 +20,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
       val transactions = getTransactions("/covalent/position_generation/contribute_claim_sell.json")
       val marketPlays  = findMarketPlays(Address, transactions)
       val expected = List(
-        Position(
+        Position.unsafeApply(
           entries = List(
             Contribute(
               spent = FungibleData(BigDecimal("0.1023923391846748000"), WBNB),
@@ -75,7 +75,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
       val transactions = file.right.get
       val marketPlays  = findMarketPlays(Address, transactions.map(_.toDomain()))
       val expected = List(
-        Position(
+        Position.unsafeApply(
           entries = List(
             Buy(
               spent = FungibleData(BigDecimal("1.3000000000000000000"), WBNB),
@@ -87,7 +87,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
             )
           )
         ),
-        Position(
+        Position.unsafeApply(
           entries = List(
             TransferIn(
               value = FungibleData(BigDecimal("3.561490390"), Currency.unsafeFrom("DOGE")),
@@ -98,7 +98,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
             )
           )
         ),
-        Position(
+        Position.unsafeApply(
           entries = List(
             TransferIn(
               value = FungibleData(
@@ -112,7 +112,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
             )
           )
         ),
-        Position(
+        Position.unsafeApply(
           entries = List(
             Buy(
               spent = FungibleData(BigDecimal("0.25"), WBNB),
@@ -122,6 +122,12 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
               hash = TransactionHash.unsafeApply("0x6ee328f30cc70dee6beaab4466f0ba3d9fbacbe14f5408bd2efdf1ef18d70c25"),
               timestamp = Instant.parse("2021-10-18T11:38:19Z")
             ),
+            Approval(
+              fee = FungibleData(BigDecimal("0.000222145"), WBNB),
+              forContract = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
+              hash = TransactionHash.unsafeApply("0xdd69a8eafff819014295a007af3ca923c14afc6a673ed42923243a7cc04579d9"),
+              timestamp = Instant.parse("2021-10-18T11:38:55Z")
+            ),
             Buy(
               spent = FungibleData(BigDecimal("0.3875408729003106190"), WBNB),
               received = FungibleData(BigDecimal("207074895.8730373970"), Currency.unsafeFrom("FOOFIGHT")),
@@ -129,12 +135,6 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
               fee = FungibleData(BigDecimal("0.00377384"), WBNB),
               hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
               timestamp = Instant.parse("2021-10-18T12:27:24Z")
-            ),
-            Approval(
-              fee = FungibleData(BigDecimal("0.000222145"), WBNB),
-              forContract = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
-              hash = TransactionHash.unsafeApply("0xdd69a8eafff819014295a007af3ca923c14afc6a673ed42923243a7cc04579d9"),
-              timestamp = Instant.parse("2021-10-18T11:38:55Z")
             ),
             Sell(
               sold = FungibleData(BigDecimal("432156304.4306867440"), Currency.unsafeFrom("FOOFIGHT")),
@@ -145,7 +145,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
             )
           )
         ),
-        Position(
+        Position.unsafeApply(
           entries = List(
             TransferIn(
               value = FungibleData(BigDecimal("3.4736516581719474730"), Currency.unsafeFrom("BUSD")),

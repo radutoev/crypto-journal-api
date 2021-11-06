@@ -3,6 +3,7 @@ package domain.position
 
 import domain.model._
 import domain.model.fungible.{FungibleDataOps, OptionalFungibleDataOps}
+import domain.position.error.InvalidPosition
 import domain.pricequote.{PriceQuote, PriceQuotes}
 import util.ListOps.cond
 import util.ListOptionOps
@@ -212,5 +213,30 @@ final case class Position(
   def inInterval(interval: TimeInterval): Boolean = {
     val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
     closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
+  }
+}
+
+object Position {
+  def apply(entries: List[PositionEntry]): Either[InvalidPosition, Position] = {
+    if(isSorted(entries.map(_.timestamp))(Ordering[Instant])) {
+      Right(new Position(entries))
+    } else {
+      Left(InvalidPosition("Entries not in chronological order"))
+    }
+  }
+
+  def unsafeApply(entries: List[PositionEntry]): Position = {
+    new Position(entries)
+//    if(isSorted(entries.map(_.timestamp))(Ordering[Instant])) {
+//
+//    } else {
+//      throw new RuntimeException("Invalid position - entities not in chronological order.")
+//    }
+  }
+
+  def isSorted[T](seq: Seq[T])(implicit ord: Ordering[T]): Boolean = seq match {
+    case Seq()  => true
+    case Seq(_) => true
+    case _ => seq.sliding(2).forall { case Seq(first, second) => ord.lteq(first, second) }
   }
 }

@@ -24,8 +24,7 @@ object PositionSpec extends DefaultRunnableSpec {
     }
   )
 
-
-  val PositionUnderTest = Position(
+  val PositionUnderTest = new Position(
     entries = List(
       Buy(
         fee = FungibleData(BigDecimal(0.00397604), WBNB),
@@ -35,6 +34,12 @@ object PositionSpec extends DefaultRunnableSpec {
         hash = TransactionHash.unsafeApply("0x6ee328f30cc70dee6beaab4466f0ba3d9fbacbe14f5408bd2efdf1ef18d70c25"),
         timestamp = Instant.parse("2021-10-18T11:38:19Z")
       ),
+      Approval(
+        fee = FungibleData(0.000222145, WBNB),
+        forContract = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
+        hash = TransactionHash.unsafeApply("0xdd69a8eafff819014295a007af3ca923c14afc6a673ed42923243a7cc04579d9"),
+        timestamp = Instant.parse("2021-10-18T11:38:55Z"),
+      ),
       Buy(
         fee = FungibleData(BigDecimal(0.00377384), WBNB),
         spent = FungibleData(BigDecimal(0.3875408729003106190), WBNB),
@@ -42,12 +47,6 @@ object PositionSpec extends DefaultRunnableSpec {
         coinAddress = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
         hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
         timestamp = Instant.parse("2021-10-18T12:27:24Z")
-      ),
-      Approval(
-        fee = FungibleData(0.000222145, WBNB),
-        forContract = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
-        hash = TransactionHash.unsafeApply("0xdd69a8eafff819014295a007af3ca923c14afc6a673ed42923243a7cc04579d9"),
-        timestamp = Instant.parse("2021-10-18T11:38:55Z"),
       ),
       Sell(
         sold = FungibleData(BigDecimal(432156304.430686744), Currency.unsafeFrom("FOOFIGHT")),
