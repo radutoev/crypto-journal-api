@@ -5,8 +5,8 @@ import domain.position.error.MarketPlayError
 import vo.filter.PlayFilter
 import vo.pagination.Page
 
-import io.softwarechain.cryptojournal.domain.model.{ContextId, Currency, PlayId, WalletAddress}
-import zio.{Has, IO, Task, ZIO}
+import io.softwarechain.cryptojournal.domain.model.{ ContextId, Currency, PlayId, WalletAddress }
+import zio.{ Has, IO, Task, ZIO }
 
 trait MarketPlayRepo {
   def save(address: WalletAddress, positions: List[MarketPlay]): Task[Unit]

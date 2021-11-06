@@ -3,7 +3,7 @@ package domain
 
 import domain.model.WalletAddress
 
-import zio.{Has, Ref, UIO, ZIO, ZLayer}
+import zio.{ Has, Ref, UIO, ZIO, ZLayer }
 
 /**
  * @deprecated

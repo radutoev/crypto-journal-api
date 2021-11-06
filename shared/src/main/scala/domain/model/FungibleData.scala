@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.model
 
-import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
+import domain.model.FungibleData.{ Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower }
 
 import currencyops.CurrencyOps
 import util.math
@@ -37,9 +37,9 @@ final case class FungibleData(amount: BigDecimal, currency: Currency) {
     fnOnFungibleData((f, fPrev) => math.percentageDiff(f.amount, fPrev.amount), other)
 
   private def fnOnFungibleData[T](
-                                   fn: (FungibleData, FungibleData) => T,
-                                   other: FungibleData
-                                 ): Either[FungibleDataError, T] =
+    fn: (FungibleData, FungibleData) => T,
+    other: FungibleData
+  ): Either[FungibleDataError, T] =
     if (other.currency.sameCurrency(currency)) {
       Right {
         fn(this, other)
@@ -70,9 +70,7 @@ object FungibleData {
 object fungible {
   implicit class FungibleDataOps(list: List[FungibleData]) {
     def sumFungibleData(): FungibleData =
-      list.foldLeft(FungibleData(BigDecimal(0), USD)) { (acc, value) =>
-        acc.add(value.amount)
-      }
+      list.foldLeft(FungibleData(BigDecimal(0), USD))((acc, value) => acc.add(value.amount))
   }
 
   implicit class OptionalFungibleDataOps(list: List[Option[FungibleData]]) {

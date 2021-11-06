@@ -3,16 +3,16 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
 import domain.position.error.MarketPlaysFetchError
-import domain.position.{MarketPlayRepo, MarketPlays}
+import domain.position.{ MarketPlayRepo, MarketPlays }
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.datastore.{DatastoreMarketPlayRepo, DatastoreWalletImportRepo}
+import infrastructure.google.datastore.{ DatastoreMarketPlayRepo, DatastoreWalletImportRepo }
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{Config, ConfigFactory}
-import io.softwarechain.cryptojournal.domain.model.{TransactionHash, WalletAddress}
+import com.typesafe.config.{ Config, ConfigFactory }
+import io.softwarechain.cryptojournal.domain.model.{ TransactionHash, WalletAddress }
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend

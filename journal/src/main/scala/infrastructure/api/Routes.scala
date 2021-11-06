@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import application.{CryptoJournalApi, PositionHelper}
+import application.{ CryptoJournalApi, PositionHelper }
 import domain.portfolio.KpiService
 import domain.position.error._
-import domain.position.{JournalingService, MarketPlayService, MarketPlays}
+import domain.position.{ JournalingService, MarketPlayService, MarketPlays }
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.DailyTradeData._
@@ -17,24 +17,41 @@ import infrastructure.api.dto.PositionJournalEntry._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{DailyTradeData, JournalEntry, MarketPlay, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
+import infrastructure.api.dto.{
+  DailyTradeData,
+  JournalEntry,
+  MarketPlay,
+  Ohlcv,
+  PortfolioKpi,
+  PortfolioStats,
+  PositionJournalEntry,
+  TagDistribution,
+  TradeSummary
+}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
-import vo.filter.{Count, KpiFilter, PlayFilter}
+import vo.filter.{ Count, KpiFilter, PlayFilter }
 
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
 import io.softwarechain.cryptojournal.domain.blockchain.BlockchainRepo
-import io.softwarechain.cryptojournal.domain.model.{ContextId, ContextIdPredicate, PlayIdPredicate, TransactionHashPredicate, UserId, WalletAddressPredicate}
-import pdi.jwt.{Jwt, JwtAlgorithm}
+import io.softwarechain.cryptojournal.domain.model.{
+  ContextId,
+  ContextIdPredicate,
+  PlayIdPredicate,
+  TransactionHashPredicate,
+  UserId,
+  WalletAddressPredicate
+}
+import pdi.jwt.{ Jwt, JwtAlgorithm }
 import zhttp.http.HttpError.BadRequest
-import zhttp.http.{Header, _}
+import zhttp.http.{ Header, _ }
 import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 import java.util.UUID
 import scala.util.Try
 

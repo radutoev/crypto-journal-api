@@ -3,7 +3,7 @@ package domain
 
 import eu.timepit.refined._
 import io.softwarechain.cryptojournal.domain.model.WalletAddressPredicate
-import zio.test.Assertion.{isLeft, isRight}
+import zio.test.Assertion.{ isLeft, isRight }
 import zio.test._
 
 object ModelSpec extends DefaultRunnableSpec {

@@ -3,11 +3,11 @@ package domain.position
 
 import domain.model.fungible.FungibleDataOps
 import domain.model._
-import domain.pricequote.{PriceQuote, PriceQuotes}
+import domain.pricequote.{ PriceQuote, PriceQuotes }
 import util.ListOptionOps
 import vo.TimeInterval
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 final case class Position(
   entries: List[PositionEntry],
@@ -74,14 +74,14 @@ final case class Position(
    */
   lazy val totalCoins: FungibleData = {
     entries.map {
-      case AirDrop(_, _, received, _, _)   => Some(received)
-      case _: Approval                     => None
-      case Buy(_, _, received, _, _, _, _) => Some(received)
-      case Claim(_, received, _, _, _)     => Some(received)
-      case _: Contribute                   => None
-      case _: Sell                         => None
-      case t: TransferIn                   => Some(t.value)
-      case _: TransferOut                  => None
+      case AirDrop(_, _, received, _, _, _)   => Some(received)
+      case _: Approval                        => None
+      case Buy(_, _, received, _, _, _, _, _) => Some(received)
+      case Claim(_, received, _, _, _, _)     => Some(received)
+      case _: Contribute                      => None
+      case _: Sell                            => None
+      case t: TransferIn                      => Some(t.value)
+      case _: TransferOut                     => None
     }.values.sumFungibleData()
   }
 
@@ -125,14 +125,14 @@ final case class Position(
    */
   lazy val numberOfCoins: BigDecimal =
     entries.map {
-      case AirDrop(_, _, received, _, _)   => Some(received)
-      case _: Approval                     => None
-      case Buy(_, _, received, _, _, _, _) => Some(received)
-      case Claim(_, received, _, _, _)     => Some(received)
-      case _: Contribute                   => None
-      case Sell(sold, _, _, _, _)          => Some(sold.negate())
-      case t: TransferIn                   => Some(t.value)
-      case TransferOut(amount, _, _, _, _) => Some(amount.negate())
+      case AirDrop(_, _, received, _, _, _)   => Some(received)
+      case _: Approval                        => None
+      case Buy(_, _, received, _, _, _, _, _) => Some(received)
+      case Claim(_, received, _, _, _, _)     => Some(received)
+      case _: Contribute                      => None
+      case Sell(sold, _, _, _, _, _)          => Some(sold.negate())
+      case t: TransferIn                      => Some(t.value)
+      case TransferOut(amount, _, _, _, _, _) => Some(amount.negate())
     }.values.sumFungibleData().amount
 
   lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
@@ -165,14 +165,14 @@ final case class Position(
       entries.map {
         case _: AirDrop  => None
         case _: Approval => None
-        case Buy(_, spent, _, _, _, timestamp, _) =>
+        case Buy(_, spent, _, _, _, timestamp, _, _) =>
           if (spent.currency == WBNB) {
             quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
           } else {
             None
           }
         case _: Claim => None
-        case Contribute(spent, _, _, _, timestamp) =>
+        case Contribute(spent, _, _, _, timestamp, _) =>
           if (spent.currency == WBNB) {
             quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
           } else None
@@ -186,7 +186,7 @@ final case class Position(
   private lazy val fiatSellValue: FungibleData = {
     priceQuotes.map { quotes =>
       entries.map {
-        case Sell(received, _, _, _, timestamp) =>
+        case Sell(received, _, _, _, timestamp, _) =>
           if (received.currency == WBNB) {
             quotes.findPrice(timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
           } else {
@@ -200,14 +200,14 @@ final case class Position(
   //TODO Ensure I have only one currency.
   lazy val currency: Option[Currency] = {
     entries.map {
-      case a: AirDrop                      => Some(a.received.currency)
-      case _: Approval                     => None
-      case Buy(_, _, received, _, _, _, _) => Some(received.currency)
-      case Claim(_, received, _, _, _)     => Some(received.currency)
-      case _: Contribute                   => None
-      case Sell(sold, _, _, _, _)          => Some(sold.currency)
-      case TransferIn(amount, _, _, _, _)  => Some(amount.currency)
-      case TransferOut(amount, _, _, _, _) => Some(amount.currency)
+      case a: AirDrop                         => Some(a.received.currency)
+      case _: Approval                        => None
+      case Buy(_, _, received, _, _, _, _, _) => Some(received.currency)
+      case Claim(_, received, _, _, _, _)     => Some(received.currency)
+      case _: Contribute                      => None
+      case Sell(sold, _, _, _, _, _)          => Some(sold.currency)
+      case TransferIn(amount, _, _, _, _, _)  => Some(amount.currency)
+      case TransferOut(amount, _, _, _, _, _) => Some(amount.currency)
     }.values
       .filter(c => !Set(WBNB).contains(c))
       .distinct

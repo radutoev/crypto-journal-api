@@ -1,20 +1,20 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.fungible.{FungibleDataKeyOps, FungibleDataOps}
+import domain.model.fungible.{ FungibleDataKeyOps, FungibleDataOps }
 import domain.model._
-import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
-import domain.position.{MarketPlays, Position}
+import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate }
+import domain.position.{ MarketPlays, Position }
 import util.InstantOps
 import vo.filter.Count
-import vo.{PeriodDistribution, TimeInterval}
+import vo.{ PeriodDistribution, TimeInterval }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
 import java.time.format.DateTimeFormatter
-import java.time.{DayOfWeek, Duration, Month, ZoneId}
+import java.time.{ DayOfWeek, Duration, Month, ZoneId }
 
 /**
  * @param marketPlays source to compute the KPIs for

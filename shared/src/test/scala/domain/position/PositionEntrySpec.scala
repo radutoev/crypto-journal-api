@@ -3,7 +3,7 @@ package domain.position
 
 import infrastructure.covalent.dto.Transaction
 
-import io.softwarechain.cryptojournal.domain.model.{Currency, FungibleData, TransactionHash, WBNB, WalletAddress}
+import io.softwarechain.cryptojournal.domain.model.{ Currency, FungibleData, TransactionHash, WBNB, WalletAddress }
 import zio.json._
 import zio.test.Assertion._
 import zio.test._

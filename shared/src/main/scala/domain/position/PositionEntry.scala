@@ -1,9 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{LogEvent, Transaction}
+import domain.blockchain.{ LogEvent, Transaction }
 import domain.model._
-import util.{ListEitherOps, ListOptionOps}
+import domain.position.PositionEntry.PositionEntryId
+import util.{ ListEitherOps, ListOptionOps }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
@@ -16,6 +17,7 @@ sealed trait PositionEntry {
   val hash: TransactionHash
   val fee: Fee
   val timestamp: Instant
+  val id: Option[PositionEntryId] = None
 }
 
 object PositionEntry {
@@ -591,11 +593,17 @@ final case class AirDrop(
   fee: Fee,
   received: FungibleData,
   hash: TransactionHash,
-  timestamp: Instant
+  timestamp: Instant,
+  override val id: Option[PositionEntryId] = None
 ) extends PositionEntry
 
-final case class Approval(fee: Fee, forContract: WalletAddress, hash: TransactionHash, timestamp: Instant)
-    extends PositionEntry
+final case class Approval(
+  fee: Fee,
+  forContract: WalletAddress,
+  hash: TransactionHash,
+  timestamp: Instant,
+  override val id: Option[PositionEntryId] = None
+) extends PositionEntry
 
 final case class Buy(
   fee: Fee,
@@ -604,7 +612,8 @@ final case class Buy(
   coinAddress: WalletAddress,
   hash: TransactionHash,
   timestamp: Instant,
-  spentOriginal: Option[FungibleData] = None
+  spentOriginal: Option[FungibleData] = None,
+  override val id: Option[PositionEntryId] = None
 ) extends PositionEntry
 
 final case class Claim(
@@ -612,21 +621,35 @@ final case class Claim(
   received: FungibleData,
   receivedFrom: WalletAddress,
   hash: TransactionHash,
-  timestamp: Instant
+  timestamp: Instant,
+  override val id: Option[PositionEntryId] = None
 ) extends PositionEntry
 
-final case class Contribute(spent: FungibleData, to: WalletAddress, fee: Fee, hash: TransactionHash, timestamp: Instant)
-    extends PositionEntry
+final case class Contribute(
+  spent: FungibleData,
+  to: WalletAddress,
+  fee: Fee,
+  hash: TransactionHash,
+  timestamp: Instant,
+  override val id: Option[PositionEntryId] = None
+) extends PositionEntry
 
-final case class Sell(sold: FungibleData, received: FungibleData, fee: Fee, hash: TransactionHash, timestamp: Instant)
-    extends PositionEntry
+final case class Sell(
+  sold: FungibleData,
+  received: FungibleData,
+  fee: Fee,
+  hash: TransactionHash,
+  timestamp: Instant,
+  override val id: Option[PositionEntryId] = None
+) extends PositionEntry
 
 final case class TransferIn(
   value: FungibleData,
   receivedFrom: WalletAddress,
   fee: Fee,
   hash: TransactionHash,
-  timestamp: Instant
+  timestamp: Instant,
+  override val id: Option[PositionEntryId] = None
 ) extends PositionEntry
 
 final case class TransferOut(
@@ -634,5 +657,6 @@ final case class TransferOut(
   to: WalletAddress,
   fee: Fee,
   hash: TransactionHash,
-  timestamp: Instant
+  timestamp: Instant,
+  override val id: Option[PositionEntryId] = None
 ) extends PositionEntry

@@ -4,8 +4,8 @@ package infrastructure.auth
 import domain.account.RequestContext
 import domain.model
 
-import io.softwarechain.cryptojournal.domain.model.{ContextId, UserId}
-import zio.{Has, UIO, ULayer, ZLayer}
+import io.softwarechain.cryptojournal.domain.model.{ ContextId, UserId }
+import zio.{ Has, UIO, ULayer, ZLayer }
 
 final case class JwtRequestContext(uId: UserId, cId: ContextId) extends RequestContext {
   override def userId: UIO[UserId] = UIO(uId)

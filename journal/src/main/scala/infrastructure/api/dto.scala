@@ -1,25 +1,33 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
-import domain.market.{Ohlcv => CJOhlcv}
-import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
-import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTopUp, Withdraw => CJWithdraw}
+import domain.model.{ MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData }
+import domain.market.{ Ohlcv => CJOhlcv }
+import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
+import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
+import domain.position.{
+  JournalEntry => CJJournalEntry,
+  MarketPlay => CJMarketPlay,
+  Position => CJPosition,
+  PositionEntry => CJPositionEntry,
+  PositionJournalEntry => CJPositionJournalEntry,
+  TopUp => CJTopUp,
+  Withdraw => CJWithdraw
+}
 import domain.position.model.ScamStrategy
-import domain.pricequote.{PriceQuote => CJPriceQuote}
-import domain.wallet.{Wallet => CJWallet}
+import domain.pricequote.{ PriceQuote => CJPriceQuote }
+import domain.wallet.{ Wallet => CJWallet }
 import vo.filter.Count
-import vo.{PeriodDistribution => CJPeriodDistribution}
+import vo.{ PeriodDistribution => CJPeriodDistribution }
 import infrastructure.api.dto.MarketPlay._
 import util.ListEitherOps
 
 import eu.timepit.refined.refineV
 import domain.position
 
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 object dto {
   sealed trait MarketPlay
@@ -29,7 +37,8 @@ object dto {
     value: FungibleData,
     fee: FungibleData,
     totalFees: Option[FungibleData],
-    timestamp: Instant
+    timestamp: Instant,
+    id: Option[String]
   ) extends MarketPlay
 
   final case class Withdrawal(
@@ -37,7 +46,8 @@ object dto {
     value: FungibleData,
     fee: FungibleData,
     totalFees: Option[FungibleData],
-    timestamp: Instant
+    timestamp: Instant,
+    id: Option[String]
   ) extends MarketPlay
 
   final case class Position(
@@ -67,10 +77,16 @@ object dto {
     fee: FungibleData,
     received: FungibleData,
     hash: String,
-    timestamp: Instant
+    timestamp: Instant,
+    id: Option[String]
   ) extends PositionEntry
-  final case class Approval(fee: FungibleData, forContract: String, hash: String, timestamp: Instant)
-      extends PositionEntry
+  final case class Approval(
+    fee: FungibleData,
+    forContract: String,
+    hash: String,
+    timestamp: Instant,
+    id: Option[String]
+  ) extends PositionEntry
   final case class Buy(
     fee: FungibleData,
     spent: FungibleData,
@@ -78,28 +94,49 @@ object dto {
     coinAddress: String,
     hash: String,
     timestamp: Instant,
-    spenOriginal: Option[FungibleData]
+    spentOriginal: Option[FungibleData],
+    id: Option[String]
   ) extends PositionEntry
   final case class Claim(
     fee: FungibleData,
     received: FungibleData,
     receivedFrom: String,
     hash: String,
-    timestamp: Instant
+    timestamp: Instant,
+    id: Option[String]
   ) extends PositionEntry
-  final case class Contribute(spent: FungibleData, to: String, fee: FungibleData, hash: String, timestamp: Instant)
-      extends PositionEntry
-  final case class Sell(sold: FungibleData, received: FungibleData, fee: FungibleData, hash: String, timestamp: Instant)
-      extends PositionEntry
+  final case class Contribute(
+    spent: FungibleData,
+    to: String,
+    fee: FungibleData,
+    hash: String,
+    timestamp: Instant,
+    id: Option[String]
+  ) extends PositionEntry
+  final case class Sell(
+    sold: FungibleData,
+    received: FungibleData,
+    fee: FungibleData,
+    hash: String,
+    timestamp: Instant,
+    id: Option[String]
+  ) extends PositionEntry
   final case class TransferIn(
     value: FungibleData,
     receivedFrom: String,
     fee: FungibleData,
     hash: String,
-    timestamp: Instant
+    timestamp: Instant,
+    id: Option[String]
   ) extends PositionEntry
-  final case class TransferOut(amount: FungibleData, to: String, fee: FungibleData, hash: String, timestamp: Instant)
-      extends PositionEntry
+  final case class TransferOut(
+    amount: FungibleData,
+    to: String,
+    fee: FungibleData,
+    hash: String,
+    timestamp: Instant,
+    id: Option[String]
+  ) extends PositionEntry
 
   final case class FungibleData(amount: BigDecimal, currency: String)
 
@@ -110,14 +147,7 @@ object dto {
     implicit val fungibleDataCodec: JsonCodec[FungibleData] = DeriveJsonCodec.gen[FungibleData]
 
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
-//    implicit val airDropCodec: JsonCodec[AirDrop] = DeriveJsonCodec.gen[AirDrop]
-//    implicit val buyCodec: JsonCodec[Buy] = DeriveJsonCodec.gen[Buy]
-//    implicit val claimCodec: JsonCodec[Claim] = DeriveJsonCodec.gen[Claim]
-//    implicit val contributeCodec: JsonCodec[Contribute] = DeriveJsonCodec.gen[Contribute]
-//    implicit val sellCodec: JsonCodec[Sell] = DeriveJsonCodec.gen[Sell]
-//    implicit val transferInCodec: JsonCodec[TransferIn] = DeriveJsonCodec.gen[TransferIn]
-//    implicit val transferOutCodec: JsonCodec[TransferOut] = DeriveJsonCodec.gen[TransferOut]
-    implicit val positionCodec: JsonCodec[Position] = DeriveJsonCodec.gen[Position]
+    implicit val positionCodec: JsonCodec[Position]           = DeriveJsonCodec.gen[Position]
 
     implicit val transferInPlayCodec: JsonCodec[TopUp]  = DeriveJsonCodec.gen[TopUp]
     implicit val marketPlayCodec: JsonCodec[MarketPlay] = DeriveJsonCodec.gen[MarketPlay]
@@ -153,17 +183,24 @@ object dto {
 
     def fromPositionEntry(entry: CJPositionEntry): PositionEntry =
       entry match {
-        case position.AirDrop(receivedFrom, fee, received, hash, timestamp) =>
+        case position.AirDrop(receivedFrom, fee, received, hash, timestamp, id) =>
           AirDrop(
             receivedFrom.value,
             FungibleData(fee.amount, fee.currency.value),
             FungibleData(received.amount, received.currency.value),
             hash.value,
-            timestamp
+            timestamp,
+            id.map(_.value)
           )
-        case position.Approval(fee, forContract, hash, timestamp) =>
-          Approval(FungibleData(fee.amount, fee.currency.value), forContract.value, hash.value, timestamp)
-        case position.Buy(fee, spent, received, coinAddress, hash, timestamp, spentOriginal) =>
+        case position.Approval(fee, forContract, hash, timestamp, id) =>
+          Approval(
+            FungibleData(fee.amount, fee.currency.value),
+            forContract.value,
+            hash.value,
+            timestamp,
+            id.map(_.value)
+          )
+        case position.Buy(fee, spent, received, coinAddress, hash, timestamp, spentOriginal, id) =>
           Buy(
             FungibleData(fee.amount, fee.currency.value),
             FungibleData(spent.amount, spent.currency.value),
@@ -171,47 +208,53 @@ object dto {
             coinAddress.value,
             hash.value,
             timestamp,
-            spentOriginal.map(f => FungibleData(f.amount, f.currency.value))
+            spentOriginal.map(f => FungibleData(f.amount, f.currency.value)),
+            id.map(_.value)
           )
-        case position.Claim(fee, received, receivedFrom, hash, timestamp) =>
+        case position.Claim(fee, received, receivedFrom, hash, timestamp, id) =>
           Claim(
             FungibleData(fee.amount, fee.currency.value),
             FungibleData(received.amount, received.currency.value),
             receivedFrom.value,
             hash.value,
-            timestamp
+            timestamp,
+            id.map(_.value)
           )
-        case position.Contribute(spent, to, fee, hash, timestamp) =>
+        case position.Contribute(spent, to, fee, hash, timestamp, id) =>
           Contribute(
             FungibleData(spent.amount, spent.currency.value),
             to.value,
             FungibleData(fee.amount, fee.currency.value),
             hash.value,
-            timestamp
+            timestamp,
+            id.map(_.value)
           )
-        case position.Sell(sold, received, fee, hash, timestamp) =>
+        case position.Sell(sold, received, fee, hash, timestamp, id) =>
           Sell(
             FungibleData(sold.amount, sold.currency.value),
             FungibleData(received.amount, received.currency.value),
             FungibleData(fee.amount, fee.currency.value),
             hash.value,
-            timestamp
+            timestamp,
+            id.map(_.value)
           )
-        case position.TransferIn(value, receivedFrom, fee, hash, timestamp) =>
+        case position.TransferIn(value, receivedFrom, fee, hash, timestamp, id) =>
           TransferIn(
             FungibleData(value.amount, value.currency.value),
             receivedFrom.value,
             FungibleData(fee.amount, fee.currency.value),
             hash.value,
-            timestamp
+            timestamp,
+            id.map(_.value)
           )
-        case position.TransferOut(amount, to, fee, hash, timestamp) =>
+        case position.TransferOut(amount, to, fee, hash, timestamp, id) =>
           TransferOut(
             FungibleData(amount.amount, amount.currency.value),
             to.value,
             FungibleData(fee.amount, fee.currency.value),
             hash.value,
-            timestamp
+            timestamp,
+            id.map(_.value)
           )
       }
 
@@ -221,7 +264,8 @@ object dto {
         value = t.value.asJson,
         fee = t.fee.asJson,
         totalFees = t.totalFees().map(_.asJson),
-        timestamp = t.timestamp
+        timestamp = t.timestamp,
+        id = t.id.map(_.value)
       )
 
     private def fromWithdrawal(t: CJWithdraw): Withdrawal =
@@ -230,7 +274,8 @@ object dto {
         value = t.value.asJson,
         fee = t.fee.asJson,
         totalFees = t.totalFees().map(_.asJson),
-        timestamp = t.timestamp
+        timestamp = t.timestamp,
+        id = t.id.map(_.value)
       )
   }
 

@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{Mistake, PlayId, Tag, UserId}
+import domain.model.{ Mistake, PlayId, Tag, UserId }
 import domain.position.model.ScamStrategy
 
 final case class JournalEntry(

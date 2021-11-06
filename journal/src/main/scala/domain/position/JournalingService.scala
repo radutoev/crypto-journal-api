@@ -3,8 +3,8 @@ package domain.position
 
 import domain.position.error._
 
-import io.softwarechain.cryptojournal.domain.model.{PlayId, UserId}
-import zio.{Function1ToLayerSyntax, Has, IO, URLayer}
+import io.softwarechain.cryptojournal.domain.model.{ PlayId, UserId }
+import zio.{ Function1ToLayerSyntax, Has, IO, URLayer }
 
 trait JournalingService {
   def saveJournalEntry(userId: UserId, positionId: PlayId, entry: JournalEntry): IO[JournalSaveError, Unit]

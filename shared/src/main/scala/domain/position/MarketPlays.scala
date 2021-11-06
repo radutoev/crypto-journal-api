@@ -3,8 +3,8 @@ package domain.position
 
 import domain.blockchain.Transaction
 import domain.model.fungible.OptionalFungibleDataOps
-import domain.model.{Currency, FungibleData, WBNB, WalletAddress}
-import util.{InstantOps, MarketPlaysListOps}
+import domain.model.{ Currency, FungibleData, WBNB, WalletAddress }
+import util.{ InstantOps, MarketPlaysListOps }
 import vo.TimeInterval
 
 import java.time.Instant
@@ -187,13 +187,13 @@ object MarketPlays {
 
   private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] =
     items.head match {
-      case AirDrop(receivedFrom, _, _, _, _)    => Some(receivedFrom)
-      case _: Approval                          => None
-      case Buy(_, _, _, coinAddress, _, _, _)   => Some(coinAddress)
-      case Claim(_, _, receivedFrom, _, _)      => Some(receivedFrom)
-      case Contribute(_, to, _, _, _)           => Some(to)
-      case _: Sell                              => None
-      case TransferIn(_, receivedFrom, _, _, _) => Some(receivedFrom)
-      case _: TransferOut                       => None
+      case AirDrop(receivedFrom, _, _, _, _, _)    => Some(receivedFrom)
+      case _: Approval                             => None
+      case Buy(_, _, _, coinAddress, _, _, _, _)   => Some(coinAddress)
+      case Claim(_, _, receivedFrom, _, _, _)      => Some(receivedFrom)
+      case Contribute(_, to, _, _, _, _)           => Some(to)
+      case _: Sell                                 => None
+      case TransferIn(_, receivedFrom, _, _, _, _) => Some(receivedFrom)
+      case _: TransferOut                          => None
     }
 }

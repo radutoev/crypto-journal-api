@@ -4,16 +4,23 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.position.error._
 import domain.position.model.ScamStrategy
-import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
-import infrastructure.google.datastore.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
-import util.{ListEitherOps, tryOrLeft}
+import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
+import infrastructure.google.datastore.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
+import util.{ tryOrLeft, ListEitherOps }
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import io.softwarechain.cryptojournal.domain.model.{MistakePredicate, PlayId, PlayIdPredicate, TagPredicate, UserId, UserIdPredicate}
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import io.softwarechain.cryptojournal.domain.model.{
+  MistakePredicate,
+  PlayId,
+  PlayIdPredicate,
+  TagPredicate,
+  UserId,
+  UserIdPredicate
+}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import scala.jdk.CollectionConverters._
 

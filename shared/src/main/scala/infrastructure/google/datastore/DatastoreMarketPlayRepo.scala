@@ -2,22 +2,32 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{ContextId, ContextIdPredicate, Currency, CurrencyPredicate, FungibleData, PlayId, PlayIdPredicate, TransactionHash, WalletAddress}
+import domain.model.{
+  ContextId,
+  ContextIdPredicate,
+  Currency,
+  CurrencyPredicate,
+  FungibleData,
+  PlayId,
+  PlayIdPredicate,
+  TransactionHash,
+  WalletAddress
+}
 import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
-import util.{InstantOps, ListEitherOps, tryOrLeft}
+import util.{ tryOrLeft, InstantOps, ListEitherOps }
 import vo.filter.PlayFilter
-import vo.pagination.{CursorPredicate, Page, PaginationContext}
+import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
-import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -291,19 +301,19 @@ final case class DatastoreMarketPlayRepo(
         var builder = Entity.newBuilder(key)
 
         builder = entry match {
-          case AirDrop(receivedFrom, _, received, _, _) =>
+          case AirDrop(receivedFrom, _, received, _, _, _) =>
             builder
               .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
               .set("type", StringValue.of("AirDrop"))
 
-          case Approval(_, forContract, _, _) =>
+          case Approval(_, forContract, _, _, _) =>
             builder
               .set("forContract", StringValue.of(forContract.value))
               .set("type", StringValue.of("Approval"))
 
-          case Buy(_, spent, received, coinAddress, _, _, spentOriginal) =>
+          case Buy(_, spent, received, coinAddress, _, _, spentOriginal, _) =>
             builder
               .set("spent", StringValue.of(spent.amount.toString()))
               .set("spentCurrency", StringValue.of(spent.currency.value))
@@ -317,21 +327,21 @@ final case class DatastoreMarketPlayRepo(
               .set("receivedCurrency", StringValue.of(received.currency.value))
               .set("type", StringValue.of("Buy"))
 
-          case Claim(_, received, receivedFrom, _, _) =>
+          case Claim(_, received, receivedFrom, _, _, _) =>
             builder
               .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
               .set("type", StringValue.of("Claim"))
 
-          case Contribute(spent, to, _, _, _) =>
+          case Contribute(spent, to, _, _, _, _) =>
             builder
               .set("spent", StringValue.of(spent.amount.toString()))
               .set("spentCurrency", StringValue.of(spent.currency.value))
               .set("to", StringValue.of(to.value))
               .set("type", StringValue.of("Contribute"))
 
-          case Sell(sold, received, _, _, _) =>
+          case Sell(sold, received, _, _, _, _) =>
             builder
               .set("sold", StringValue.of(sold.amount.toString()))
               .set("soldCurrency", StringValue.of(sold.currency.value))
@@ -339,14 +349,14 @@ final case class DatastoreMarketPlayRepo(
               .set("receivedCurrency", StringValue.of(received.currency.value))
               .set("type", StringValue.of("Sell"))
 
-          case TransferIn(value, receivedFrom, _, _, _) =>
+          case TransferIn(value, receivedFrom, _, _, _, _) =>
             builder
               .set("value", StringValue.of(value.amount.toString()))
               .set("valueCurrency", StringValue.of(value.currency.value))
               .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("type", StringValue.of("TransferIn"))
 
-          case TransferOut(amount, to, _, _, _) =>
+          case TransferOut(amount, to, _, _, _, _) =>
             builder
               .set("amount", StringValue.of(amount.amount.toString()))
               .set("amountCurrency", StringValue.of(amount.currency.value))
@@ -507,7 +517,8 @@ final case class DatastoreMarketPlayRepo(
                 fee,
                 received = FungibleData(received, receivedCurrency),
                 hash,
-                timestamp
+                timestamp,
+                Some(id)
               )
 
             case "Approval" =>
@@ -516,7 +527,7 @@ final case class DatastoreMarketPlayRepo(
                                 entity.getString("forContract"),
                                 InvalidRepresentation("Invalid receivedFrom representation")
                               ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
-              } yield Approval(FungibleData(feeAmount, feeCurrency), forContract, hash, timestamp)
+              } yield Approval(FungibleData(feeAmount, feeCurrency), forContract, hash, timestamp, Some(id))
 
             case "Buy" =>
               for {
@@ -560,7 +571,8 @@ final case class DatastoreMarketPlayRepo(
                 coinAddress,
                 hash,
                 timestamp,
-                spentOriginal
+                spentOriginal,
+                Some(id)
               )
 
             case "Claim" =>
@@ -577,7 +589,7 @@ final case class DatastoreMarketPlayRepo(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")
                                ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
-              } yield Claim(fee, FungibleData(received, receivedCurrency), receivedFrom, hash, timestamp)
+              } yield Claim(fee, FungibleData(received, receivedCurrency), receivedFrom, hash, timestamp, Some(id))
 
             case "Contribute" =>
               for {
@@ -593,7 +605,7 @@ final case class DatastoreMarketPlayRepo(
                        entity.getString("to"),
                        InvalidRepresentation("Invalid to representation")
                      ).map(rawTo => WalletAddress.unsafeFrom(rawTo))
-              } yield Contribute(FungibleData(spent, spentCurrency), to, fee, hash, timestamp)
+              } yield Contribute(FungibleData(spent, spentCurrency), to, fee, hash, timestamp, Some(id))
 
             case "Sell" =>
               for {
@@ -618,7 +630,8 @@ final case class DatastoreMarketPlayRepo(
                 FungibleData(received, receivedCurrency),
                 fee,
                 hash,
-                timestamp
+                timestamp,
+                Some(id)
               )
 
             case "TransferIn" =>
@@ -635,7 +648,7 @@ final case class DatastoreMarketPlayRepo(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")
                                ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
-              } yield TransferIn(FungibleData(value, valueCurrency), receivedFrom, fee, hash, timestamp)
+              } yield TransferIn(FungibleData(value, valueCurrency), receivedFrom, fee, hash, timestamp, Some(id))
 
             case "TransferOut" =>
               for {
@@ -651,7 +664,7 @@ final case class DatastoreMarketPlayRepo(
                        entity.getString("to"),
                        InvalidRepresentation("Invalid to representation")
                      ).map(rawTo => WalletAddress.unsafeFrom(rawTo))
-              } yield TransferOut(FungibleData(amount, amountCurrency), to, fee, hash, timestamp)
+              } yield TransferOut(FungibleData(amount, amountCurrency), to, fee, hash, timestamp, Some(id))
 
             case _ => Left(InvalidRepresentation(s"Invalid PositionEntry type $posType"))
           }
