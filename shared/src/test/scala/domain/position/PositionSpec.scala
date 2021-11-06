@@ -20,7 +20,19 @@ object PositionSpec extends DefaultRunnableSpec {
         assert(position.cost)(equalTo(Map(WBNB -> FungibleData(BigDecimal("0.63754087290031064"), WBNB), USD -> FungibleData(BigDecimal("300.432966715797795248663236085984"), USD)))) &&
         assert(position.fees)(equalTo(Map(WBNB -> FungibleData(BigDecimal("0.012934145"), WBNB), USD -> FungibleData(BigDecimal("6.1753836674609374056540"), USD)))) &&
         assert(position.totalCost)(equalTo(Map(WBNB -> FungibleData(BigDecimal("0.65047501790031064"), WBNB), USD -> FungibleData(BigDecimal("306.608350383258732654317236085984"), USD)))) &&
-        assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), USD))))
+        assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), USD)))) &&
+//        assert(position.fiatReturnPercentage)(isSome(equalTo())) &&
+//        assert(position.totalCoins)(equalTo()) &&
+//        assert(position.orderSize)(equalTo()) &&
+//        assert(position.numberOfCoins)(equalTo()) &&
+        assert(position.isWin)(isSome(equalTo(false))) &&
+        assert(position.isLoss)(isSome(equalTo(true))) &&
+        assert(position.state)(equalTo(Closed)) &&
+        assert(position.isOpen)(equalTo(false)) &&
+        assert(position.isClosed)(equalTo(true)) &&
+        assert(position.openedAt)(equalTo(Instant.parse("2021-10-18T11:38:19Z"))) &&
+        assert(position.closedAt)(isSome(equalTo(Instant.parse("2021-10-18T14:04:18Z"))))
+//        assert(position.holdTime)(isSome(equalTo()))
     }
   )
 
