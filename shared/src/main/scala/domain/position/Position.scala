@@ -1,9 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.fungible.{FungibleDataOps, OptionalFungibleDataOps}
 import domain.model._
+import domain.model.fungible.{FungibleDataOps, OptionalFungibleDataOps}
 import domain.pricequote.{PriceQuote, PriceQuotes}
+import util.ListOps.cond
 import util.ListOptionOps
 import vo.TimeInterval
 
@@ -40,29 +41,79 @@ final case class Position(
    *
    * FungibleDataGroup - it is semantically linked to a value, but it has different currencies.
    * */
-
-  /**
-   * Total cost is calculated from all outgoing values of DEX reference currency found in the positions entries.
-   * It is an absolute value.
-   *
-   * @return
-   */
-  lazy val totalFiatCost: Option[FungibleData] = {
-    totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
+  lazy val currency: Option[Currency] = {
+    val currencies = entries.map {
+      case a: AirDrop                         => Some(a.received.currency)
+      case _: Approval                        => None
+      case Buy(_, _, received, _, _, _, _, _) => Some(received.currency)
+      case Claim(_, received, _, _, _, _)     => Some(received.currency)
+      case _: Contribute                      => None
+      case Sell(sold, _, _, _, _, _)          => Some(sold.currency)
+      case TransferIn(amount, _, _, _, _, _)  => Some(amount.currency)
+      case TransferOut(amount, _, _, _, _, _) => Some(amount.currency)
+    }.values.distinct
+    if(currencies.size > 1) {
+      //Just a println atm, not sure if we need to treat this case, though it *should* be impossible to get to this point.
+      //However, as this is not enforced in types, so at compile time, I added this println here.
+      println(s"Found multiple currencies: ${currencies.mkString(",")} on position ${id.getOrElse("")}")
+    }
+    currencies.headOption
   }
 
+  lazy val cost: Map[Currency, FungibleData] = {
+    entries.flatMap {
+      case _: AirDrop  => List.empty
+      case _: Approval => List.empty
+      case Buy(_, spent, _, _, _, timestamp, spentOriginal, _) =>
+        List(spent) ++
+          cond(priceQuotes.isDefined && spent.currency == WBNB, () => priceQuotes.get.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD)).getOrElse(FungibleData.zero(USD))) ++
+          cond(spentOriginal.isDefined, () => spentOriginal.get)
+      case _: Claim => List.empty
+      case Contribute(spent, _, _, _, timestamp, _) =>
+        List(spent) ++
+          cond(priceQuotes.isDefined && spent.currency == WBNB, () => priceQuotes.get.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD)).getOrElse(FungibleData.zero(USD)))
+      case _: Sell        => List.empty
+      case _: TransferIn  => List.empty
+      case _: TransferOut => List.empty
+    }.sumByCurrency
+  }
+
+  lazy val fees: Map[Currency, FungibleData] = {
+    (for {
+      currency <- entries.headOption.map(_.fee.currency)
+      currencyFee = entries.map(_.fee).sumByCurrency.getOrElse(currency, FungibleData.zero(currency))
+      quotes   <- priceQuotes
+      quotedFee = entries.map(e => quotes.findPrice(e.timestamp).map(quote => e.fee.amount * quote.price).map(FungibleData(_, USD)).getOrElse(FungibleData.zero(USD))).sumOfCurrency(USD)
+    } yield Map(currency -> currencyFee, USD -> quotedFee)) getOrElse Map.empty
+  }
+
+  lazy val totalCost: Map[Currency, FungibleData] = {
+    (cost.toList ++ fees.toList).groupBy(_._1).view.mapValues(t => t.map(_._2).sumOfCurrency(t.head._1)).toMap
+  }
+
+
+//  /**
+//   * Total cost is calculated from all outgoing values of DEX reference currency found in the positions entries.
+//   * It is an absolute value.
+//   *
+//   * @return
+//   */
+//  lazy val totalFiatCost: Option[FungibleData] = {
+//    totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
+//  }
+//
   /**
    * @return Fiat sum of all fees for all entries in this position
    */
-  lazy val totalFees: Option[FungibleData] = {
-    priceQuotes.map(quotes =>
-      entries
-        .flatMap(entry =>
-          quotes.findPrice(entry.timestamp).map(quote => entry.fee.amount * quote.price).map(FungibleData(_, USD))
-        )
-        .sumByCurrency
-        .getOrElse(USD, FungibleData.zero(USD))
-    )
+  lazy val totalFees: Option[FungibleData] = { None
+//    priceQuotes.map(quotes =>
+//      entries
+//        .flatMap(entry =>
+//          quotes.findPrice(entry.timestamp).map(quote => entry.fee.amount * quote.price).map(FungibleData(_, USD))
+//        )
+//        .sumByCurrency
+//        .getOrElse(USD, FungibleData.zero(USD))
+//    )
   }
 
   /**
@@ -72,27 +123,27 @@ final case class Position(
    * None if position is not closed or no price quotes are given for the position interval.
    * FungibleData for a closed position.
    */
-  lazy val fiatReturn: Option[FungibleData] = {
-    if (state == Closed) {
-      totalFiatCost.map(cost => fiatSellValue.subtract(cost.amount))
-    } else {
-      None
-    }
+  lazy val fiatReturn: Option[FungibleData] = { None
+//    if (state == Closed) {
+//      totalFiatCost.map(cost => fiatSellValue.subtract(cost.amount))
+//    } else {
+//      None
+//    }
   }
 
   /**
    * Percentage difference calculated as:
    * ((totalCost - fiatReturn) / totalCost) * 100.
    */
-  lazy val fiatReturnPercentage: Option[BigDecimal] =
-    if (state == Open) {
-      None
-    } else {
-      for {
-        totalCost  <- totalFiatCost
-        fiatReturn <- fiatReturn
-      } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount + totalCost.amount)
-    }
+  lazy val fiatReturnPercentage: Option[BigDecimal] = None
+//    if (state == Open) {
+//      None
+//    } else {
+//      for {
+//        totalCost  <- totalFiatCost
+//        fiatReturn <- fiatReturn
+//      } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount + totalCost.amount)
+//    }
 
   /**
    * @return Total number of coins that were bought within this position
@@ -222,25 +273,6 @@ final case class Position(
         case _ => None
       }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
     }.getOrElse(FungibleData.zero(USD))
-  }
-
-  lazy val currency: Option[Currency] = {
-    val currencies = entries.map {
-      case a: AirDrop                         => Some(a.received.currency)
-      case _: Approval                        => None
-      case Buy(_, _, received, _, _, _, _, _) => Some(received.currency)
-      case Claim(_, received, _, _, _, _)     => Some(received.currency)
-      case _: Contribute                      => None
-      case Sell(sold, _, _, _, _, _)          => Some(sold.currency)
-      case TransferIn(amount, _, _, _, _, _)  => Some(amount.currency)
-      case TransferOut(amount, _, _, _, _, _) => Some(amount.currency)
-    }.values.distinct
-    if(currencies.size > 1) {
-      //Just a println atm, not sure if we need to treat this case, though it *should* be impossible to get to this point.
-      //However, as this is not enforced in types, so at compile time, I added this println here.
-      println(s"Found multiple currencies: ${currencies.mkString(",")} on position ${id.getOrElse("")}")
-    }
-    currencies.headOption
   }
 
   def inInterval(interval: TimeInterval): Boolean = {

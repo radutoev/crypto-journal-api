@@ -73,6 +73,10 @@ object fungible {
       list.groupBy(_.currency).map { case (currency, values) =>
         currency -> values.foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => acc.add(value.amount))
       }
+
+    def sumOfCurrency(currency: Currency): FungibleData = {
+      list.filter(_.currency == currency).foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => acc.add(value.amount))
+    }
   }
 
   implicit class OptionalFungibleDataOps(list: List[Option[FungibleData]]) {

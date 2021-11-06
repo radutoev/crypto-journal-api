@@ -34,6 +34,10 @@ package object util {
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)
   }
 
+  object ListOps {
+    def cond[T]( p : => Boolean, v : () => T ) : List[T] = if(p) v.apply() :: Nil else Nil
+  }
+
   implicit class ListEitherOps[Err, Value](list: List[Either[Err, Value]]) {
     lazy val rights: List[Value] = list.collect {
       case Right(value) => value
