@@ -38,6 +38,15 @@ final case class Position(
    * 3. Total Cost (fiat, crypto) - sums up fees.
    * 4. Position Return (USD and BNB + percentage)
    * 5. Traded Currency.
+   *
+   *
+   * currency -> should be only one?
+   * fees -> List[FungibleData] with BNB and dollar.
+   * cost -> List[FungibleData] with BNB, dollar and other possible coins that were used for the purchase
+   * total_cost -> List[FungibleData] of fees + cost whenever applicable.
+   * sellValue -> List[FungibleData] of what coins we received (BNB, do we have BUSD here)
+   * positionReturn -> computed using total_cost and sell_value; also a List[FungibleData]
+   * returnPercentage -> computed using total_cost and positionReturn of only one currency.
    * */
 
   /**
@@ -205,9 +214,8 @@ final case class Position(
     }.getOrElse(FungibleData.zero(USD))
   }
 
-  //TODO Ensure I have only one currency.
   lazy val currency: Option[Currency] = {
-    entries.map {
+    val currencies = entries.map {
       case a: AirDrop                         => Some(a.received.currency)
       case _: Approval                        => None
       case Buy(_, _, received, _, _, _, _, _) => Some(received.currency)
@@ -216,10 +224,13 @@ final case class Position(
       case Sell(sold, _, _, _, _, _)          => Some(sold.currency)
       case TransferIn(amount, _, _, _, _, _)  => Some(amount.currency)
       case TransferOut(amount, _, _, _, _, _) => Some(amount.currency)
-    }.values
-      .filter(c => !Set(WBNB).contains(c))
-      .distinct
-      .headOption
+    }.values.distinct
+    if(currencies.size > 1) {
+      //Just a println atm, not sure if we need to treat this case, though it *should* be impossible to get to this point.
+      //However, as this is not enforced in types, so at compile time, I added this println here.
+      println(s"Found multiple currencies: ${currencies.mkString(",")} on position ${id.getOrElse("")}")
+    }
+    currencies.headOption
   }
 
   def inInterval(interval: TimeInterval): Boolean = {
