@@ -1,11 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ Fee, FungibleData, PlayId, TransactionHash }
+import domain.model._
 import domain.pricequote.PriceQuotes
-
-import eu.timepit.refined
-import eu.timepit.refined.collection.NonEmpty
+import util.ListOps.cond
 
 import java.time.Instant
 
@@ -19,10 +17,12 @@ final case class Withdraw(
 ) extends MarketPlay {
   override def openedAt: Instant = timestamp
 
-  override def totalFees(): Option[Fee] = priceQuotes.flatMap { quotes =>
-    quotes
-      .findPrice(timestamp)
-      .map(quote => fee.amount * quote.price)
-      .map(fiatFee => FungibleData(fiatFee, refined.refineV[NonEmpty].unsafeFrom("USD")))
+  lazy val fees: Map[Currency, Fee] = {
+    (List(fee.currency -> fee) ++
+      cond(priceQuotes.isDefined, () => USD -> priceQuotes.get.findPrice(timestamp)
+        .map(quote => quote.price * fee.amount)
+        .map(FungibleData(_, USD))
+        .getOrElse(FungibleData.zero(USD))
+      )).toMap
   }
 }

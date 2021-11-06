@@ -102,19 +102,6 @@ final case class Position(
 //    totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
 //  }
 //
-  /**
-   * @return Fiat sum of all fees for all entries in this position
-   */
-  lazy val totalFees: Option[FungibleData] = { None
-//    priceQuotes.map(quotes =>
-//      entries
-//        .flatMap(entry =>
-//          quotes.findPrice(entry.timestamp).map(quote => entry.fee.amount * quote.price).map(FungibleData(_, USD))
-//        )
-//        .sumByCurrency
-//        .getOrElse(USD, FungibleData.zero(USD))
-//    )
-  }
 
   /**
    * Position return derived from all position entries associated with this position.

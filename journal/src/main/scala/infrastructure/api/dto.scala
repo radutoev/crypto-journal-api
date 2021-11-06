@@ -35,8 +35,7 @@ object dto {
   final case class TopUp(
     hash: String,
     value: FungibleData,
-    fee: FungibleData,
-    totalFees: Option[FungibleData],
+    fees: Map[String, FungibleData],
     timestamp: Instant,
     id: Option[String]
   ) extends MarketPlay
@@ -44,8 +43,7 @@ object dto {
   final case class Withdrawal(
     hash: String,
     value: FungibleData,
-    fee: FungibleData,
-    totalFees: Option[FungibleData],
+    fees: Map[String, FungibleData],
     timestamp: Instant,
     id: Option[String]
   ) extends MarketPlay
@@ -262,8 +260,7 @@ object dto {
       TopUp(
         hash = t.txHash.value,
         value = t.value.asJson,
-        fee = t.fee.asJson,
-        totalFees = t.totalFees().map(_.asJson),
+        fees = t.fees.map { case (currency, fee) => currency.value -> fee.asJson },
         timestamp = t.timestamp,
         id = t.id.map(_.value)
       )
@@ -272,8 +269,7 @@ object dto {
       Withdrawal(
         hash = t.txHash.value,
         value = t.value.asJson,
-        fee = t.fee.asJson,
-        totalFees = t.totalFees().map(_.asJson),
+        fees = t.fees.map { case (currency, fee) => currency.value -> fee.asJson },
         timestamp = t.timestamp,
         id = t.id.map(_.value)
       )

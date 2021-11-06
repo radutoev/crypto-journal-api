@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ FungibleData, PlayId }
+import domain.model.{Currency, FungibleData, PlayId}
 
 import java.time.Instant
 
@@ -10,5 +10,5 @@ trait MarketPlay {
 
   def openedAt: Instant
 
-  def totalFees(): Option[FungibleData]
+  def fees(): Map[Currency, FungibleData]
 }
