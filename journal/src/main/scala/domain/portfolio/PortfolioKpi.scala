@@ -1,20 +1,20 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.fungible.{ FungibleDataKeyOps, FungibleDataOps }
+import domain.model.fungible.{FungibleDataKeyOps, FungibleDataOps}
 import domain.model._
-import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate }
-import domain.position.{ MarketPlays, Position }
-import util.InstantOps
+import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
+import domain.position.{MarketPlays, Position}
+import util.{InstantOps, ListOptionOps}
 import vo.filter.Count
-import vo.{ PeriodDistribution, TimeInterval }
+import vo.{PeriodDistribution, TimeInterval}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
 import java.time.format.DateTimeFormatter
-import java.time.{ DayOfWeek, Duration, Month, ZoneId }
+import java.time.{DayOfWeek, Duration, Month, ZoneId}
 
 /**
  * @param marketPlays source to compute the KPIs for
@@ -64,10 +64,9 @@ final case class PortfolioKpi(
   lazy val totalFees: FungibleData = {
     marketPlays.plays
       .map(_.totalFees())
-      .collect {
-        case Some(fee) => fee
-      }
-      .sumFungibleData()
+      .values
+      .sumByCurrency
+      .getOrElse(WBNB, FungibleData.zero(WBNB))
   }
 
   /**
@@ -191,7 +190,7 @@ final case class PortfolioKpi(
         case (Some(currency), listOfPositions) =>
           (
             currency,
-            listOfPositions.map(_.fiatReturn.getOrElse(FungibleData.zero(USDCurrency))).sumFungibleData(),
+            listOfPositions.map(_.fiatReturn.getOrElse(FungibleData.zero(USD))).sumByCurrency.getOrElse(USD, FungibleData.zero(USD)),
             listOfPositions.map(_.fiatReturnPercentage.getOrElse(BigDecimal(0))).sum
           )
       }
@@ -204,7 +203,7 @@ final case class PortfolioKpi(
       .map(p => p.closedAt.get.toLocalDate().atStartOfDay() -> p.fiatReturn.get)
       .groupBy(_._1)
       .view
-      .mapValues(_.map(_._2).sumFungibleData())
+      .mapValues(_.map(_._2).sumByCurrency.getOrElse(USD, FungibleData.zero(USD)))
       .toList
 
     val returnByDay   = returnByDate.map(t => t._1.getDayOfWeek -> t._2).sumByKey()
@@ -212,9 +211,9 @@ final case class PortfolioKpi(
     val returnByYear  = returnByDate.map(t => t._1.getYear      -> t._2).sumByKey()
 
     PeriodDistribution(
-      weekly = DayOfWeek.values().map(day => returnByDay.getOrElse(day, FungibleData.zero(USDCurrency))).toList,
-      monthly = Month.values().map(month => returnByMonth.getOrElse(month, FungibleData.zero(USDCurrency))).toList,
-      yearly = interval.years().map(year => year -> returnByYear.getOrElse(year, FungibleData.zero(USDCurrency))).toMap
+      weekly = DayOfWeek.values().map(day => returnByDay.get(day).flatMap(_.get(USD)).getOrElse(FungibleData.zero(USD))).toList,
+      monthly = Month.values().map(month => returnByMonth.get(month).flatMap(_.get(USD)).getOrElse(FungibleData.zero(USD))).toList,
+      yearly = interval.years().map(year => year -> returnByYear.get(year).flatMap(_.get(USD)).getOrElse(FungibleData.zero(USD))).toMap
     )
   }
 
@@ -224,8 +223,10 @@ final case class PortfolioKpi(
     }
     val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
-        journal.tags.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(USDCurrency)))
-    }.sumByKey()
+        journal.tags.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(USD)))
+    }.sumByKey().map { case (tag, currencySum) =>
+      tag -> currencySum.getOrElse(USD, FungibleData.zero(USD))
+    }
 
     val positionToReturnPercentage = journaledPositions.flatMap {
       case (journal, p) =>
@@ -245,8 +246,10 @@ final case class PortfolioKpi(
 
     val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
-        journal.mistakes.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(USDCurrency)))
-    }.sumByKey()
+        journal.mistakes.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(USD)))
+    }.sumByKey().map { case (mistake, currencySum) =>
+      mistake -> currencySum.getOrElse(USD, FungibleData.zero(USD))
+    }
 
     val positionToReturnPercentage = journaledPositions.flatMap {
       case (journal, p) =>
@@ -274,8 +277,6 @@ final case class PortfolioKpi(
           refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
       }
   }
-
-  private val USDCurrency: Currency = refineV.unsafeFrom("USD")
 
   private val DayFormatter = DateTimeFormatter
     .ofPattern("yyyy-MM-dd")

@@ -1,13 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.fungible.FungibleDataOps
+import domain.model.fungible.{FungibleDataOps, OptionalFungibleDataOps}
 import domain.model._
-import domain.pricequote.{ PriceQuote, PriceQuotes }
+import domain.pricequote.{PriceQuote, PriceQuotes}
 import util.ListOptionOps
 import vo.TimeInterval
 
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
 
 final case class Position(
   entries: List[PositionEntry],
@@ -21,16 +21,6 @@ final case class Position(
    * Number of transactions that are part of this position.
    */
   lazy val numberOfExecutions: Int = entries.map(_.hash).distinct.size
-
-  /**
-   * Total cost is calculated from all outgoing values of DEX reference currency found in the positions entries.
-   * It is an absolute value.
-   *
-   * @return
-   */
-  lazy val totalFiatCost: Option[FungibleData] = {
-    totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
-  }
 
   /**
    * 1. Fees - fiat and bnb
@@ -47,7 +37,19 @@ final case class Position(
    * sellValue -> List[FungibleData] of what coins we received (BNB, do we have BUSD here)
    * positionReturn -> computed using total_cost and sell_value; also a List[FungibleData]
    * returnPercentage -> computed using total_cost and positionReturn of only one currency.
+   *
+   * FungibleDataGroup - it is semantically linked to a value, but it has different currencies.
    * */
+
+  /**
+   * Total cost is calculated from all outgoing values of DEX reference currency found in the positions entries.
+   * It is an absolute value.
+   *
+   * @return
+   */
+  lazy val totalFiatCost: Option[FungibleData] = {
+    totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
+  }
 
   /**
    * @return Fiat sum of all fees for all entries in this position
@@ -58,7 +60,8 @@ final case class Position(
         .flatMap(entry =>
           quotes.findPrice(entry.timestamp).map(quote => entry.fee.amount * quote.price).map(FungibleData(_, USD))
         )
-        .sumFungibleData()
+        .sumByCurrency
+        .getOrElse(USD, FungibleData.zero(USD))
     )
   }
 
@@ -95,7 +98,7 @@ final case class Position(
    * @return Total number of coins that were bought within this position
    */
   lazy val totalCoins: FungibleData = {
-    entries.map {
+    lazy val coinsByCurrency = entries.map {
       case AirDrop(_, _, received, _, _, _)   => Some(received)
       case _: Approval                        => None
       case Buy(_, _, received, _, _, _, _, _) => Some(received)
@@ -104,7 +107,9 @@ final case class Position(
       case _: Sell                            => None
       case t: TransferIn                      => Some(t.value)
       case _: TransferOut                     => None
-    }.values.sumFungibleData()
+    }.values.sumByCurrency
+
+    currency.flatMap(coinsByCurrency.get).getOrElse(FungibleData.zero(WBNB))
   }
 
   lazy val orderSize: BigDecimal = totalCoins.amount
@@ -143,8 +148,8 @@ final case class Position(
   /**
    * Number of coins that are part of this Position
    */
-  lazy val numberOfCoins: BigDecimal =
-    entries.map {
+  lazy val numberOfCoins: BigDecimal = {
+    lazy val coinsByCurrency = entries.map {
       case AirDrop(_, _, received, _, _, _)   => Some(received)
       case _: Approval                        => None
       case Buy(_, _, received, _, _, _, _, _) => Some(received)
@@ -153,7 +158,12 @@ final case class Position(
       case Sell(sold, _, _, _, _, _)          => Some(sold.negate())
       case t: TransferIn                      => Some(t.value)
       case TransferOut(amount, _, _, _, _, _) => Some(amount.negate())
-    }.values.sumFungibleData().amount
+    }.sumByCurrency
+
+    currency.map(value => coinsByCurrency.getOrElse(value, FungibleData.zero(value)))
+      .map(_.amount)
+      .getOrElse(BigDecimal(0))
+  }
 
   lazy val isWin: Option[Boolean] = fiatReturn.map(_.amount.compareTo(BigDecimal(0)) > 0)
 
@@ -196,7 +206,7 @@ final case class Position(
         case _: Sell        => None
         case _: TransferIn  => None
         case _: TransferOut => None
-      }.values.sumFungibleData()
+      }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
     }.getOrElse(FungibleData.zero(USD))
   }
 
@@ -210,7 +220,7 @@ final case class Position(
             None
           }
         case _ => None
-      }.values.sumFungibleData()
+      }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
     }.getOrElse(FungibleData.zero(USD))
   }
 

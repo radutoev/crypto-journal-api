@@ -64,11 +64,15 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   def filter(interval: TimeInterval): MarketPlays =
     MarketPlays(positions.filter(_.inInterval(interval)))
 
-  def trend(of: Position => Option[FungibleData]): List[FungibleData] =
-    positions.headOption.map(_.openedAt).fold[List[FungibleData]](List.empty) { openedAt =>
-      val interval = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
-      interval.days().map(day => filter(TimeInterval(interval.start, day)).positions.map(of).sumFungibleData())
-    }
+  def trend(of: Position => Option[FungibleData]): List[FungibleData] = {
+    (for {
+      reference <- positions.headOption
+      openedAt  = reference.openedAt
+      currency  <- reference.currency
+      interval = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
+    } yield interval.days().map(day => filter(TimeInterval(interval.start, day)).positions.map(of).sumByCurrency.getOrElse(currency, FungibleData.zero(currency))))
+      .getOrElse(List.empty)
+  }
 }
 
 object MarketPlays {

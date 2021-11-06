@@ -1,8 +1,8 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.FungibleData
-import domain.model.FungibleData.{ Bigger, Equal, Lower }
+import domain.model.{FungibleData, USD}
+import domain.model.FungibleData.{Bigger, Equal, Lower}
 import domain.model.fungible.OptionalFungibleDataOps
 import domain.portfolio.model.Performance.NoChangeInPerformance
 import domain.portfolio.model._
@@ -13,7 +13,8 @@ final case class NetReturn(marketPlays: MarketPlays) {
   lazy val value: FungibleData = marketPlays.closedPositions
     .filterNot(_.journal.exists(_.scamStrategy.exists(_ == HideFromStats)))
     .map(_.fiatReturn)
-    .sumFungibleData()
+    .sumByCurrency
+    .getOrElse(USD, FungibleData.zero(USD))
 
   lazy val trend: List[FungibleData] = marketPlays.trend(_.fiatReturn)
 

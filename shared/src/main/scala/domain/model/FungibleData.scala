@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.model
 
-import domain.model.FungibleData.{ Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower }
+import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
 
 import currencyops.CurrencyOps
-import util.math
+import util.{ListOptionOps, math}
 
 final case class FungibleData(amount: BigDecimal, currency: Currency) {
   def add(value: BigDecimal): FungibleData = copy(amount = amount + value)
@@ -69,19 +69,20 @@ object FungibleData {
 
 object fungible {
   implicit class FungibleDataOps(list: List[FungibleData]) {
-    def sumFungibleData(): FungibleData =
-      list.foldLeft(FungibleData(BigDecimal(0), USD))((acc, value) => acc.add(value.amount))
+    lazy val sumByCurrency: Map[Currency, FungibleData] =
+      list.groupBy(_.currency).map { case (currency, values) =>
+        currency -> values.foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => acc.add(value.amount))
+      }
   }
 
   implicit class OptionalFungibleDataOps(list: List[Option[FungibleData]]) {
-    def sumFungibleData(): FungibleData =
-      list.collect {
-        case Some(value) => value
-      }.sumFungibleData()
+    lazy val sumByCurrency: Map[Currency, FungibleData]  = {
+      list.values.sumByCurrency
+    }
   }
 
   implicit class FungibleDataKeyOps[Key](items: List[(Key, FungibleData)]) {
-    def sumByKey(): Map[Key, FungibleData] =
-      items.groupBy(_._1).view.mapValues(_.map(_._2).sumFungibleData()).toMap
+    def sumByKey(): Map[Key, Map[Currency, FungibleData]] =
+      items.groupBy(_._1).view.mapValues(_.map(_._2).sumByCurrency).toMap
   }
 }
