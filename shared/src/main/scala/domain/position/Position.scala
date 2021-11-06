@@ -23,24 +23,6 @@ final case class Position(
    */
   lazy val numberOfExecutions: Int = entries.map(_.hash).distinct.size
 
-  /**
-   * 1. Fees - fiat and bnb
-   * 2. Cost (fiat, crypto ~ should have BNB with optional BUSD)
-   * 3. Total Cost (fiat, crypto) - sums up fees.
-   * 4. Position Return (USD and BNB + percentage)
-   * 5. Traded Currency.
-   *
-   *
-   * currency -> should be only one?
-   * fees -> List[FungibleData] with BNB and dollar.
-   * cost -> List[FungibleData] with BNB, dollar and other possible coins that were used for the purchase
-   * total_cost -> List[FungibleData] of fees + cost whenever applicable.
-   * sellValue -> List[FungibleData] of what coins we received (BNB, do we have BUSD here)
-   * positionReturn -> computed using total_cost and sell_value; also a List[FungibleData]
-   * returnPercentage -> computed using total_cost and positionReturn of only one currency.
-   *
-   * FungibleDataGroup - it is semantically linked to a value, but it has different currencies.
-   * */
   lazy val currency: Option[Currency] = {
     val currencies = entries.map {
       case a: AirDrop                         => Some(a.received.currency)
@@ -91,18 +73,6 @@ final case class Position(
     (cost.toList ++ fees.toList).groupBy(_._1).view.mapValues(t => t.map(_._2).sumOfCurrency(t.head._1)).toMap
   }
 
-
-//  /**
-//   * Total cost is calculated from all outgoing values of DEX reference currency found in the positions entries.
-//   * It is an absolute value.
-//   *
-//   * @return
-//   */
-//  lazy val totalFiatCost: Option[FungibleData] = {
-//    totalFees.map(fees => FungibleData(fiatCost.add(fees.amount).amount.abs, USD))
-//  }
-//
-
   /**
    * Position return derived from all position entries associated with this position.
    *
@@ -110,27 +80,27 @@ final case class Position(
    * None if position is not closed or no price quotes are given for the position interval.
    * FungibleData for a closed position.
    */
-  lazy val fiatReturn: Option[FungibleData] = { None
-//    if (state == Closed) {
-//      totalFiatCost.map(cost => fiatSellValue.subtract(cost.amount))
-//    } else {
-//      None
-//    }
+  lazy val fiatReturn: Option[FungibleData] = {
+    if (state == Closed) {
+      totalCost.get(USD).map(cost => fiatSellValue.subtract(cost.amount))
+    } else {
+      None
+    }
   }
 
   /**
    * Percentage difference calculated as:
    * ((totalCost - fiatReturn) / totalCost) * 100.
    */
-  lazy val fiatReturnPercentage: Option[BigDecimal] = None
-//    if (state == Open) {
-//      None
-//    } else {
-//      for {
-//        totalCost  <- totalFiatCost
-//        fiatReturn <- fiatReturn
-//      } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount + totalCost.amount)
-//    }
+  lazy val fiatReturnPercentage: Option[BigDecimal] =
+    if (state == Open) {
+      None
+    } else {
+      for {
+        totalCost  <- totalCost.get(USD)
+        fiatReturn <- fiatReturn
+      } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount + totalCost.amount)
+    }
 
   /**
    * @return Total number of coins that were bought within this position
@@ -207,7 +177,7 @@ final case class Position(
 
   lazy val isLoss: Option[Boolean] = isWin.map(b => !b)
 
-  def state: State =
+  lazy val state: State =
     entries.lastOption.fold[State](Open) {
       case _: Sell => Closed
       case _       => Open
@@ -224,29 +194,6 @@ final case class Position(
   }
 
   lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
-
-  lazy val fiatCost: FungibleData = {
-    priceQuotes.map { quotes =>
-      entries.map {
-        case _: AirDrop  => None
-        case _: Approval => None
-        case Buy(_, spent, _, _, _, timestamp, _, _) =>
-          if (spent.currency == WBNB) {
-            quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
-          } else {
-            None
-          }
-        case _: Claim => None
-        case Contribute(spent, _, _, _, timestamp, _) =>
-          if (spent.currency == WBNB) {
-            quotes.findPrice(timestamp).map(quote => spent.amount * quote.price).map(FungibleData(_, USD))
-          } else None
-        case _: Sell        => None
-        case _: TransferIn  => None
-        case _: TransferOut => None
-      }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
-    }.getOrElse(FungibleData.zero(USD))
-  }
 
   private lazy val fiatSellValue: FungibleData = {
     priceQuotes.map { quotes =>

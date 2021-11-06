@@ -63,7 +63,7 @@ final case class PortfolioKpi(
    */
   lazy val totalFees: FungibleData = {
     marketPlays.plays
-      .map(_.totalFees())
+      .map(_.fees().get(WBNB))
       .values
       .sumByCurrency
       .getOrElse(WBNB, FungibleData.zero(WBNB))
