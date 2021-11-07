@@ -69,6 +69,15 @@ final case class DatastoreMarketPlayRepo(
     }
   }
 
+  override def getPlays(address: WalletAddress): IO[MarketPlayError, List[MarketPlay]] =
+    doFetchPlays(address, Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.marketPlay)
+      .setFilter(PropertyFilter.eq("address", address.value))
+      .addOrderBy(OrderBy.desc("openedAt"))
+      .build()
+    )
+
   override def getPlays(
     address: WalletAddress,
     playFilter: PlayFilter

@@ -1,15 +1,33 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
+import domain.model.FungibleData.{Bigger, Equal, Lower}
+import domain.model.{FungibleData, USD, WalletAddress}
+import domain.portfolio.error.PortfolioError
 import domain.portfolio.model.Performance.NoChangeInPerformance
-import domain.portfolio.model.{ Decrease, Increase, Performance }
-import domain.position.model.HideFromStats
-import domain.position.{ MarketPlays, Position }
+import domain.portfolio.model.{Decrease, Increase, Performance}
+import domain.position.{MarketPlayService, MarketPlays}
 
-import io.softwarechain.cryptojournal.domain.model.FungibleData.{ Bigger, Equal, Lower }
-import io.softwarechain.cryptojournal.domain.model.{ FungibleData, USD }
+import zio.IO
+import zio.logging.Logger
 
-case class AccountBalance(marketPlays: MarketPlays) {
+trait AccountBalance {
+  def value(address: WalletAddress): IO[PortfolioError, FungibleData]
+}
+
+final case class LiveAccountBalance(marketPlaysService: MarketPlayService,
+                                    logger: Logger[String]) extends AccountBalance {
+  override def value(address: WalletAddress): IO[PortfolioError, FungibleData] = {
+    for {
+      _ <- logger.info(s"Computing account balance for ${address.value}")
+//      plays <- marketPlaysService.getPlays()
+    } yield null
+  }
+}
+
+//final case class
+
+final case class AccountBalance1(marketPlays: MarketPlays) {
   //TODO Should the value for the account balance take into consideration the fees as well?
   lazy val value: FungibleData = FungibleData.zero(USD)
 //    marketPlays.plays
@@ -23,24 +41,24 @@ case class AccountBalance(marketPlays: MarketPlays) {
   //TODO Reimplement this
   lazy val trend: List[FungibleData] = List.empty // marketPlays.trend(_.fiatValue())
 
-  def performance(relativeTo: AccountBalance): Performance =
-    value.compare(relativeTo.value) match {
-      case Left(_) => NoChangeInPerformance
-      case Right(comparisonResult) =>
-        comparisonResult match {
-          case Equal => NoChangeInPerformance
-          case Bigger =>
-            Performance(
-              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
-              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
-              trend = Increase
-            )
-          case Lower =>
-            Performance(
-              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
-              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
-              trend = Decrease
-            )
-        }
-    }
+  def performance(relativeTo: AccountBalance): Performance = ???
+//    value.compare(relativeTo.value) match {
+//      case Left(_) => NoChangeInPerformance
+//      case Right(comparisonResult) =>
+//        comparisonResult match {
+//          case Equal => NoChangeInPerformance
+//          case Bigger =>
+//            Performance(
+//              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
+//              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
+//              trend = Increase
+//            )
+//          case Lower =>
+//            Performance(
+//              absolute = value.difference(relativeTo.value).getOrElse(BigDecimal(0)),
+//              percentage = value.percentageDifference(relativeTo.value).getOrElse(BigDecimal(0)),
+//              trend = Decrease
+//            )
+//        }
+//    }
 }

@@ -11,6 +11,8 @@ import zio.{ Has, IO, Task, ZIO }
 trait MarketPlayRepo {
   def save(address: WalletAddress, positions: List[MarketPlay]): Task[Unit]
 
+  def getPlays(address: WalletAddress): IO[MarketPlayError, List[MarketPlay]]
+
   def getPlays(address: WalletAddress, filter: PlayFilter): IO[MarketPlayError, List[MarketPlay]]
 
   def getPlays(

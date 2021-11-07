@@ -2,23 +2,25 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{ BlockchainRepo, Transaction }
+import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.model.{ContextId, PlayId, UserId, WalletAddress}
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import domain.wallet.Wallet
 import util.MarketPlaysListOps
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
-import io.softwarechain.cryptojournal.domain.model.{ ContextId, PlayId, UserId, WalletAddress }
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 
 trait MarketPlayService {
+  def getPlays(userWallet: Wallet, includeJournaling: Boolean): IO[MarketPlayError, MarketPlays]
+
   def getPlays(userWallet: Wallet, filter: PlayFilter): IO[MarketPlayError, MarketPlays]
 
   def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
@@ -57,6 +59,15 @@ final case class LiveMarketPlayService(
   journalingRepo: JournalingRepo,
   logger: Logger[String]
 ) extends MarketPlayService {
+
+  override def getPlays(userWallet: Wallet,
+                        includeJournaling: Boolean): IO[MarketPlayError, MarketPlays] = {
+    positionRepo
+      .getPlays(userWallet.address)
+      .flatMap(enrichPlays)
+      .mapBoth(_ => MarketPlaysFetchError(userWallet.address), MarketPlays(_))
+  }
+
   override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
     for {
       marketPlays <- positionRepo

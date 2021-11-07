@@ -314,7 +314,7 @@ object dto {
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi =
       new PortfolioKpi(
-        ValueTrendComparison.fromAccountBalance(kpi.balance, AccountBalance(kpi.referenceMarketPlays)),
+        ValueTrendComparison.fromAccountBalance(kpi.balance, null), //TODO Come back to this one -> AccountBalance(kpi.referenceMarketPlays)),
         kpi.tradeCount,
         kpi.winRate,
         kpi.loseRate,
@@ -335,12 +335,12 @@ object dto {
         Performance(netReturn.performance(compareWith))
       )
 
-    def fromAccountBalance(balance: AccountBalance, compareWith: AccountBalance): ValueTrendComparison =
-      new ValueTrendComparison(
-        balance.value.asJson,
-        balance.trend.map(_.amount),
-        Performance(balance.performance(compareWith))
-      )
+    def fromAccountBalance(balance: AccountBalance, compareWith: AccountBalance): ValueTrendComparison = ??? //TODO Re-implement this.
+//      new ValueTrendComparison(
+//        balance.value.asJson,
+//        balance.trend.map(_.amount),
+//        Performance(balance.performance(compareWith))
+//      )
   }
 
   final case class Performance(absolute: BigDecimal, percentage: BigDecimal, trend: String)
