@@ -71,7 +71,13 @@ object fungible {
   implicit class FungibleDataOps(list: List[FungibleData]) {
     lazy val sumByCurrency: Map[Currency, FungibleData] =
       list.groupBy(_.currency).map { case (currency, values) =>
-        currency -> values.foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => acc.add(value.amount))
+        currency -> values.foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => {
+          if(value.amount >= BigDecimal(0)) {
+            acc.add(value.amount)
+          } else {
+            acc.subtract(value.amount)
+          }
+        })
       }
 
     def sumOfCurrency(currency: Currency): FungibleData = {

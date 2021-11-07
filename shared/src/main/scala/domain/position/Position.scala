@@ -100,7 +100,7 @@ final case class Position(
       for {
         totalCost  <- totalCost.get(USD)
         fiatReturn <- fiatReturn
-      } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount + totalCost.amount)
+      } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount)
     }
 
   /**
@@ -158,7 +158,7 @@ final case class Position(
    * Number of coins that are part of this Position
    */
   lazy val numberOfCoins: BigDecimal = {
-    lazy val coinsByCurrency = entries.map {
+    lazy val currentCoins = entries.map {
       case AirDrop(_, _, received, _, _, _)   => Some(received)
       case _: Approval                        => None
       case Buy(_, _, received, _, _, _, _, _) => Some(received)
@@ -167,7 +167,9 @@ final case class Position(
       case Sell(sold, _, _, _, _, _)          => Some(sold.negate())
       case t: TransferIn                      => Some(t.value)
       case TransferOut(amount, _, _, _, _, _) => Some(amount.negate())
-    }.sumByCurrency
+    }
+
+    lazy val coinsByCurrency = currentCoins.sumByCurrency
 
     currency.map(value => coinsByCurrency.getOrElse(value, FungibleData.zero(value)))
       .map(_.amount)
