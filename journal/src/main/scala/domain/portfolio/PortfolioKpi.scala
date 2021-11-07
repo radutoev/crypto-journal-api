@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.model.fungible.{FungibleDataKeyOps, FungibleDataOps}
+import domain.model.fungible.{FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps}
 import domain.portfolio.PortfolioKpi.PortfolioKpiOps
 import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
 import domain.position.{MarketPlays, Position}
@@ -36,7 +36,14 @@ final case class PortfolioKpi(
   lazy val openTradesCount: Int = marketPlays.openPositions.size
 
   lazy val winRate: Float = {
-    winRate(marketPlays.closedPositions)
+    val wins = marketPlays.wins
+    if(wins.nonEmpty) {
+      val winCount = marketPlays.wins.size
+      val total = marketPlays.closedPositions.size
+      winCount / total
+    } else {
+      0f
+    }
   }
 
   lazy val loseRate: Float = {
@@ -47,27 +54,13 @@ final case class PortfolioKpi(
     }
   }
 
-  private def winRate(reference: List[Position]): Float =
-    if (reference.nonEmpty) {
-      val totalCount = reference.size
-      val winCount = reference.count { position =>
-        //.get is safe because win will be present on all closed positions.
-        position.isWin.get
-      }
-      winCount / totalCount.toFloat
-    } else {
-      0f
-    }
-
   /**
    * Sum all fees of positions
    */
-  lazy val totalFees: FungibleData = {
+  lazy val totalFees: Map[Currency, FungibleData] = {
     marketPlays.plays
-      .map(_.fees().get(WBNB))
-      .values
+      .map(_.fees())
       .sumByCurrency
-      .getOrElse(WBNB, FungibleData.zero(WBNB))
   }
 
   /**
@@ -78,7 +71,7 @@ final case class PortfolioKpi(
   }
 
   lazy val totalWins: Int Refined NonNegative = {
-    refineV.unsafeFrom(marketPlays.closedPositions.count(_.isWin.get))
+    refineV.unsafeFrom(marketPlays.wins.size)
   }
 
   lazy val totalLoses: Int Refined NonNegative = {

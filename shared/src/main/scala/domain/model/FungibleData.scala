@@ -95,4 +95,12 @@ object fungible {
     def sumByKey(): Map[Key, Map[Currency, FungibleData]] =
       items.groupBy(_._1).view.mapValues(_.map(_._2).sumByCurrency).toMap
   }
+
+  implicit class FungibleDataMapOps(maps: List[Map[Currency, FungibleData]]) {
+    lazy val sumByCurrency: Map[Currency, FungibleData] = {
+      maps.foldLeft(Map.empty[Currency, FungibleData]) { (acc, map) =>
+        (acc.toList ++ map.toList).groupBy(_._1).view.mapValues(t => t.map(_._2).sumOfCurrency(t.head._1)).toMap
+      }
+    }
+  }
 }

@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.model.fungible.{FungibleDataOps, OptionalFungibleDataOps}
+import domain.model.fungible.{FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps}
 import domain.position.error.InvalidPosition
 import domain.pricequote.{PriceQuote, PriceQuotes}
 import util.ListOps.cond
@@ -71,7 +71,7 @@ final case class Position(
   }
 
   lazy val totalCost: Map[Currency, FungibleData] = {
-    (cost.toList ++ fees.toList).groupBy(_._1).view.mapValues(t => t.map(_._2).sumOfCurrency(t.head._1)).toMap
+    List(cost, fees).sumByCurrency
   }
 
   /**

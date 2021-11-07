@@ -395,7 +395,7 @@ object dto {
     totalTradedCoins: BigDecimal,
     avgWinnerHoldTime: String,
     avgLoserHoldTime: String,
-    totalFees: FungibleData
+    totalFees: Map[String, FungibleData]
   )
 
   object KpiDistinctValues {
@@ -421,7 +421,7 @@ object dto {
         portfolio.totalCoins,
         asHumanReadableForm(portfolio.avgWinningHoldTime),
         asHumanReadableForm(portfolio.avgLosingHoldTime),
-        portfolio.totalFees.asJson
+        portfolio.totalFees.map { case (currency, data) => currency.value -> data.asJson }
       )
   }
 
