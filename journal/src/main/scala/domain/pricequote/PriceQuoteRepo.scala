@@ -3,11 +3,15 @@ package domain.pricequote
 
 import vo.TimeInterval
 
-import zio.{ Has, Task, ZIO }
+import io.softwarechain.cryptojournal.domain.model.{Currency, WalletAddress}
+import io.softwarechain.cryptojournal.domain.pricequote.error.PriceQuoteError
+import zio.{Has, IO, Task, ZIO}
 
 trait PriceQuoteRepo {
   //We currently support only BNB to USD price quotes.
   def getQuotes(interval: TimeInterval): Task[List[PriceQuote]]
+
+  def getCurrentQuote(contract: WalletAddress): IO[PriceQuoteError, PriceQuote]
 }
 
 object PriceQuoteRepo {

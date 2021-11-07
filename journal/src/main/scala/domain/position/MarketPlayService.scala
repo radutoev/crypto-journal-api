@@ -19,7 +19,7 @@ import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 import java.time.Instant
 
 trait MarketPlayService {
-  def getPlays(userWallet: Wallet, includeJournaling: Boolean): IO[MarketPlayError, MarketPlays]
+  def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays]
 
   def getPlays(userWallet: Wallet, filter: PlayFilter): IO[MarketPlayError, MarketPlays]
 
@@ -60,8 +60,7 @@ final case class LiveMarketPlayService(
   logger: Logger[String]
 ) extends MarketPlayService {
 
-  override def getPlays(userWallet: Wallet,
-                        includeJournaling: Boolean): IO[MarketPlayError, MarketPlays] = {
+  override def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays] = {
     positionRepo
       .getPlays(userWallet.address)
       .flatMap(enrichPlays)
@@ -107,6 +106,16 @@ final case class LiveMarketPlayService(
   private def enrichPlays(marketPlays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] = {
     val interval = extractTimeInterval(marketPlays)
     if (marketPlays.nonEmpty) {
+      //i get all market plays here, then i need to get how many coins are still in my wallet and then get the current quote of the coin.
+      //if i don't get any quote i filter out, if i do then i sum in the end to USD.
+      for {
+        _          <- logger.info(s"Fetching quotes for [${interval.get.start} - ${interval.get.end}]")
+        _ = marketPlays.collect {
+          case p: Position => (p.currency, p.timeInterval)
+        }
+
+      } yield null
+
       logger.info(s"Fetching quotes for [${interval.get.start} - ${interval.get.end}]") *>
       priceQuoteRepo
         .getQuotes(interval.get)
@@ -132,7 +141,7 @@ final case class LiveMarketPlayService(
     } else UIO(marketPlays)
   }
 
-  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, Position] =
+  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, Position] = {
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
     positionRepo
@@ -144,6 +153,7 @@ final case class LiveMarketPlayService(
       .mapBoth(_ => MarketPlayFetchError(positionId, new RuntimeException("Unable to enrich position")), {
         case (position, entry) => position.copy(journal = entry)
       })
+  }
 
   private def enrichPosition(position: Position): Task[Position] = {
     val interval = position.timeInterval

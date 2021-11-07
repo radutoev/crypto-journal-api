@@ -20,6 +20,7 @@ final case class LiveAccountBalance(marketPlaysService: MarketPlayService,
   override def value(address: WalletAddress): IO[PortfolioError, FungibleData] = {
     for {
       _ <- logger.info(s"Computing account balance for ${address.value}")
+//      _ <- marketPlaysService.
 //      plays <- marketPlaysService.getPlays()
     } yield null
   }
