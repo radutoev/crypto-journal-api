@@ -444,8 +444,8 @@ object dto {
 
     def apply(portfolio: CJPortfolioKpi): TradeSummary =
       new TradeSummary(
-        wins = portfolio.coinWins().map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
-        loses = portfolio.coinLoses().map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
+        wins = portfolio.coinWins.map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
+        loses = portfolio.coinLoses.map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
       )
   }
 

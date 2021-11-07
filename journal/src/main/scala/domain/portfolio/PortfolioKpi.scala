@@ -1,8 +1,9 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.fungible.{FungibleDataKeyOps, FungibleDataOps}
 import domain.model._
+import domain.model.fungible.{FungibleDataKeyOps, FungibleDataOps}
+import domain.portfolio.PortfolioKpi.PortfolioKpiOps
 import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
 import domain.position.{MarketPlays, Position}
 import util.{InstantOps, ListOptionOps}
@@ -168,35 +169,19 @@ final case class PortfolioKpi(
   }
 
   def coinWins(count: Count): List[(Currency, FungibleData, Percentage)] = {
-    val wins = coinContributions.filter(_._2.amount > 0)
-    wins.slice(0, Math.min(count, wins.size))
+    coinWins.slice(0, Math.min(count, coinWins.size))
   }
 
-  def coinWins(): List[(Currency, FungibleData, Percentage)] =
-    coinContributions.filter(_._2.amount > 0)
+  lazy val coinWins: List[(Currency, FungibleData, Percentage)] = {
+    marketPlays.wins.asCoinContributions
+  }
 
   def coinLoses(count: Count): List[(Currency, FungibleData, Percentage)] = {
-    val loses = coinContributions.filter(_._2.amount < 0).reverse
-    loses.slice(0, Math.min(count, loses.size))
+    coinLoses.slice(0, Math.min(count, coinLoses.size))
   }
 
-  def coinLoses(): List[(Currency, FungibleData, Percentage)] =
-    coinContributions.filter(_._2.amount < 0).reverse
-
-  lazy val coinContributions: List[(Currency, FungibleData, Percentage)] = {
-    marketPlays.closedPositions
-      .groupBy(_.currency)
-      .map {
-        case (Some(currency), listOfPositions) =>
-          (
-            currency,
-            listOfPositions.map(_.fiatReturn.getOrElse(FungibleData.zero(USD))).sumByCurrency.getOrElse(USD, FungibleData.zero(USD)),
-            listOfPositions.map(_.fiatReturnPercentage.getOrElse(BigDecimal(0))).sum
-          )
-      }
-      .toList
-      .sortBy(_._2)(Ordering[FungibleData].reverse)
-  }
+  lazy val coinLoses: List[(Currency, FungibleData, Percentage)] =
+    marketPlays.loses.asCoinContributions.reverse
 
   def periodReturn(): PeriodDistribution = {
     val returnByDate = marketPlays.closedPositions
@@ -281,4 +266,22 @@ final case class PortfolioKpi(
   private val DayFormatter = DateTimeFormatter
     .ofPattern("yyyy-MM-dd")
     .withZone(ZoneId.systemDefault())
+}
+
+object PortfolioKpi {
+  implicit class PortfolioKpiOps(positions: List[Position]) {
+    lazy val asCoinContributions: List[(Currency, Fee, Percentage)] = {
+      positions.groupBy(_.currency)
+        .map {
+          case (Some(currency), listOfPositions) =>
+            (
+              currency,
+              listOfPositions.map(_.fiatReturn).values.sumByCurrency.getOrElse(USD, FungibleData.zero(USD)),
+              listOfPositions.map(_.fiatReturnPercentage).values.sum
+            )
+        }
+        .toList
+        .sortBy(_._2)(Ordering[FungibleData].reverse)
+    }
+  }
 }

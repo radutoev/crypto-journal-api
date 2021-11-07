@@ -20,6 +20,9 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed)
   lazy val openPositions: List[Position]   = positions.filter(_.isOpen)
 
+  lazy val wins: List[Position] = closedPositions.filter(_.isWin.get)
+  lazy val loses: List[Position] = closedPositions.filter(_.isLoss.get)
+
   //TODO implement merge.
   def merge(other: MarketPlays): MarketPlays = other
 //    var currencyPositionMap = Map.empty[Currency, Position]
