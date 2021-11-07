@@ -393,6 +393,7 @@ object dto {
     maxConsecutiveWins: Int,
     maxConsecutiveLoses: Int,
     totalTradedCoins: BigDecimal,
+    numberOfCoins: BigDecimal,
     avgWinnerHoldTime: String,
     avgLoserHoldTime: String,
     totalFees: Map[String, FungibleData]
@@ -419,6 +420,7 @@ object dto {
         portfolio.maxConsecutiveWins.value,
         portfolio.maxConsecutiveLoses.value,
         portfolio.totalCoins,
+        portfolio.numberOfCoins,
         asHumanReadableForm(portfolio.avgWinningHoldTime),
         asHumanReadableForm(portfolio.avgLosingHoldTime),
         portfolio.totalFees.map { case (currency, data) => currency.value -> data.asJson }

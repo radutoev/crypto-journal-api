@@ -3,7 +3,7 @@ package domain.portfolio
 
 import domain.model._
 import domain.model.fungible.{FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps}
-import domain.portfolio.PortfolioKpi.PortfolioKpiOps
+import domain.portfolio.PortfolioKpi.{DayFormatter, PortfolioKpiOps}
 import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
 import domain.position.{MarketPlays, Position}
 import util.{InstantOps, ListOptionOps}
@@ -127,15 +127,19 @@ final case class PortfolioKpi(
   }
 
   lazy val totalCoins: BigDecimal = {
+    marketPlays.positions.map(_.totalCoins.amount).sum
+  }
+
+  lazy val numberOfCoins: BigDecimal = {
     marketPlays.positions.map(_.numberOfCoins).sum
   }
 
   lazy val avgWinningHoldTime: Duration = {
-    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isWin.isDefined && p.isWin.get)))
+    Duration.ofSeconds(avgHoldTime(marketPlays.wins))
   }
 
   lazy val avgLosingHoldTime: Duration = {
-    Duration.ofSeconds(avgHoldTime(marketPlays.positions.filter(p => p.isLoss.isDefined && p.isLoss.get)))
+    Duration.ofSeconds(avgHoldTime(marketPlays.loses))
   }
 
   def avgHoldTime(items: List[Position]): Long = {
@@ -255,13 +259,13 @@ final case class PortfolioKpi(
           refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
       }
   }
-
-  private val DayFormatter = DateTimeFormatter
-    .ofPattern("yyyy-MM-dd")
-    .withZone(ZoneId.systemDefault())
 }
 
 object PortfolioKpi {
+  private[portfolio] val DayFormatter = DateTimeFormatter
+    .ofPattern("yyyy-MM-dd")
+    .withZone(ZoneId.systemDefault())
+
   implicit class PortfolioKpiOps(positions: List[Position]) {
     lazy val asCoinContributions: List[(Currency, Fee, Percentage)] = {
       positions.groupBy(_.currency)
