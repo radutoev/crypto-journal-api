@@ -136,7 +136,13 @@ object dto {
     id: Option[String]
   ) extends PositionEntry
 
-  final case class FungibleData(amount: BigDecimal, currency: String)
+  final case class FungibleData(amount: String, currency: String)
+
+  object FungibleData {
+    def apply(funData: CJFungibleData): FungibleData = {
+      new FungibleData(funData.amount.toString(), funData.currency.value)
+    }
+  }
 
   final case class PriceQuote(price: Float, timestamp: Instant)
 
@@ -184,15 +190,15 @@ object dto {
         case position.AirDrop(receivedFrom, fee, received, hash, timestamp, id) =>
           AirDrop(
             receivedFrom.value,
-            FungibleData(fee.amount, fee.currency.value),
-            FungibleData(received.amount, received.currency.value),
+            FungibleData(fee),
+            FungibleData(received),
             hash.value,
             timestamp,
             id.map(_.value)
           )
         case position.Approval(fee, forContract, hash, timestamp, id) =>
           Approval(
-            FungibleData(fee.amount, fee.currency.value),
+            FungibleData(fee),
             forContract.value,
             hash.value,
             timestamp,
@@ -200,19 +206,19 @@ object dto {
           )
         case position.Buy(fee, spent, received, coinAddress, hash, timestamp, spentOriginal, id) =>
           Buy(
-            FungibleData(fee.amount, fee.currency.value),
-            FungibleData(spent.amount, spent.currency.value),
-            FungibleData(received.amount, received.currency.value),
+            FungibleData(fee),
+            FungibleData(spent),
+            FungibleData(received),
             coinAddress.value,
             hash.value,
             timestamp,
-            spentOriginal.map(f => FungibleData(f.amount, f.currency.value)),
+            spentOriginal.map(f => FungibleData(f)),
             id.map(_.value)
           )
         case position.Claim(fee, received, receivedFrom, hash, timestamp, id) =>
           Claim(
-            FungibleData(fee.amount, fee.currency.value),
-            FungibleData(received.amount, received.currency.value),
+            FungibleData(fee),
+            FungibleData(received),
             receivedFrom.value,
             hash.value,
             timestamp,
@@ -220,36 +226,36 @@ object dto {
           )
         case position.Contribute(spent, to, fee, hash, timestamp, id) =>
           Contribute(
-            FungibleData(spent.amount, spent.currency.value),
+            FungibleData(spent),
             to.value,
-            FungibleData(fee.amount, fee.currency.value),
+            FungibleData(fee),
             hash.value,
             timestamp,
             id.map(_.value)
           )
         case position.Sell(sold, received, fee, hash, timestamp, id) =>
           Sell(
-            FungibleData(sold.amount, sold.currency.value),
-            FungibleData(received.amount, received.currency.value),
-            FungibleData(fee.amount, fee.currency.value),
+            FungibleData(sold),
+            FungibleData(received),
+            FungibleData(fee),
             hash.value,
             timestamp,
             id.map(_.value)
           )
         case position.TransferIn(value, receivedFrom, fee, hash, timestamp, id) =>
           TransferIn(
-            FungibleData(value.amount, value.currency.value),
+            FungibleData(value),
             receivedFrom.value,
-            FungibleData(fee.amount, fee.currency.value),
+            FungibleData(fee),
             hash.value,
             timestamp,
             id.map(_.value)
           )
         case position.TransferOut(amount, to, fee, hash, timestamp, id) =>
           TransferOut(
-            FungibleData(amount.amount, amount.currency.value),
+            FungibleData(amount),
             to.value,
-            FungibleData(fee.amount, fee.currency.value),
+            FungibleData(fee),
             hash.value,
             timestamp,
             id.map(_.value)
@@ -285,7 +291,7 @@ object dto {
   }
 
   implicit class FungibleDataOps(data: CJFungibleData) {
-    def asJson: FungibleData = FungibleData(data.amount, data.currency.value)
+    def asJson: FungibleData = FungibleData(data)
   }
 
   implicit class OptionalFungibleDataOps(data: Option[CJFungibleData]) {
@@ -301,7 +307,6 @@ object dto {
   }
 
   final case class PortfolioKpi(
-    accountBalance: ValueTrendComparison,
     tradeCount: Int,
     winRate: Float,
     loseRate: Float,
@@ -314,7 +319,6 @@ object dto {
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi =
       new PortfolioKpi(
-        ValueTrendComparison.fromAccountBalance(kpi.balance, null), //TODO Come back to this one -> AccountBalance(kpi.referenceMarketPlays)),
         kpi.tradeCount,
         kpi.winRate,
         kpi.loseRate,
@@ -334,13 +338,6 @@ object dto {
         netReturn.trend.map(_.amount),
         Performance(netReturn.performance(compareWith))
       )
-
-    def fromAccountBalance(balance: AccountBalance, compareWith: AccountBalance): ValueTrendComparison = ??? //TODO Re-implement this.
-//      new ValueTrendComparison(
-//        balance.value.asJson,
-//        balance.trend.map(_.amount),
-//        Performance(balance.performance(compareWith))
-//      )
   }
 
   final case class Performance(absolute: BigDecimal, percentage: BigDecimal, trend: String)
@@ -464,14 +461,14 @@ object dto {
         mistakes = portfolioKpi.mistakeContribution.map {
           case (mistake, (fungibleData, percentage)) =>
             mistake.value -> FungibleDataAndPercentage(
-              FungibleData(fungibleData.amount, fungibleData.currency.value),
+              FungibleData(fungibleData),
               percentage
             )
         },
         tags = portfolioKpi.tagContribution.map {
           case (setup, (fungibleData, percentage)) =>
             setup.value -> FungibleDataAndPercentage(
-              FungibleData(fungibleData.amount, fungibleData.currency.value),
+              FungibleData(fungibleData),
               percentage
             )
         }

@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.{CovalentConfig, DatastoreConfig}
-import domain.model.WalletAddress
+import domain.model.CoinAddress
 import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound}
 import domain.pricequote.{PriceQuote, PriceQuoteRepo}
 import infrastructure.google.datastore.DatastorePriceQuoteRepo.CovalentQParamDateFormat
@@ -51,7 +51,7 @@ final case class DatastorePriceQuoteRepo(
       priceQuotes = results.asScala.toList.map(entityToPriceQuote).sortBy(_.timestamp)(Ordering[Instant])
     } yield priceQuotes
 
-  override def getCurrentQuote(contract: WalletAddress): IO[PriceQuoteError, PriceQuote] =
+  override def getCurrentQuote(contract: CoinAddress): IO[PriceQuoteError, PriceQuote] =
     for {
       now <- clock.instant
       day = CovalentQParamDateFormat.format(now)
@@ -59,15 +59,15 @@ final case class DatastorePriceQuoteRepo(
       url = s"${covalentConfig.baseUrl}/v1/pricing/historical_by_addresses_v2/56/USD/${contract.value}/?from=$day&to=$day&key=${covalentConfig.key}"
       response <- httpClient
                    .send(basicRequest.get(uri"$url").response(asString))
-                   .tapError(t => logger.warn(t.getMessage))
+                   .tapError(t => logger.warn(s"Covalent price quote request failed: ${t.getMessage}"))
                    .mapError(t => PriceQuoteFetchError(t.getMessage))
       decoded <- ZIO
-                  .fromEither(response.body)
-                  .tapError(s => logger.warn(s))
-                  .mapError(PriceQuoteFetchError)
-                  .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).mapError(PriceQuoteFetchError))
+        .fromEither(response.body)
+        .orElseFail(PriceQuoteNotFound(contract))
+        .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).mapError(PriceQuoteFetchError))
       price <- ZIO
-                .fromOption(decoded.data.prices.headOption)
+        .fromOption(decoded.data).orElseFail(PriceQuoteNotFound(contract))
+        .flatMap(quote => ZIO.fromOption(quote.prices.headOption).orElseFail(PriceQuoteNotFound(contract)))
                 .mapBoth(_ => PriceQuoteNotFound(contract), priceData => priceData.price)
     } yield PriceQuote(price, now.atBeginningOfDay())
 

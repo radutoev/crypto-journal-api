@@ -5,5 +5,6 @@ object error {
   sealed trait PortfolioError
 
   final case class InvalidPortfolioError(reason: String)        extends PortfolioError
+  final case class AccountBalanceComputeError(reason: String)   extends PortfolioError
   final case class PortfolioKpiGenerationError(message: String) extends PortfolioError
 }

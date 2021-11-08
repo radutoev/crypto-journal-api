@@ -2,8 +2,8 @@ package io.softwarechain.cryptojournal
 
 import config.CryptoJournalConfig
 import domain.market.LiveMarketService
-import domain.portfolio.LiveKpiService
-import domain.position.{ LiveJournalingService, LiveMarketPlayService }
+import domain.portfolio.{LiveAccountBalance, LiveKpiService}
+import domain.position.{LiveJournalingService, LiveMarketPlayService}
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
@@ -11,14 +11,14 @@ import infrastructure.covalent.CovalentFacade
 import infrastructure.google.datastore._
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{Config, ConfigFactory}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{ EventLoopGroup, Server }
+import zhttp.service.{EventLoopGroup, Server}
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{ console, App, ExitCode, Has, URIO, ZIO }
+import zio.{App, ExitCode, Has, URIO, ZIO, console}
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -67,20 +67,22 @@ object CryptoJournal extends App {
 
     lazy val journalRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreJournalingRepo.layer
 
-    lazy val positionServiceLayer =
+    lazy val marketPlayService =
       positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
 
     lazy val walletServiceLayer =
-      userWalletRepo ++ walletRepo ++ positionServiceLayer ++ loggingLayer >>> LiveWalletService.layer
+      userWalletRepo ++ walletRepo ++ marketPlayService ++ loggingLayer >>> LiveWalletService.layer
 
-    lazy val kpiServiceLayer = (positionServiceLayer ++ Clock.live ++ loggingLayer) >>> LiveKpiService.layer
+    lazy val kpiServiceLayer = (marketPlayService ++ Clock.live ++ loggingLayer) >>> LiveKpiService.layer
+
+    lazy val accountBalanceLayer = (marketPlayService ++ priceQuoteRepoLayer ++ loggingLayer ++ Clock.live) >>> LiveAccountBalance.layer
 
     lazy val journalServiceLayer = journalRepoLayer >>> LiveJournalingService.layer
 
     lazy val marketServiceLayer = coinApiFacadeLayer >>> LiveMarketService.layer
 
     lazy val applicationServiceLayer =
-      positionServiceLayer ++ walletServiceLayer ++ kpiServiceLayer ++ journalServiceLayer ++ marketServiceLayer
+      marketPlayService ++ walletServiceLayer ++ kpiServiceLayer ++ journalServiceLayer ++ marketServiceLayer ++ accountBalanceLayer
 
     zioHttpServerLayer ++ applicationServiceLayer ++ covalentFacadeLayer
   }

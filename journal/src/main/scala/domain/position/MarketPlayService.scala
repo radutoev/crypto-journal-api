@@ -106,16 +106,6 @@ final case class LiveMarketPlayService(
   private def enrichPlays(marketPlays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] = {
     val interval = extractTimeInterval(marketPlays)
     if (marketPlays.nonEmpty) {
-      //i get all market plays here, then i need to get how many coins are still in my wallet and then get the current quote of the coin.
-      //if i don't get any quote i filter out, if i do then i sum in the end to USD.
-      for {
-        _          <- logger.info(s"Fetching quotes for [${interval.get.start} - ${interval.get.end}]")
-        _ = marketPlays.collect {
-          case p: Position => (p.currency, p.timeInterval)
-        }
-
-      } yield null
-
       logger.info(s"Fetching quotes for [${interval.get.start} - ${interval.get.end}]") *>
       priceQuoteRepo
         .getQuotes(interval.get)

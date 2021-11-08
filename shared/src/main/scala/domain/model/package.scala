@@ -12,6 +12,9 @@ package object model {
   val USD: Currency  = Currency.unsafeFrom("USD")
   val WBNB: Currency = Currency.unsafeFrom("WBNB")
 
+  type CoinAddressPredicate = NonEmpty
+  type CoinAddress = String Refined CoinAddressPredicate
+
   type CurrencyPredicate = NonEmpty
   type Currency          = String Refined CurrencyPredicate
 

@@ -5,7 +5,7 @@ import zio.json.{DeriveJsonDecoder, JsonDecoder, jsonField}
 
 object dto {
   final case class PriceQuoteResponse(
-    data: PriceQuoteData,
+    data: Option[PriceQuoteData],
     error: Boolean,
     @jsonField("error_message") errorMessage: Option[String],
     @jsonField("error_code") errorCode: Option[Int]

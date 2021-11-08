@@ -43,6 +43,22 @@ final case class Position(
     currencies.headOption
   }
 
+  //TODO I think I need to see if I can add the coin address to all transaction types.
+  lazy val coinAddress: Option[CoinAddress] = {
+    entries.map {
+      case _: AirDrop => None
+      case _: Approval => None
+      case Buy(_, _, _, coinAddress, _, _, _, _) => Some(coinAddress)
+      case Claim(_, _, _, _, _, _) => None
+      case _: Contribute => None
+      case Sell(_, _, _, _, _, _) => None
+      case TransferIn(_, coinAddress, _, _, _, _) => Some(coinAddress)
+      case TransferOut(_, _, _, _, _, _) => None
+    }.collectFirst {
+      case Some(address) => address
+    }
+  }
+
   lazy val cost: Map[Currency, FungibleData] = {
     entries.flatMap {
       case _: AirDrop  => List.empty
