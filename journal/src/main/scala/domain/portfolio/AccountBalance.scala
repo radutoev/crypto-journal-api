@@ -34,24 +34,30 @@ final case class LiveAccountBalance(
         case p: Position if p.coinAddress.isDefined => p.coinAddress.get -> p
       }.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
 
-      priceQuoteEffects = positionsByCoinAddress.keySet.map(coinAddress =>
-        priceQuoteRepo
-          .getCurrentQuote(coinAddress)
-          .map(quote => coinAddress -> quote)
-          .catchSome {
-            case PriceQuoteNotFound(contract) => UIO(contract -> PriceQuote(0f, now))
-          }
-      )
-      balance <- ZIO
-        .mergeAllParN(5)(priceQuoteEffects)(BigDecimal(0)) { (acc, currencyQuote) =>
-          acc + positionsByCoinAddress(currencyQuote._1).map(_.numberOfCoins * currencyQuote._2.price).sum
-        }
-        .flatMap { amount =>
-          walletRepo.getQuote(wallet.address, Currency.unsafeFrom("BNB"))
-            .zipWithPar(walletRepo.getQuote(wallet.address, Currency.unsafeFrom("USDT")))((f1, f2) => f1.add(f2.amount))
-            .map(mainQuotes => FungibleData(amount, USD).add(mainQuotes.amount))
-        }
+      balance <- walletRepo.getQuote(wallet.address, Currency.unsafeFrom("BNB"))
+        .zipWithPar(walletRepo.getQuote(wallet.address, Currency.unsafeFrom("USDT")))((f1, f2) => f1.add(f2.amount))
         .orElseFail(AccountBalanceComputeError("Cannot compute account balance"))
+//        .map(mainQuotes => FungibleData(amount, USD).add(mainQuotes.amount))
+
+//      priceQuoteEffects = positionsByCoinAddress.keySet.map(coinAddress =>
+//        priceQuoteRepo
+//          .getCurrentQuote(coinAddress)
+//          .map(quote => coinAddress -> quote)
+////          .catchSome {
+////            case PriceQuoteNotFound(contract) => UIO(contract -> PriceQuote(0f, now))
+////          }
+//          .catchAll(_ => UIO(coinAddress -> PriceQuote(0f, now))) //ignore failures.
+//      )
+//      balance <- ZIO
+//        .mergeAllParN(5)(priceQuoteEffects)(BigDecimal(0)) { (acc, currencyQuote) =>
+//          acc + positionsByCoinAddress(currencyQuote._1).map(_.numberOfCoins * currencyQuote._2.price).sum
+//        }
+//        .flatMap { amount =>
+//          walletRepo.getQuote(wallet.address, Currency.unsafeFrom("BNB"))
+//            .zipWithPar(walletRepo.getQuote(wallet.address, Currency.unsafeFrom("USDT")))((f1, f2) => f1.add(f2.amount))
+//            .map(mainQuotes => FungibleData(amount, USD).add(mainQuotes.amount))
+//        }
+//        .orElseFail(AccountBalanceComputeError("Cannot compute account balance"))
     } yield balance
 }
 
