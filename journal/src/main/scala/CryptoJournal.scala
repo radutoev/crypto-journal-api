@@ -7,7 +7,7 @@ import domain.position.{LiveJournalingService, LiveMarketPlayService}
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
-import infrastructure.covalent.CovalentFacade
+import infrastructure.covalent.{CovalentFacade, CovalentWalletRepo}
 import infrastructure.google.datastore._
 
 import com.google.cloud.datastore.DatastoreOptions
@@ -60,22 +60,24 @@ object CryptoJournal extends App {
     lazy val userWalletRepo =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer
 
-    lazy val walletRepo = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
+    lazy val walletImportLayer = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
     lazy val positionRepoLayer =
       datastoreLayer ++ datastoreConfigLayer ++ loggingLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer
 
     lazy val journalRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreJournalingRepo.layer
 
+    lazy val walletRepoLayer = httpClientLayer ++ covalentConfigLayer ++ loggingLayer >>> CovalentWalletRepo.layer
+
     lazy val marketPlayService =
       positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
 
     lazy val walletServiceLayer =
-      userWalletRepo ++ walletRepo ++ marketPlayService ++ loggingLayer >>> LiveWalletService.layer
+      userWalletRepo ++ walletImportLayer ++ marketPlayService ++ loggingLayer >>> LiveWalletService.layer
 
     lazy val kpiServiceLayer = (marketPlayService ++ Clock.live ++ loggingLayer) >>> LiveKpiService.layer
 
-    lazy val accountBalanceLayer = (marketPlayService ++ priceQuoteRepoLayer ++ loggingLayer ++ Clock.live) >>> LiveAccountBalance.layer
+    lazy val accountBalanceLayer = (marketPlayService ++ priceQuoteRepoLayer ++ walletRepoLayer ++ loggingLayer ++ Clock.live) >>> LiveAccountBalance.layer
 
     lazy val journalServiceLayer = journalRepoLayer >>> LiveJournalingService.layer
 

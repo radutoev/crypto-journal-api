@@ -59,7 +59,7 @@ final case class DatastorePriceQuoteRepo(
       url = s"${covalentConfig.baseUrl}/v1/pricing/historical_by_addresses_v2/56/USD/${contract.value}/?from=$day&to=$day&key=${covalentConfig.key}"
       response <- httpClient
                    .send(basicRequest.get(uri"$url").response(asString))
-                   .tapError(t => logger.warn(s"Covalent price quote request failed: ${t.getMessage}"))
+                   .tapError(t => logger.warn(s"Covalent price quote request failed: $t"))
                    .mapError(t => PriceQuoteFetchError(t.getMessage))
       decoded <- ZIO
         .fromEither(response.body)

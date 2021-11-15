@@ -163,4 +163,44 @@ object dto {
   object Pagination {
     implicit val encoder: JsonDecoder[Pagination] = DeriveJsonDecoder.gen[Pagination]
   }
+
+
+  final case class AccountBalanceResponse(
+                                           data: AccountBalanceData,
+                                           error: Boolean,
+                                           @jsonField("error_message") errorMessage: Option[String],
+                                           @jsonField("error_code") errorCode: Option[String]
+                                         )
+
+  final case class AccountBalanceData(
+                                       address: String,
+                                       @jsonField("updated_at") updatedAt: String,
+                                       @jsonField("next_update_at") nextUpdateAt: String,
+                                       @jsonField("quote_currency") quoteCurrency: String,
+                                       @jsonField("chain_id") chainId: Int,
+                                       items: List[AccountBalanceItem],
+                                       pagination: Option[String] //we never use this.
+                                     )
+
+  final case class AccountBalanceItem(
+                                       @jsonField("contract_decimals") contractDecimals: Int,
+                                       @jsonField("contract_name") contractName: String,
+                                       @jsonField("contract_ticker_symbol") contractTickerSymbol: String,
+                                       @jsonField("contract_address") contractAddress: String,
+                                       @jsonField("supports_erc") supportsErc: Option[List[String]],
+                                       @jsonField("logo_url") logoUrl: String,
+                                       @jsonField("last_transferred_at") lastTransferredAt: Option[String],
+                                       `type`: String,
+                                       balance: String,
+                                       @jsonField("balance_24h") balance24H: Option[String],
+                                       @jsonField("quote_rate") quoteRate: Float,
+                                       @jsonField("quote_rate_24h") quoteRate24h: Option[Float],
+                                       quote: Float,
+                                       @jsonField("quote_24h") quote24H: Option[Float],
+                                       @jsonField("nft_data") nftData: Option[String]
+                                     )
+
+  implicit val accountBalanceItemDecoder: JsonDecoder[AccountBalanceItem] = DeriveJsonDecoder.gen[AccountBalanceItem]
+  implicit val accountBalanceDataDecoder: JsonDecoder[AccountBalanceData] = DeriveJsonDecoder.gen[AccountBalanceData]
+  implicit val accountBalanceResponseDecoder: JsonDecoder[AccountBalanceResponse] = DeriveJsonDecoder.gen[AccountBalanceResponse]
 }
