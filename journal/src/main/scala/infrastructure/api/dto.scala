@@ -50,6 +50,7 @@ object dto {
 
   final case class Position(
     currency: String,
+    address: Option[String],
     state: String,
     openedAt: Instant,
     closedAt: Option[Instant],
@@ -166,6 +167,7 @@ object dto {
     def fromPosition(position: CJPosition): Position =
       Position(
         position.currency.map(_.value).getOrElse(""),
+        position.coinAddress.map(_.value),
         position.state.toString,
         position.openedAt,
         position.closedAt,
