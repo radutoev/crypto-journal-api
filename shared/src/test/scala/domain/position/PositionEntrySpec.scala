@@ -2,6 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
+import domain.position.model.CoinName
 
 import zio.test.Assertion._
 import zio.test._
@@ -15,9 +16,11 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
       val transaction = getTransaction("/covalent/transactions/airDrop.json")
       val airDrop     = PositionEntry.fromTransaction(transaction, Address)
       val expected = AirDrop(
+        name = CoinName.unsafeApply("Elon Doge"),
         receivedFrom = WalletAddress.unsafeFrom("0xc6af635d908529d3c00a857079d9547aeecac400"),
         fee = FungibleData(BigDecimal(0.08568792), WBNB),
         received = FungibleData(BigDecimal("1000000000.0000000000000000000"), Currency.unsafeFrom("EDOGE")),
+        coinAddress = CoinAddress.unsafeFrom("0xe7629f06171842b0b91fb46d4ed43d018ff1e38d"),
         hash = TransactionHash.unsafeApply("0xfa4cbef915290b45d8cd85e3c1b7f9fbb3c604b8ca4cff2e49222f80ffd63d38"),
         timestamp = Instant.parse("2021-05-26T10:46:15Z")
       )

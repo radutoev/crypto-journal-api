@@ -1,6 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.collection.NonEmpty
+import eu.timepit.refined.refineV
+
 object model {
   sealed trait ScamStrategy
   final case object HideFromStats extends ScamStrategy
@@ -13,5 +17,12 @@ object model {
         case "donothing"     => Right(DoNothing)
         case _               => Left(s"Unknown scam strategy $value")
       }
+  }
+
+  type CoinNamePredicate = NonEmpty
+  type CoinName = String Refined CoinNamePredicate
+
+  object CoinName {
+    def unsafeApply(s: String): CoinName = refineV[CoinNamePredicate].unsafeFrom(s)
   }
 }

@@ -2,32 +2,23 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{
-  ContextId,
-  ContextIdPredicate,
-  Currency,
-  CurrencyPredicate,
-  FungibleData,
-  PlayId,
-  PlayIdPredicate,
-  TransactionHash,
-  WalletAddress
-}
+import domain.model.{CoinAddress, ContextId, ContextIdPredicate, Currency, CurrencyPredicate, FungibleData, PlayId, PlayIdPredicate, TransactionHash, WalletAddress}
 import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
-import util.{ tryOrLeft, InstantOps, ListEitherOps }
+import util.{InstantOps, ListEitherOps, tryOrLeft}
 import vo.filter.PlayFilter
-import vo.pagination.{ CursorPredicate, Page, PaginationContext }
+import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
-import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.position.model.CoinName
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -310,8 +301,10 @@ final case class DatastoreMarketPlayRepo(
         var builder = Entity.newBuilder(key)
 
         builder = entry match {
-          case AirDrop(receivedFrom, _, received, _, _, _) =>
+          case AirDrop(coinName, receivedFrom, _, received, coinAddress, _, _, _) =>
             builder
+              .set("coinName", StringValue.of(coinName.value))
+              .set("coinAddress", StringValue.of(coinAddress.value))
               .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
@@ -509,6 +502,14 @@ final case class DatastoreMarketPlayRepo(
           posType match {
             case "AirDrop" =>
               for {
+                coinName <- tryOrLeft(
+                  entity.getString("receivedFrom"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
+                coinAddress <- tryOrLeft(
+                  entity.getString("receivedFrom"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
                 receivedFrom <- tryOrLeft(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")
@@ -522,9 +523,11 @@ final case class DatastoreMarketPlayRepo(
                                      InvalidRepresentation("Invalid receivedCurrency representation")
                                    ).map(Currency.unsafeFrom)
               } yield AirDrop(
+                coinName,
                 receivedFrom,
                 fee,
                 received = FungibleData(received, receivedCurrency),
+                coinAddress,
                 hash,
                 timestamp,
                 Some(id)
@@ -572,7 +575,7 @@ final case class DatastoreMarketPlayRepo(
                 coinAddress <- tryOrLeft(
                                 entity.getString("coinAddress"),
                                 InvalidRepresentation("Invalid receivedFrom representation")
-                              ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+                              ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
               } yield Buy(
                 fee,
                 FungibleData(spent, spentCurrency),
@@ -656,7 +659,7 @@ final case class DatastoreMarketPlayRepo(
                 receivedFrom <- tryOrLeft(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")
-                               ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+                               ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
               } yield TransferIn(FungibleData(value, valueCurrency), receivedFrom, fee, hash, timestamp, Some(id))
 
             case "TransferOut" =>

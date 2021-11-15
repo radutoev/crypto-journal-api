@@ -1,14 +1,15 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ LogEvent, Transaction }
+import domain.blockchain.{LogEvent, Transaction}
 import domain.model._
 import domain.position.PositionEntry.PositionEntryId
-import util.{ ListEitherOps, ListOptionOps }
+import util.{ListEitherOps, ListOptionOps}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.position.model.{CoinName, CoinNamePredicate}
 
 import java.time.Instant
 import scala.util.Try
@@ -111,24 +112,28 @@ object PositionEntry {
       }
 
       if (isAirDrop) {
-        lazy val amountOfCoins = transaction
-          .transferEventsToWallet(address)
+        val transfersToAddress = transaction.transferEventsToWallet(address)
+        lazy val amountOfCoins = transfersToAddress
           .map(ev => ev.paramValue("value").map(BigDecimal(_)))
           .values
           .sum
 
         val airDrops = for {
-          first       <- transaction.firstTransferEvent()
+          first       <- transfersToAddress.headOption.toRight(s"No transfers to address $address were found")
           currency    <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
           decimals    <- first.senderContractDecimals.toRight("Did not find contract decimals")
+          coinAddress <- refineV[CoinAddressPredicate](first.senderAddress)
           finalAmount = amountOfCoins * Math.pow(10, -decimals)
-          rawAddress  <- first.paramValue("from").toRight("Did not find sender address")
-          sender      <- refineV[WalletAddressPredicate](rawAddress)
+          sender      <- refineV[WalletAddressPredicate](transaction.fromAddress)
+          rawCoinName <- first.senderName.toRight("Did not find coin name")
+          coinName    <- refineV[CoinNamePredicate](rawCoinName)
         } yield List(
           AirDrop(
+            coinName,
             sender,
             transaction.computedFee(),
             FungibleData(finalAmount, currency),
+            coinAddress,
             transaction.hash,
             transaction.instant
           )
@@ -541,9 +546,11 @@ object PositionEntry {
 }
 
 final case class AirDrop(
+  name: CoinName,
   receivedFrom: WalletAddress,
   fee: Fee,
   received: FungibleData,
+  coinAddress: CoinAddress,
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None

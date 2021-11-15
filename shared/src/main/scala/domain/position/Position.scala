@@ -124,7 +124,7 @@ final case class Position(
    */
   lazy val totalCoins: FungibleData = {
     lazy val coinsByCurrency = entries.map {
-      case AirDrop(_, _, received, _, _, _)   => Some(received)
+      case AirDrop(_, _, _, received, _, _, _, _)   => Some(received)
       case _: Approval                        => None
       case Buy(_, _, received, _, _, _, _, _) => Some(received)
       case Claim(_, received, _, _, _, _)     => Some(received)
@@ -175,7 +175,7 @@ final case class Position(
    */
   lazy val numberOfCoins: BigDecimal = {
     lazy val currentCoins = entries.map {
-      case AirDrop(_, _, received, _, _, _)   => Some(received)
+      case AirDrop(_, _, _, received, _, _, _, _)   => Some(received)
       case _: Approval                        => None
       case Buy(_, _, received, _, _, _, _, _) => Some(received)
       case Claim(_, received, _, _, _, _)     => Some(received)
