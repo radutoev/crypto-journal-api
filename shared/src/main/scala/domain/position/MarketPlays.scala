@@ -121,9 +121,8 @@ object MarketPlays {
       }
 
     @inline
-    def getForAddress(address: WalletAddress): Option[List[PositionEntry]] = {
+    def getForAddress(address: WalletAddress): Option[List[PositionEntry]] =
       incomingByContract.get(address).map(_.toList)
-    }
 
     val entries = transactions
       .filter(_.successful)
@@ -204,15 +203,18 @@ object MarketPlays {
     )
   }
 
-  private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] =
+  private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] = {
+    //TODO: receivedFrom is considered to be a wallet address, while the rest are coin addresses;
+    // in essence they are the same, but see if this can be done better
     items.head match {
-      case AirDrop(_, receivedFrom, _, _, _, _, _, _)    => Some(receivedFrom)
-      case _: Approval                                   => None
-      case Buy(_, _, _, receivedFrom, _, _, _, _, _, _)  => Some(receivedFrom)
-      case Claim(_, _, receivedFrom, _, _, _, _, _)      => Some(receivedFrom)
-      case Contribute(_, to, _, _, _, _)                 => Some(to)
-      case _: Sell                                       => None
-      case TransferIn(_, receivedFrom, _, _, _, _, _, _) => Some(receivedFrom)
-      case _: TransferOut                                => None
+      case AirDrop(_, receivedFrom, _, _, _, _, _, _)   => Some(receivedFrom)
+      case _: Approval                                  => None
+      case Buy(_, _, _, _, _, coinAddress, _, _, _, _)  => Some(WalletAddress.unsafeFrom(coinAddress.value))
+      case Claim(_, _, _, _, coinAddress, _, _, _)      => Some(WalletAddress.unsafeFrom(coinAddress.value))
+      case Contribute(_, to, _, _, _, _)                => Some(to)
+      case _: Sell                                      => None
+      case TransferIn(_, _, _, _, _, _, coinAddress, _) => coinAddress.map(a => WalletAddress.unsafeFrom(a.value))
+      case _: TransferOut                               => None
     }
+  }
 }

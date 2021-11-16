@@ -96,7 +96,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
           entries = List(
             TransferIn(
               value = FungibleData(BigDecimal("3.561490390"), Currency.unsafeFrom("DOGE")),
-              receivedFrom = WalletAddress.unsafeFrom("0xba2ae424d960c26247dd6c32edc70b295c744c43"),
+              receivedFrom = WalletAddress.unsafeFrom("0x668cff8bbf5a18be1d561a25c7b10de213372698"),
               fee = FungibleData.zero(WBNB),
               hash = TransactionHash.unsafeApply("0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3"),
               timestamp = Instant.parse("2021-10-14T18:42:11Z"),
@@ -182,7 +182,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
         )
       ).sortBy(_.openedAt)(Ordering[Instant])
       assert(expected.size)(equalTo(marketPlays.plays.size)) &&
-      assert(expected)(hasSameElements(marketPlays.plays))
+      assert(expected)(hasSameElementsDistinct(marketPlays.plays))
     }
   )
 }
