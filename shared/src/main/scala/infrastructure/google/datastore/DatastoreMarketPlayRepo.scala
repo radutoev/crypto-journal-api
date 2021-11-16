@@ -315,8 +315,9 @@ final case class DatastoreMarketPlayRepo(
               .set("forContract", StringValue.of(forContract.value))
               .set("type", StringValue.of("Approval"))
 
-          case Buy(_, spent, received, coinAddress, _, _, spentOriginal, _) =>
+          case Buy(_, spent, received, receivedFrom, coinName, coinAddress, _, _, spentOriginal, _) =>
             builder
+              .set("coinName", StringValue.of(coinName.value))
               .set("spent", StringValue.of(spent.amount.toString()))
               .set("spentCurrency", StringValue.of(spent.currency.value))
               .set("spentOriginal", StringValue.of(spentOriginal.map(orig => orig.amount.toString()).getOrElse("")))
@@ -326,11 +327,14 @@ final case class DatastoreMarketPlayRepo(
               )
               .set("coinAddress", StringValue.of(coinAddress.value))
               .set("received", StringValue.of(received.amount.toString()))
+              .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("receivedCurrency", StringValue.of(received.currency.value))
               .set("type", StringValue.of("Buy"))
 
-          case Claim(_, received, receivedFrom, _, _, _) =>
+          case Claim(_, received, receivedFrom, coinName, coinAddress, _, _, _) =>
             builder
+              .set("coinName", StringValue.of(coinName.value))
+              .set("coinAddress", StringValue.of(coinAddress.value))
               .set("receivedFrom", StringValue.of(receivedFrom.value))
               .set("received", StringValue.of(received.amount.toString()))
               .set("receivedCurrency", StringValue.of(received.currency.value))
@@ -351,8 +355,10 @@ final case class DatastoreMarketPlayRepo(
               .set("receivedCurrency", StringValue.of(received.currency.value))
               .set("type", StringValue.of("Sell"))
 
-          case TransferIn(value, receivedFrom, _, _, _, _) =>
+          case TransferIn(value, receivedFrom, _, _, _, _, coinName, coinAddress) =>
             builder
+              .set("coinName", StringValue.of(coinName.map(_.value).getOrElse("")))
+              .set("coinAddress", StringValue.of(coinAddress.map(_.value).getOrElse("")))
               .set("value", StringValue.of(value.amount.toString()))
               .set("valueCurrency", StringValue.of(value.currency.value))
               .set("receivedFrom", StringValue.of(receivedFrom.value))
@@ -503,7 +509,7 @@ final case class DatastoreMarketPlayRepo(
             case "AirDrop" =>
               for {
                 coinName <- tryOrLeft(
-                  entity.getString("receivedFrom"),
+                  entity.getString("coinName"),
                   InvalidRepresentation("Invalid receivedFrom representation")
                 ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
                 coinAddress <- tryOrLeft(
@@ -568,10 +574,18 @@ final case class DatastoreMarketPlayRepo(
                              entity.getString("received"),
                              InvalidRepresentation("Invalid received representation")
                            ).map(BigDecimal(_))
+                receivedFrom <- tryOrLeft(
+                  entity.getString("receivedFrom"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
                 receivedCurrency <- tryOrLeft(
                                      entity.getString("receivedCurrency"),
                                      InvalidRepresentation("Invalid receivedCurrency representation")
                                    ).map(Currency.unsafeFrom)
+                coinName <- tryOrLeft(
+                  entity.getString("coinName"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
                 coinAddress <- tryOrLeft(
                                 entity.getString("coinAddress"),
                                 InvalidRepresentation("Invalid receivedFrom representation")
@@ -580,6 +594,8 @@ final case class DatastoreMarketPlayRepo(
                 fee,
                 FungibleData(spent, spentCurrency),
                 FungibleData(received, receivedCurrency),
+                receivedFrom,
+                coinName,
                 coinAddress,
                 hash,
                 timestamp,
@@ -601,7 +617,15 @@ final case class DatastoreMarketPlayRepo(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")
                                ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
-              } yield Claim(fee, FungibleData(received, receivedCurrency), receivedFrom, hash, timestamp, Some(id))
+                coinName <- tryOrLeft(
+                  entity.getString("coinName"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
+                coinAddress <- tryOrLeft(
+                  entity.getString("coinAddress"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
+              } yield Claim(fee, FungibleData(received, receivedCurrency), receivedFrom, coinName, coinAddress, hash, timestamp, Some(id))
 
             case "Contribute" =>
               for {
@@ -659,8 +683,16 @@ final case class DatastoreMarketPlayRepo(
                 receivedFrom <- tryOrLeft(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")
-                               ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
-              } yield TransferIn(FungibleData(value, valueCurrency), receivedFrom, fee, hash, timestamp, Some(id))
+                               ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+                coinName <- tryOrLeft(
+                  entity.getString("coinName"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => if(rawReceivedFrom.isEmpty) None else Some(CoinName.unsafeApply(rawReceivedFrom)))
+                coinAddress <- tryOrLeft(
+                  entity.getString("coinAddress"),
+                  InvalidRepresentation("Invalid receivedFrom representation")
+                ).map(rawReceivedFrom => if(rawReceivedFrom.isEmpty) None else Some(CoinAddress.unsafeFrom(rawReceivedFrom)))
+              } yield TransferIn(FungibleData(value, valueCurrency), receivedFrom, fee, hash, timestamp, coinName, coinAddress, Some(id))
 
             case "TransferOut" =>
               for {

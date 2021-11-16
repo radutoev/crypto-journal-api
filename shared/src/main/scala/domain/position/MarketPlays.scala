@@ -20,7 +20,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val closedPositions: List[Position] = positions.filter(_.isClosed)
   lazy val openPositions: List[Position]   = positions.filter(_.isOpen)
 
-  lazy val wins: List[Position] = closedPositions.filter(_.isWin.get)
+  lazy val wins: List[Position]  = closedPositions.filter(_.isWin.get)
   lazy val loses: List[Position] = closedPositions.filter(_.isLoss.get)
 
   //TODO implement merge.
@@ -67,15 +67,21 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   def filter(interval: TimeInterval): MarketPlays =
     MarketPlays(positions.filter(_.inInterval(interval)))
 
-  def trend(of: Position => Option[FungibleData]): List[FungibleData] = {
+  def trend(of: Position => Option[FungibleData]): List[FungibleData] =
     (for {
       reference <- positions.headOption
       openedAt  = reference.openedAt
       currency  <- reference.currency
-      interval = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
-    } yield interval.days().map(day => filter(TimeInterval(interval.start, day)).positions.map(of).sumByCurrency.getOrElse(currency, FungibleData.zero(currency))))
+      interval  = TimeInterval(openedAt.atBeginningOfDay(), Instant.now()) //should be an implicit
+    } yield interval
+      .days()
+      .map(day =>
+        filter(TimeInterval(interval.start, day)).positions
+          .map(of)
+          .sumByCurrency
+          .getOrElse(currency, FungibleData.zero(currency))
+      ))
       .getOrElse(List.empty)
-  }
 }
 
 object MarketPlays {
@@ -113,6 +119,11 @@ object MarketPlays {
       } else {
         incomingByContract.put(walletAddress, ListBuffer(entry))
       }
+
+    @inline
+    def getForAddress(address: WalletAddress): Option[List[PositionEntry]] = {
+      incomingByContract.get(address).map(_.toList)
+    }
 
     val entries = transactions
       .filter(_.successful)
@@ -183,7 +194,7 @@ object MarketPlays {
       case (_, items) if items.nonEmpty =>
         val list = items.toList
         val positionItems = findFirstOccurrenceOfTokenContract(list)
-          .flatMap(incomingByContract.get(_).map(_.toList))
+          .flatMap(getForAddress)
           .getOrElse(Nil) ::: list
         playsBuffer.addOne(Position.unsafeApply(positionItems.sortBy(_.timestamp)(Ordering[Instant])))
     }
@@ -193,16 +204,15 @@ object MarketPlays {
     )
   }
 
-  //TODO This should be Option[CoinAddress].
   private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] =
     items.head match {
-      case AirDrop(_, receivedFrom, _, _, _, _, _, _) => Some(receivedFrom)
-      case _: Approval                             => None
-      case Buy(_, _, _, coinAddress, _, _, _, _)   => None //Some(coinAddress)
-      case Claim(_, _, receivedFrom, _, _, _)      => Some(receivedFrom)
-      case Contribute(_, to, _, _, _, _)           => Some(to)
-      case _: Sell                                 => None
-      case TransferIn(_, receivedFrom, _, _, _, _) => None //Some(receivedFrom)
-      case _: TransferOut                          => None
+      case AirDrop(_, receivedFrom, _, _, _, _, _, _)    => Some(receivedFrom)
+      case _: Approval                                   => None
+      case Buy(_, _, _, receivedFrom, _, _, _, _, _, _)  => Some(receivedFrom)
+      case Claim(_, _, receivedFrom, _, _, _, _, _)      => Some(receivedFrom)
+      case Contribute(_, to, _, _, _, _)                 => Some(to)
+      case _: Sell                                       => None
+      case TransferIn(_, receivedFrom, _, _, _, _, _, _) => Some(receivedFrom)
+      case _: TransferOut                                => None
     }
 }

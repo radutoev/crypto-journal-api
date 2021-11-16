@@ -57,7 +57,7 @@ object PositionEntry {
     }
   }
 
-  private def dataFromTransferInEvent(event: LogEvent): Either[String, (CoinAddress, FungibleData)] =
+  private def dataFromTransferInEvent(event: LogEvent): Either[String, (CoinAddress, WalletAddress, CoinName, FungibleData)] =
     for {
       senderDecimals <- event.senderContractDecimals.toRight("Did not find contract decimals")
       rawCurrency    <- event.senderContractSymbol.toRight("Did not find currency")
@@ -67,7 +67,10 @@ object PositionEntry {
                  "Cannot determine amount"
                )
       senderAddress <- refineV[CoinAddressPredicate](event.senderAddress)
-    } yield (senderAddress, FungibleData(amount, currency))
+      rawFrom <- event.paramValue("from").toRight("Cannot determine from value")
+      from <- refineV[WalletAddressPredicate](rawFrom)
+      name <- event.senderName.toRight("Did not find coin name").flatMap(refineV[CoinNamePredicate](_))
+    } yield (senderAddress, from, name, FungibleData(amount, currency))
 
   implicit class TransactionOps(transaction: Transaction) {
     def depositEvent(): Either[String, LogEvent] =
@@ -215,13 +218,13 @@ object PositionEntry {
                             )
               currency                <- depositEvent.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
               spent                   = FungibleData(amountSpent, currency)
-              (coinAddress, received) <- dataFromTransferInEvent(buy)
-            } yield Buy(fee, spent, received, coinAddress, transaction.hash, transaction.instant) :: transferIns
+              (coinAddress, from, name, received) <- dataFromTransferInEvent(buy)
+            } yield Buy(fee, spent, received, from, name, coinAddress, transaction.hash, transaction.instant) :: transferIns
               .map(dataFromTransferInEvent)
               .rights
               .map {
-                case (address, data) =>
-                  TransferIn(data, address, FungibleData.zero(WBNB), transaction.hash, transaction.instant)
+                case (coinAddress, from, name, data) =>
+                  TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant, Some(name), Some(coinAddress))
               }
           } else {
             Left("Unable to extract Buy from transaction")
@@ -250,18 +253,22 @@ object PositionEntry {
                         currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
                       } yield FungibleData(amount * Math.pow(10, -decimals), currency)
                     )
-          (received, coinAddress) <- transfers.headOption.flatMap(ev =>
+          (received, from, coinAddress, coinName) <- transfers.headOption.flatMap(ev =>
                                       for {
                                         amount   <- ev.paramValue("value").map(BigDecimal(_))
+                                        from     <- ev.paramValue("from").flatMap(refineV[WalletAddressPredicate](_).toOption)
                                         decimals <- ev.senderContractDecimals
                                         currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
+                                        name     <- ev.senderName.toRight("coin name not found").flatMap(refineV[CoinNamePredicate](_)).toOption
                                         address  <- refineV[CoinAddressPredicate](ev.senderAddress).toOption
-                                      } yield (FungibleData(amount * Math.pow(10, -decimals), currency), address)
+                                      } yield (FungibleData(amount * Math.pow(10, -decimals), currency), from, address, name)
                                     )
         } yield Buy(
           computedFee(),
           spent,
           received,
+          from,
+          coinName,
           coinAddress,
           transaction.hash,
           transaction.instant,
@@ -280,25 +287,30 @@ object PositionEntry {
         transaction.logEvents.headOption.exists(ev => ev.decoded.exists(d => d.name == "Claimed"))
 
       if (isClaim) {
-        lazy val amountOfCoins = transaction
-          .transferEventsToWallet(address)
+        val transfersToWallet = transaction.transferEventsToWallet(address)
+        lazy val amountOfCoins = transfersToWallet
           .map(ev => ev.paramValue("value").map(BigDecimal(_)))
           .values
           .sum
 
         Some {
           for {
-            first       <- transaction.firstTransferEvent()
+            first       <- transfersToWallet.headOption.toRight("Cannot find claim event")
             currency    <- first.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
             decimals    <- first.senderContractDecimals.toRight("Did not find contract decimals")
             finalAmount = amountOfCoins * Math.pow(10, -decimals)
             rawAddress  <- first.paramValue("from").toRight("Did not find sender address")
             sender      <- refineV[WalletAddressPredicate](rawAddress)
+            rawName     <- first.senderName.toRight("Cannot find coin name")
+            name        <- refineV[CoinNamePredicate](rawName)
+            coinAddress <- refineV[CoinAddressPredicate](first.senderAddress)
           } yield List(
             Claim(
               transaction.computedFee(),
               FungibleData(finalAmount, currency),
               sender,
+              name,
+              coinAddress,
               transaction.hash,
               transaction.instant
             )
@@ -359,8 +371,10 @@ object PositionEntry {
             currency <- ev.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
             amount   <- ev.paramValue("value").map(BigDecimal(_)).toRight("Did not find amount")
             data     = FungibleData(amount * Math.pow(10, -decimals), currency)
-            from     <- ev.paramValue("from").toRight("Did not find sender").flatMap(refineV[CoinAddressPredicate](_))
-          } yield TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant)
+            from     <- ev.paramValue("from").toRight("Did not find sender").flatMap(refineV[WalletAddressPredicate](_))
+            name     <- ev.senderName.toRight("Did not find coin name").flatMap(refineV[CoinNamePredicate](_))
+            address  <- refineV[CoinNamePredicate](ev.senderAddress)
+          } yield TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant, Some(name), Some(address))
 
         val (receivedCandidate, receivedAmount, transferIns) = {
           val maybeWithdrawal = transaction.logEvents.find(_.isWithdrawal)
@@ -408,7 +422,7 @@ object PositionEntry {
             txValue <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -18)).toEither.left.map(_ =>
                         "Cannot determine amount"
                       )
-            receivedFrom <- refineV[CoinAddressPredicate](transaction.fromAddress)
+            receivedFrom <- refineV[WalletAddressPredicate](transaction.fromAddress)
           } yield List(
             TransferIn(
               FungibleData(txValue, WBNB),
@@ -428,7 +442,7 @@ object PositionEntry {
               value    <- ev.paramValue("value").map(BigDecimal(_))
               currency <- ev.senderContractSymbol.flatMap(refineV[CurrencyPredicate](_).toOption)
               received = FungibleData(value * Math.pow(10, -decimals), currency)
-              from     <- ev.paramValue("from").flatMap(refineV[CoinAddressPredicate](_).toOption)
+              from     <- ev.paramValue("from").flatMap(refineV[WalletAddressPredicate](_).toOption)
               fee      = FungibleData.zero(WBNB) //I am not sure if the fee is 0 or not here.
             } yield TransferIn(received, from, fee, transaction.hash, transaction.instant)
           }
@@ -440,7 +454,7 @@ object PositionEntry {
           .map { ev =>
             for {
               amount <- ev.paramValue("value").map(BigDecimal(_) * Math.pow(10, -18)).toRight("Did not find value")
-              from   <- refineV[CoinAddressPredicate](transaction.toAddress)
+              from   <- refineV[WalletAddressPredicate](transaction.toAddress)
             } yield TransferIn(
               value = FungibleData(amount, WBNB),
               receivedFrom = from,
@@ -568,6 +582,8 @@ final case class Buy(
   fee: Fee,
   spent: FungibleData,
   received: FungibleData,
+  receivedFrom: WalletAddress,
+  name: CoinName,
   coinAddress: CoinAddress,
   hash: TransactionHash,
   timestamp: Instant,
@@ -579,6 +595,8 @@ final case class Claim(
   fee: Fee,
   received: FungibleData,
   receivedFrom: WalletAddress,
+  name: CoinName,
+  coinAddress: CoinAddress,
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
@@ -604,10 +622,12 @@ final case class Sell(
 
 final case class TransferIn(
   value: FungibleData,
-  receivedFrom: CoinAddress,
+  receivedFrom: WalletAddress,
   fee: Fee,
   hash: TransactionHash,
   timestamp: Instant,
+  name: Option[CoinName] = None,
+  coinAddress: Option[CoinAddress] = None,
   override val id: Option[PositionEntryId] = None
 ) extends PositionEntry
 

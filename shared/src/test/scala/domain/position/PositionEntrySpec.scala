@@ -44,6 +44,8 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         Buy(
           spent = FungibleData(BigDecimal("0.3875408729003106190"), WBNB),
           received = FungibleData(BigDecimal("207074895.8730373970"), Currency.unsafeFrom("FOOFIGHT")),
+          receivedFrom = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
+          name = CoinName.unsafeApply("Fruit Fighters"),
           coinAddress = CoinAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
           fee = FungibleData(BigDecimal("0.00377384"), WBNB),
           hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
@@ -51,8 +53,10 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         ),
         TransferIn(
           value = FungibleData(BigDecimal("3.4736516581719474730"), Currency.unsafeFrom("BUSD")),
-          receivedFrom = CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56"),
+          name = Some(CoinName.unsafeApply("BUSD Token")),
+          receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
           fee = FungibleData.zero(WBNB),
+          coinAddress = Some(CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")),
           hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
           timestamp = Instant.parse("2021-10-18T12:27:24Z")
         )
@@ -66,23 +70,28 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         Buy(
           spent = FungibleData(BigDecimal("1.3000000000000000000"), WBNB),
           received = FungibleData(BigDecimal("10093678.5108933023485965940"), Currency.unsafeFrom("EMPDOGE")),
-          coinAddress = CoinAddress.unsafeFrom("0x0d1cd07e959a701dfd361c98d40ce48691d8718c"),
+          receivedFrom = WalletAddress.unsafeFrom("0xe9d53ff96b991f9025f90844b11b3eca5047bbb0"),
           fee = FungibleData(BigDecimal("0.003242655"), WBNB),
+          name = CoinName.unsafeApply("Emperor Doge"),
+          coinAddress = CoinAddress.unsafeFrom("0x0d1cd07e959a701dfd361c98d40ce48691d8718c"),
           hash = TransactionHash.unsafeApply("0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3"),
           timestamp = Instant.parse("2021-10-14T18:42:11Z")
         ),
         TransferIn(
           value = FungibleData(BigDecimal("3.561490390"), Currency.unsafeFrom("DOGE")),
-          receivedFrom = CoinAddress.unsafeFrom("0xba2ae424d960c26247dd6c32edc70b295c744c43"),
+          receivedFrom = WalletAddress.unsafeFrom("0x668cff8bbf5a18be1d561a25c7b10de213372698"),
           fee = FungibleData.zero(WBNB),
+          name = Some(CoinName.unsafeApply("Dogecoin")),
+          coinAddress = Some(CoinAddress.unsafeFrom("0xba2ae424d960c26247dd6c32edc70b295c744c43")),
           hash = TransactionHash.unsafeApply("0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3"),
           timestamp = Instant.parse("2021-10-14T18:42:11Z")
         ),
         TransferIn(
-          value =
-            FungibleData(BigDecimal("10093678.5108933023485965940"), Currency.unsafeFrom("EMPDOGE_Dividend_Tracker")),
-          receivedFrom = CoinAddress.unsafeFrom("0x668cff8bbf5a18be1d561a25c7b10de213372698"),
+          value = FungibleData(BigDecimal("10093678.5108933023485965940"), Currency.unsafeFrom("EMPDOGE_Dividend_Tracker")),
+          receivedFrom = WalletAddress.unsafeFrom("0x0000000000000000000000000000000000000000"),
           fee = FungibleData.zero(WBNB),
+          name = Some(CoinName.unsafeApply("EMPDOGE_Dividend_Tracker")),
+          coinAddress = Some(CoinAddress.unsafeFrom("0x668cff8bbf5a18be1d561a25c7b10de213372698")),
           hash = TransactionHash.unsafeApply("0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3"),
           timestamp = Instant.parse("2021-10-14T18:42:11Z")
         )
@@ -97,7 +106,9 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
           spent = FungibleData(BigDecimal("1.575485922586737678"), WBNB),
           spentOriginal = Some(FungibleData(BigDecimal("650.0000000000000000000"), Currency.unsafeFrom("BUSD"))),
           received = FungibleData(BigDecimal("871.7809041660"), Currency.unsafeFrom("RPST")),
+          receivedFrom = WalletAddress.unsafeFrom("0xe85132db5fed97dbb1fce7e397b4fa1b0b82cb64"),
           coinAddress = CoinAddress.unsafeFrom("0x4fb431848e8d36978c3ab89c5a2140f877fd155c"),
+          name = CoinName.unsafeApply("Rock Paper Scissors Token"),
           fee = FungibleData(BigDecimal("0.004284840000000001"), WBNB),
           hash = TransactionHash.unsafeApply("0x1bf3ed05449b4c72d5c37e733490cb8ef58df09cab8f8f9aedef0d3511371dc3"),
           timestamp = Instant.parse("2021-10-11T19:46:45Z")
@@ -112,6 +123,8 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         fee = FungibleData(BigDecimal("0.0028749400000000003"), WBNB),
         received = FungibleData(BigDecimal("9335310526620.732"), Currency.unsafeFrom("NONO")),
         receivedFrom = WalletAddress.unsafeFrom("0x42f8c2113f833db5886eea67a77ab32d83f4339f"),
+        name = CoinName.unsafeApply("CardaNONOmics"),
+        coinAddress = CoinAddress.unsafeFrom("0x94afac344e579924d34d9429cbf5fec266f09a8b"),
         hash = TransactionHash.unsafeApply("0x1f88b75a26cab0bba6d1c8468559ad392af82c37e45b27ce07ca98d36b59d0c5"),
         timestamp = Instant.parse("2021-10-08T09:46:25Z")
       )
@@ -148,7 +161,9 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         TransferIn(
           value = FungibleData(BigDecimal("1.7172675723509523810"), Currency.unsafeFrom("BUSD")),
           fee = FungibleData.zero(WBNB),
-          receivedFrom = CoinAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
+          receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
+          name = Some(CoinName.unsafeApply("BUSD Token")),
+          coinAddress = Some(CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")),
           hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
           timestamp = Instant.parse("2021-10-18T14:04:18Z")
         ),
@@ -168,7 +183,7 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
       val expected = TransferIn(
         value = FungibleData(BigDecimal("0.001"), WBNB),
         fee = FungibleData(BigDecimal("0.000105"), WBNB),
-        receivedFrom = CoinAddress.unsafeFrom("0x0c21496dcac5826c43747c39461e5dc9461e894a"),
+        receivedFrom = WalletAddress.unsafeFrom("0x0c21496dcac5826c43747c39461e5dc9461e894a"),
         hash = TransactionHash.unsafeApply("0xb80792b60eeb04747eca64ea337ce6afcbf5e2bde350e89ed11a5f456e0fa2c8"),
         timestamp = Instant.parse("2021-05-21T10:21:02Z")
       )
@@ -181,7 +196,7 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         TransferIn(
           value = FungibleData(BigDecimal("0.1970000000000000000"), WBNB),
           fee = FungibleData(BigDecimal("0.00015249"), WBNB),
-          receivedFrom = CoinAddress.unsafeFrom("0x4a1e8df79fb01e1e127bf0a8640418cfe8916b7c"),
+          receivedFrom = WalletAddress.unsafeFrom("0x4a1e8df79fb01e1e127bf0a8640418cfe8916b7c"),
           hash = TransactionHash.unsafeApply("0xe1140a79a9ada19379b9755a0946582265d97b5f15e04469a3c03ce67065e76c"),
           timestamp = Instant.parse("2021-08-10T22:00:52Z")
         )
@@ -195,7 +210,7 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         TransferIn(
           value = FungibleData(BigDecimal("5.413473528139433736"), Currency.unsafeFrom("BUSD")),
           fee = FungibleData.zero(WBNB),
-          receivedFrom = CoinAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
+          receivedFrom = WalletAddress.unsafeFrom("0x4d9ac32a8a701e11bf21d2b65de783ae74e0159a"),
           hash = TransactionHash.unsafeApply("0x18481a5b77c7008773ecadf47106925ecdb1a22d34269a3c059165be0e53c303"),
           timestamp = Instant.parse("2021-10-18T13:30:09Z")
         )

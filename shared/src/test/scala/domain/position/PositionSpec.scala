@@ -5,6 +5,7 @@ import domain.model._
 import domain.pricequote.{PriceQuote, PriceQuotes}
 import vo.TimeInterval
 
+import io.softwarechain.cryptojournal.domain.position.model.CoinName
 import zio.test.Assertion._
 import zio.test._
 
@@ -42,9 +43,11 @@ object PositionSpec extends DefaultRunnableSpec {
         fee = FungibleData(BigDecimal(0.00397604), WBNB),
         spent = FungibleData(BigDecimal(0.2500000000000000000), WBNB),
         received = FungibleData(BigDecimal(225081408.5576493470), Currency.unsafeFrom("FOOFIGHT")),
+        receivedFrom = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
         coinAddress = CoinAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
         hash = TransactionHash.unsafeApply("0x6ee328f30cc70dee6beaab4466f0ba3d9fbacbe14f5408bd2efdf1ef18d70c25"),
-        timestamp = Instant.parse("2021-10-18T11:38:19Z")
+        timestamp = Instant.parse("2021-10-18T11:38:19Z"),
+        name = CoinName.unsafeApply("Fruit Fighters")
       ),
       Approval(
         fee = FungibleData(0.000222145, WBNB),
@@ -56,9 +59,11 @@ object PositionSpec extends DefaultRunnableSpec {
         fee = FungibleData(BigDecimal(0.00377384), WBNB),
         spent = FungibleData(BigDecimal(0.3875408729003106190), WBNB),
         received = FungibleData(BigDecimal(207074895.8730373970), Currency.unsafeFrom("FOOFIGHT")),
+        receivedFrom = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
         coinAddress = CoinAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
         hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
-        timestamp = Instant.parse("2021-10-18T12:27:24Z")
+        timestamp = Instant.parse("2021-10-18T12:27:24Z"),
+        name = CoinName.unsafeApply("Fruit Fighters")
       ),
       Sell(
         sold = FungibleData(BigDecimal(432156304.430686744), Currency.unsafeFrom("FOOFIGHT")),
