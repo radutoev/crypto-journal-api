@@ -40,6 +40,24 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     }
   }
 
+  lazy val currencies: List[Currency] =
+    plays.flatMap { play =>
+      play match {
+        case p: Position =>
+          p.entries.map {
+            case a: AirDrop => Some(a.received.currency)
+            case b: Buy => Some(b.received.currency)
+            case c: Claim => Some(c.received.currency)
+            case tIn: TransferIn => Some(tIn.value.currency)
+            case _ => None
+          }.collect {
+            case Some(currency) => currency
+          }
+
+        case _ => List.empty
+      }
+    } :+ WBNB
+
   //TODO implement merge.
   def merge(other: MarketPlays): MarketPlays = other
 //    var currencyPositionMap = Map.empty[Currency, Position]
