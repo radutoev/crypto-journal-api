@@ -4,12 +4,11 @@ package domain.position
 import domain.model._
 import domain.model.fungible.{FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps}
 import domain.position.error.InvalidPosition
+import domain.position.model.CoinName
 import domain.pricequote.{PriceQuote, PriceQuotes}
 import util.ListOps.cond
 import util.ListOptionOps
 import vo.TimeInterval
-
-import io.softwarechain.cryptojournal.domain.position.model.CoinName
 
 import java.time.{Duration, Instant}
 
@@ -268,7 +267,7 @@ final case class Position(
     }.getOrElse(FungibleData.zero(USD))
   }
 
-  def inInterval(interval: TimeInterval): Boolean = {
+  override def inInterval(interval: TimeInterval): Boolean = {
     val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
     closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
   }

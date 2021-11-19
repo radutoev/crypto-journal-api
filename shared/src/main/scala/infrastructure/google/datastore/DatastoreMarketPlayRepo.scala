@@ -65,7 +65,7 @@ final case class DatastoreMarketPlayRepo(
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.marketPlay)
       .setFilter(PropertyFilter.eq("address", address.value))
-      .addOrderBy(OrderBy.desc("openedAt"))
+      .addOrderBy(OrderBy.asc("openedAt"))
       .build()
     )
 

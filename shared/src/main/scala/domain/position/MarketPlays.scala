@@ -23,6 +23,23 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val wins: List[Position]  = closedPositions.filter(_.isWin.get)
   lazy val loses: List[Position] = closedPositions.filter(_.isLoss.get)
 
+
+  lazy val interval: Option[TimeInterval] = {
+    if(plays.nonEmpty) {
+      Some(
+        TimeInterval(
+          plays.head.openedAt,
+          positions.map(_.closedAt).collect { case Some(closedAt) => closedAt } match {
+            case Nil => Instant.now()
+            case list => list.max
+          }
+        )
+      )
+    } else {
+      None
+    }
+  }
+
   //TODO implement merge.
   def merge(other: MarketPlays): MarketPlays = other
 //    var currencyPositionMap = Map.empty[Currency, Position]

@@ -1,19 +1,24 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{ Currency, FungibleData, USD }
-import domain.portfolio.error.{ AccountBalanceComputeError, PortfolioError }
-import domain.position.{ MarketPlayService, Position }
-import domain.pricequote.error.PriceQuoteNotFound
-import domain.pricequote.{ PriceQuote, PriceQuoteRepo }
-import domain.wallet.{ Wallet, WalletRepo }
+import domain.model.{Currency, FungibleData, WBNB}
+import domain.portfolio.error.{AccountBalanceComputeError, PortfolioError}
+import domain.position._
+import domain.pricequote.PriceQuoteRepo
+import domain.wallet.{Wallet, WalletRepo}
+import util.InstantOps
+import vo.TimeInterval
 
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, URLayer}
+
+import scala.collection.mutable
 
 trait AccountBalance {
   def value(wallet: Wallet): IO[PortfolioError, FungibleData]
+
+  def trend(wallet: Wallet): IO[PortfolioError, List[FungibleData]]
 }
 
 final case class LiveAccountBalance(
@@ -34,9 +39,13 @@ final case class LiveAccountBalance(
         case p: Position if p.coinAddress.isDefined => p.coinAddress.get -> p
       }.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
 
-      balance <- walletRepo.getQuote(wallet.address, Currency.unsafeFrom("BNB"))
-        .zipWithPar(walletRepo.getQuote(wallet.address, Currency.unsafeFrom("USDT")))((f1, f2) => f1.add(f2.amount))
-        .orElseFail(AccountBalanceComputeError("Cannot compute account balance"))
+      trend = currencyTrend(marketPlays)
+
+      _ <- logger.info("Finished processing")
+
+//      balance <- walletRepo.getQuote(wallet.address, Currency.unsafeFrom("BNB"))
+//        .zipWithPar(walletRepo.getQuote(wallet.address, Currency.unsafeFrom("USDT")))((f1, f2) => f1.add(f2.amount))
+//        .orElseFail(AccountBalanceComputeError("Cannot compute account balance"))
 //        .map(mainQuotes => FungibleData(amount, USD).add(mainQuotes.amount))
 
 //      priceQuoteEffects = positionsByCoinAddress.keySet.map(coinAddress =>
@@ -58,7 +67,68 @@ final case class LiveAccountBalance(
 //            .map(mainQuotes => FungibleData(amount, USD).add(mainQuotes.amount))
 //        }
 //        .orElseFail(AccountBalanceComputeError("Cannot compute account balance"))
-    } yield balance
+    } yield trend.last.getOrElse(WBNB, FungibleData(0, WBNB))
+
+  override def trend(wallet: Wallet): IO[PortfolioError, List[FungibleData]] = {
+    for {
+      _           <- logger.info(s"Computing account balance trend for $wallet")
+      marketPlays <- marketPlaysService.getPlays(wallet).orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
+    } yield List.empty
+  }
+
+  private def currencyTrend(marketPlays: MarketPlays): List[Map[Currency, FungibleData]] = {
+    marketPlays.interval match {
+      case Some(timeInterval) =>
+        timeInterval.days().map { day =>
+          val interval = TimeInterval(timeInterval.start.atBeginningOfDay(), day.atEndOfDay())
+          val plays = marketPlays.plays.filter(_.inInterval(interval))
+          val currencyBalance: mutable.Map[Currency, BigDecimal] = mutable.Map(WBNB -> BigDecimal(0))
+          println(s"Processing ${plays.size} plays for interval $interval")
+          plays.foreach {
+            case Position(entries, _, _, _) => entries.foreach {
+              case a: AirDrop =>
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - a.fee.amount)
+                currencyBalance.update(a.received.currency, currencyBalance.getOrElse(a.received.currency, BigDecimal(0) + a.received.amount))
+              case a: Approval =>
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - a.fee.amount)
+              case buy: Buy =>
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - buy.fee.amount)
+                if(buy.spentOriginal.isDefined) {
+                  currencyBalance.update(buy.spentOriginal.get.currency, currencyBalance.getOrElse(buy.spentOriginal.get.currency, BigDecimal(0)) - buy.spentOriginal.get.amount)
+                } else {
+                  currencyBalance.update(buy.spent.currency, currencyBalance.getOrElse(buy.spent.currency, BigDecimal(0)) - buy.spent.amount)
+                }
+                currencyBalance.update(buy.received.currency, currencyBalance.getOrElse(buy.received.currency, BigDecimal(0)) + buy.received.amount)
+              case c: Claim =>
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - c.fee.amount)
+                currencyBalance.update(c.received.currency, currencyBalance.getOrElse(c.received.currency, BigDecimal(0)) + c.received.amount)
+              case c: Contribute =>
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - c.fee.amount)
+                currencyBalance.update(c.spent.currency, currencyBalance.getOrElse(c.spent.currency, BigDecimal(0)) - c.spent.amount)
+              case s: Sell =>
+                currencyBalance.update(
+                  s.received.currency,
+                  currencyBalance.getOrElse(s.received.currency, BigDecimal(0)) + s.received.amount
+                )
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - s.fee.amount)
+              case tIn: TransferIn =>
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - tIn.fee.amount)
+                currencyBalance.update(tIn.value.currency, currencyBalance.getOrElse(tIn.value.currency, BigDecimal(0)) + tIn.value.amount)
+              case tOut: TransferOut =>
+                currencyBalance.update(WBNB, currencyBalance(WBNB) - tOut.fee.amount)
+                currencyBalance.update(tOut.amount.currency, currencyBalance.getOrElse(tOut.amount.currency, BigDecimal(0)) + tOut.amount.amount)
+              case _ =>
+            }
+            case TopUp(_, value, fee, _, _, _) =>
+              currencyBalance.update(WBNB, currencyBalance(WBNB) + value.amount - fee.amount)
+            case Withdraw(_, value, fee, _, _, _) =>
+              currencyBalance.update(WBNB, currencyBalance(WBNB) - value.amount - fee.amount)
+          }
+          currencyBalance.map { case (currency, amount) => currency -> FungibleData(amount, currency) }.toMap
+        }
+      case None => List.empty
+    }
+  }
 }
 
 object LiveAccountBalance {
