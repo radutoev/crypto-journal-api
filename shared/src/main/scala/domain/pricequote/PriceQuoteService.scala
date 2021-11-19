@@ -44,11 +44,9 @@ final case class LivePriceQuoteService(priceQuoteRepo: PriceQuoteRepo,
       _            <- ZIO.foreachParN_(4)(intervals) { case (coinAddress, interval) =>
         blockchainRepo
           .getHistoricalPriceQuotes(coinAddress, interval)
-          .flatMap(quotes => logger.info(quotes.mkString(",")))
+          .flatMap(quotes => priceQuoteRepo.saveQuotes(Map(addressToCurrency(coinAddress) -> quotes)))
           .ignore
       }
-      //2. for each currency - fetch quotes for interval from covalent.
-      //3. for each currency - write quotes to datastore
     } yield ()
   }
 }

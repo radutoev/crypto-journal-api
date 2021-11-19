@@ -206,7 +206,7 @@ object dto {
 
 
   final case class PriceQuoteResponse(
-                                       data: Option[PriceQuoteData],
+                                       data: List[PriceQuoteData],
                                        error: Boolean,
                                        @jsonField("error_message") errorMessage: Option[String],
                                        @jsonField("error_code") errorCode: Option[Int]

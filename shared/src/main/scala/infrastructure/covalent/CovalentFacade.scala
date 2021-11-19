@@ -153,10 +153,12 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
         .mapError(t => HistoricalPriceGetError(t.getMessage))
       decoded <- ZIO
         .fromEither(response.body)
+        .tapError(err => logger.warn(err))
         .mapError(err => HistoricalPriceGetError(err))
-        .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).mapError(err => HistoricalPriceGetError(err)))
-      quotes = decoded.data.fold[List[PriceQuote]](List.empty)(data => data.prices.map(priceData =>
-        PriceQuote(priceData.price, LocalDate.parse(priceData.date).atStartOfDay().toInstant(ZoneOffset.UTC))
+        .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).tapError(err => logger.warn(err)).mapError(err => HistoricalPriceGetError(err)))
+      _ <- logger.debug(s"Data for ${currency.value}: $decoded")
+      quotes = decoded.data.flatMap(priceData => priceData.prices.map(price =>
+        PriceQuote(price.price, LocalDate.parse(price.date).atStartOfDay().toInstant(ZoneOffset.UTC))
       ))
     } yield quotes
 }
