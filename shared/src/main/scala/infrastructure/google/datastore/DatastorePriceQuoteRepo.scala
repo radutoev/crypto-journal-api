@@ -69,25 +69,51 @@ final case class DatastorePriceQuoteRepo(
     } yield quotes
   }
 
-  override def getCurrentQuote(contract: CoinAddress): IO[PriceQuoteError, PriceQuote] =
-    for {
-      now <- clock.instant
-      day = CovalentQParamDateFormat.format(now)
-      _   <- logger.info(s"Fetching quote for ${contract.value} at ${now.toString}")
-      url = s"${covalentConfig.baseUrl}/v1/pricing/historical_by_addresses_v2/56/USD/${contract.value}/?from=$day&to=$day&key=${covalentConfig.key}"
-      response <- httpClient
-                   .send(basicRequest.get(uri"$url").response(asString))
-                   .tapError(t => logger.warn(s"Covalent price quote request failed: $t"))
-                   .mapError(t => PriceQuoteFetchError(t.getMessage))
-      decoded <- ZIO
-        .fromEither(response.body)
-        .orElseFail(PriceQuoteNotFound(contract))
-        .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).mapError(PriceQuoteFetchError))
-      price <- ZIO
-        .fromOption(decoded.data).orElseFail(PriceQuoteNotFound(contract))
-        .flatMap(quote => ZIO.fromOption(quote.prices.headOption).orElseFail(PriceQuoteNotFound(contract)))
-                .mapBoth(_ => PriceQuoteNotFound(contract), priceData => priceData.price)
-    } yield PriceQuote(price, now.atBeginningOfDay())
+  override def getLatestQuotes(currencies: Set[Currency]): IO[PriceQuoteError, Map[Currency, PriceQuote]] = {
+    if(currencies.nonEmpty) {
+      val filter = currencies.map(currency => PropertyFilter.eq("currency", currency.value))
+      val query = Query.newProjectionEntityQueryBuilder()
+        .setKind(datastoreConfig.currency)
+        .setFilter(CompositeFilter.and(filter.head, filter.tail.toList: _*))
+        .setProjection("name", "timestamp", "price")
+        .setDistinctOn("name")
+        .setOrderBy(OrderBy.asc("name"), OrderBy.desc("timestamp"), OrderBy.asc("price"))
+        .build()
+      Task(datastore.run(query, Seq.empty[ReadOption]: _*))
+        .map(results => results.asScala.toList.map { entity =>
+          (
+            Currency.unsafeFrom(entity.getString("currency")),
+            PriceQuote(
+              Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
+              Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
+            )
+          )
+        }.toMap)
+        .tapError(err => logger.warn(err.getMessage))
+        .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
+    } else {
+      UIO(Map.empty)
+    }
+
+//    for {
+//      now <- clock.instant
+//      day = CovalentQParamDateFormat.format(now)
+//      _   <- logger.info(s"Fetching quote for ${contract.value} at ${now.toString}")
+//      url = s"${covalentConfig.baseUrl}/v1/pricing/historical_by_addresses_v2/56/USD/${contract.value}/?from=$day&to=$day&key=${covalentConfig.key}"
+//      response <- httpClient
+//                   .send(basicRequest.get(uri"$url").response(asString))
+//                   .tapError(t => logger.warn(s"Covalent price quote request failed: $t"))
+//                   .mapError(t => PriceQuoteFetchError(t.getMessage))
+//      decoded <- ZIO
+//        .fromEither(response.body)
+//        .orElseFail(PriceQuoteNotFound(contract))
+//        .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).mapError(PriceQuoteFetchError))
+//      price <- ZIO
+//        .fromOption(decoded.data).orElseFail(PriceQuoteNotFound(contract))
+//        .flatMap(quote => ZIO.fromOption(quote.prices.headOption).orElseFail(PriceQuoteNotFound(contract)))
+//                .mapBoth(_ => PriceQuoteNotFound(contract), priceData => priceData.price)
+//    } yield PriceQuote(price, now.atBeginningOfDay())
+  }
 
   private val entityToPriceQuote: Entity => (Currency, PriceQuote) = entity => {
     (

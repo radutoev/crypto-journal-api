@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import domain.model.CoinAddress
+import domain.model.Currency
 
 object error {
   sealed trait PriceQuoteError
-  final case class PriceQuoteFetchError(message: String)     extends PriceQuoteError
-  final case class PriceQuoteNotFound(contract: CoinAddress) extends PriceQuoteError
+  final case class PriceQuoteFetchError(message: String)  extends PriceQuoteError
+  final case class PriceQuoteNotFound(currency: Currency) extends PriceQuoteError
 }

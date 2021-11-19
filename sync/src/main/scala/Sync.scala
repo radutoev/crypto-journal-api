@@ -113,7 +113,7 @@ object Sync extends App {
 
     lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ httpClientLayer ++ covalentConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
-    lazy val priceQuoteServiceLayer = (loggingLayer ++ priceQuoteRepoLayer) >>> LivePriceQuoteService.layer
+    lazy val priceQuoteServiceLayer = (loggingLayer ++ priceQuoteRepoLayer ++ Clock.live) >>> LivePriceQuoteService.layer
 
     exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ positionsRepoLayer ++ currencyRepoLayer ++ priceQuoteServiceLayer
   }
