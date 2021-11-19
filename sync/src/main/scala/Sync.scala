@@ -3,16 +3,18 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.blockchain.BlockchainRepo
 import domain.position.error.MarketPlaysFetchError
-import domain.position.{ MarketPlayRepo, MarketPlays }
+import domain.position.{MarketPlayRepo, MarketPlays}
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
 import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.datastore.{ DatastoreMarketPlayRepo, DatastoreWalletImportRepo }
+import infrastructure.google.datastore.{DatastoreCurrencyRepo, DatastoreMarketPlayRepo, DatastorePriceQuoteRepo, DatastoreWalletImportRepo}
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{ Config, ConfigFactory }
-import io.softwarechain.cryptojournal.domain.model.{ TransactionHash, WalletAddress }
+import com.typesafe.config.{Config, ConfigFactory}
+import io.softwarechain.cryptojournal.application.SyncApi
+import io.softwarechain.cryptojournal.domain.model.{TransactionHash, WalletAddress}
+import io.softwarechain.cryptojournal.domain.pricequote.LivePriceQuoteService
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
@@ -31,39 +33,40 @@ object Sync extends App {
 
   private def program(config: Config) =
     for {
-      bnbStream <- BnbListener
-                    .positionEntryStream()
-                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
-                    .flattenIterables
-                    .mapM(txObject =>
-                      knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
-                    )
-                    .filter(_._2.nonEmpty)
-                    .mapM {
-                      case (txHash, addresses) =>
-                        BlockchainRepo.fetchTransaction(txHash).map(_ -> addresses)
-                    }
-                    //TODO Redo logic for merging
-                    //                    .mapM {
-                    //                      case (transaction, addresses) =>
-                    //                        ZIO.foreach(addresses)(address =>
-                    //                          MarketPlayRepo
-                    //                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
-                    //                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
-                    //                            .map(marketPlays => address -> marketPlays)
-                    //                        )
-                    //                    }
-                    //                    .foreach { newAddressMarketPlays =>
-                    //                      ZIO.foreach(newAddressMarketPlays) {
-                    //                        case (address, marketPlays) =>
-                    //                          MarketPlayRepo.save(address, marketPlays.positions)
-                    //                      }
-                    //                    }
-                    .foreach(_ => UIO.unit)
-                    .provideCustomLayer(listenerEnvironment(config))
-                    .forever
-                    .fork
-      _ <- bnbStream.join
+      _ <- SyncApi.syncPriceQuotes().provideCustomLayer(listenerEnvironment(config))
+//      bnbStream <- BnbListener
+//                    .positionEntryStream()
+//                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
+//                    .flattenIterables
+//                    .mapM(txObject =>
+//                      knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
+//                    )
+//                    .filter(_._2.nonEmpty)
+//                    .mapM {
+//                      case (txHash, addresses) =>
+//                        BlockchainRepo.fetchTransaction(txHash).map(_ -> addresses)
+//                    }
+//                    //TODO Redo logic for merging
+//                    //                    .mapM {
+//                    //                      case (transaction, addresses) =>
+//                    //                        ZIO.foreach(addresses)(address =>
+//                    //                          MarketPlayRepo
+//                    //                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
+//                    //                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
+//                    //                            .map(marketPlays => address -> marketPlays)
+//                    //                        )
+//                    //                    }
+//                    //                    .foreach { newAddressMarketPlays =>
+//                    //                      ZIO.foreach(newAddressMarketPlays) {
+//                    //                        case (address, marketPlays) =>
+//                    //                          MarketPlayRepo.save(address, marketPlays.positions)
+//                    //                      }
+//                    //                    }
+//                    .foreach(_ => UIO.unit)
+//                    .provideCustomLayer(listenerEnvironment(config))
+//                    .forever
+//                    .fork
+//      _ <- bnbStream.join
     } yield ()
 
   private def knownAddresses(tx: Transaction) = {
@@ -106,6 +109,12 @@ object Sync extends App {
     lazy val walletRepoLayer =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
-    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ positionsRepoLayer
+    lazy val currencyRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreCurrencyRepo.layer
+
+    lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ httpClientLayer ++ covalentConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
+
+    lazy val priceQuoteServiceLayer = (loggingLayer ++ priceQuoteRepoLayer) >>> LivePriceQuoteService.layer
+
+    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ positionsRepoLayer ++ currencyRepoLayer ++ priceQuoteServiceLayer
   }
 }
