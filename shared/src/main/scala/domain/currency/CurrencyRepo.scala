@@ -8,4 +8,6 @@ import zio.IO
 
 trait CurrencyRepo {
   def getCurrencies(): IO[CurrencyError, Set[Currency]]
+
+  def upsert(currencies: Set[Currency]): IO[CurrencyError, Unit]
 }
