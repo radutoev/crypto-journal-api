@@ -11,7 +11,7 @@ import util.InstantOps
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import sttp.client3.httpclient.zio.SttpClient
 import sttp.client3.{UriContext, asString, basicRequest}
@@ -33,6 +33,7 @@ final case class DatastorePriceQuoteRepo(
   clock: Clock.Service,
   logger: Logger[String]
 ) extends PriceQuoteRepo {
+  //TODO Revisit the implementation
   override def getQuotes(interval: TimeInterval): Task[List[PriceQuote]] =
     for {
       results <- Task {
@@ -48,14 +49,24 @@ final case class DatastorePriceQuoteRepo(
                   val queryResults: QueryResults[Entity] = datastore.run(query, Seq.empty[ReadOption]: _*)
                   queryResults
                 }.tapError(errr => UIO(println(errr)))
-      priceQuotes = results.asScala.toList.map(entityToPriceQuote).sortBy(_.timestamp)(Ordering[Instant])
-    } yield priceQuotes
+//      priceQuotes = results.asScala.toList.map(entityToPriceQuote).sortBy(_.timestamp)(Ordering[Instant])
+    } yield List.empty
 
   override def getQuotes(currencies: Set[Currency], interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] = {
     for {
       _     <- logger.info(s"Fetch quotes in time interval $interval for currencies ${currencies.mkString(",")}")
-//      query = Query.newEntityQueryBuilder().setKind(datastoreConfig.priceQuote).setFilter()
-    } yield Map.empty
+      start = interval.start.atBeginningOfDay()
+      eqFilters = currencies.map(c => PropertyFilter.eq("currency", StringValue.of(c.value))).toList
+      filter = CompositeFilter.and(
+        PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano)),
+        eqFilters: _*
+      )
+      query = Query.newEntityQueryBuilder().setKind(datastoreConfig.priceQuote).setFilter(filter).addOrderBy(OrderBy.desc("timestamp")).build()
+      results <- Task(datastore.run(query, Seq.empty[ReadOption]: _*))
+        .tapError(err => logger.warn(err.getMessage))
+        .orElseFail(PriceQuoteFetchError("Unable to fetch quotes"))
+      quotes = results.asScala.toList.map(entityToPriceQuote).groupBy(_._1).view.mapValues(_.map(_._2)).toMap
+    } yield quotes
   }
 
   override def getCurrentQuote(contract: CoinAddress): IO[PriceQuoteError, PriceQuote] =
@@ -78,10 +89,13 @@ final case class DatastorePriceQuoteRepo(
                 .mapBoth(_ => PriceQuoteNotFound(contract), priceData => priceData.price)
     } yield PriceQuote(price, now.atBeginningOfDay())
 
-  private val entityToPriceQuote: Entity => PriceQuote = entity => {
-    PriceQuote(
-      Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
-      Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
+  private val entityToPriceQuote: Entity => (Currency, PriceQuote) = entity => {
+    (
+      Currency.unsafeFrom(entity.getString("currency")),
+      PriceQuote(
+        Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
+        Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
+      )
     )
   }
 }
