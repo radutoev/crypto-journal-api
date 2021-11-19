@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.{CovalentConfig, DatastoreConfig}
-import domain.model.CoinAddress
+import domain.model.{CoinAddress, Currency}
 import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound}
 import domain.pricequote.{PriceQuote, PriceQuoteRepo}
 import infrastructure.google.datastore.DatastorePriceQuoteRepo.CovalentQParamDateFormat
@@ -50,6 +50,13 @@ final case class DatastorePriceQuoteRepo(
                 }.tapError(errr => UIO(println(errr)))
       priceQuotes = results.asScala.toList.map(entityToPriceQuote).sortBy(_.timestamp)(Ordering[Instant])
     } yield priceQuotes
+
+  override def getQuotes(currencies: Set[Currency], interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] = {
+    for {
+      _     <- logger.info(s"Fetch quotes in time interval $interval for currencies ${currencies.mkString(",")}")
+//      query = Query.newEntityQueryBuilder().setKind(datastoreConfig.priceQuote).setFilter()
+    } yield Map.empty
+  }
 
   override def getCurrentQuote(contract: CoinAddress): IO[PriceQuoteError, PriceQuote] =
     for {

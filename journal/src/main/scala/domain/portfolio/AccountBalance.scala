@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.{Currency, FungibleData, WBNB}
+import domain.model.{Currency, FungibleData, USD, WBNB}
 import domain.portfolio.error.{AccountBalanceComputeError, PortfolioError}
 import domain.position._
-import domain.pricequote.PriceQuoteRepo
+import domain.pricequote.{PriceQuote, PriceQuoteRepo, PriceQuotes}
 import domain.wallet.{Wallet, WalletRepo}
 import util.InstantOps
 import vo.TimeInterval
@@ -23,7 +23,8 @@ trait AccountBalance {
 
 final case class LiveAccountBalance(
   marketPlaysService: MarketPlayService,
-  priceQuoteRepo: PriceQuoteRepo,
+  priceQuoteRepo: PriceQuoteRepo, //TODO Use PriceQuoteService.
+
   walletRepo: WalletRepo,
   clock: Clock.Service,
   logger: Logger[String]
@@ -41,33 +42,19 @@ final case class LiveAccountBalance(
 
       trend = currencyTrend(marketPlays)
 
+      currencyQuotes <- priceQuoteRepo.getQuotes(marketPlays.currencies, marketPlays.interval.get)
+        .orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
+
       _ <- logger.info("Finished processing")
 
-//      balance <- walletRepo.getQuote(wallet.address, Currency.unsafeFrom("BNB"))
-//        .zipWithPar(walletRepo.getQuote(wallet.address, Currency.unsafeFrom("USDT")))((f1, f2) => f1.add(f2.amount))
-//        .orElseFail(AccountBalanceComputeError("Cannot compute account balance"))
-//        .map(mainQuotes => FungibleData(amount, USD).add(mainQuotes.amount))
-
-//      priceQuoteEffects = positionsByCoinAddress.keySet.map(coinAddress =>
-//        priceQuoteRepo
-//          .getCurrentQuote(coinAddress)
-//          .map(quote => coinAddress -> quote)
-////          .catchSome {
-////            case PriceQuoteNotFound(contract) => UIO(contract -> PriceQuote(0f, now))
-////          }
-//          .catchAll(_ => UIO(coinAddress -> PriceQuote(0f, now))) //ignore failures.
-//      )
-//      balance <- ZIO
-//        .mergeAllParN(5)(priceQuoteEffects)(BigDecimal(0)) { (acc, currencyQuote) =>
-//          acc + positionsByCoinAddress(currencyQuote._1).map(_.numberOfCoins * currencyQuote._2.price).sum
-//        }
-//        .flatMap { amount =>
-//          walletRepo.getQuote(wallet.address, Currency.unsafeFrom("BNB"))
-//            .zipWithPar(walletRepo.getQuote(wallet.address, Currency.unsafeFrom("USDT")))((f1, f2) => f1.add(f2.amount))
-//            .map(mainQuotes => FungibleData(amount, USD).add(mainQuotes.amount))
-//        }
-//        .orElseFail(AccountBalanceComputeError("Cannot compute account balance"))
-    } yield trend.last.getOrElse(WBNB, FungibleData(0, WBNB))
+      //TODO Revisit computation when I have the quotes.
+      balance = trend.last.map { case (currency, (interval, fungibleData)) =>
+        val quotes = PriceQuotes(currencyQuotes.getOrElse(currency, List.empty))
+        //get quotes for the interval and to an average
+        val quote = PriceQuote(10f, interval.start)
+        fungibleData.amount * quote.price
+      }.sum
+    } yield FungibleData(balance, USD)
 
   override def trend(wallet: Wallet): IO[PortfolioError, List[FungibleData]] = {
     for {
@@ -76,7 +63,7 @@ final case class LiveAccountBalance(
     } yield List.empty
   }
 
-  private def currencyTrend(marketPlays: MarketPlays): List[Map[Currency, FungibleData]] = {
+  private def currencyTrend(marketPlays: MarketPlays): List[Map[Currency, (TimeInterval, FungibleData)]] = {
     marketPlays.interval match {
       case Some(timeInterval) =>
         timeInterval.days().map { day =>
@@ -124,7 +111,7 @@ final case class LiveAccountBalance(
             case Withdraw(_, value, fee, _, _, _) =>
               currencyBalance.update(WBNB, currencyBalance(WBNB) - value.amount - fee.amount)
           }
-          currencyBalance.map { case (currency, amount) => currency -> FungibleData(amount, currency) }.toMap
+          currencyBalance.map { case (currency, amount) => currency -> (interval, FungibleData(amount, currency)) }.toMap
         }
       case None => List.empty
     }

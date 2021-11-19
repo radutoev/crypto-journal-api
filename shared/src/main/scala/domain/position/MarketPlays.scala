@@ -40,8 +40,8 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     }
   }
 
-  lazy val currencies: List[Currency] =
-    plays.flatMap { play =>
+  lazy val currencies: Set[Currency] =
+    (plays.flatMap { play =>
       play match {
         case p: Position =>
           p.entries.map {
@@ -56,7 +56,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 
         case _ => List.empty
       }
-    } :+ WBNB
+    } :+ WBNB).toSet
 
   //TODO implement merge.
   def merge(other: MarketPlays): MarketPlays = other
