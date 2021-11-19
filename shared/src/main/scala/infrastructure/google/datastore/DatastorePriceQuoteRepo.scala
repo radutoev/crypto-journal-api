@@ -47,18 +47,20 @@ final case class DatastorePriceQuoteRepo(
 
   override def getQuotes(currencies: Set[Currency], interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] = {
     for {
-      _     <- logger.info(s"Fetch quotes in time interval $interval for currencies ${currencies.mkString(",")}")
+      _     <- logger.info(s"Fetch quotes in $interval for currencies ${currencies.mkString(",")}")
       start = interval.start.atBeginningOfDay()
-      eqFilters = currencies.map(c => PropertyFilter.eq("currency", StringValue.of(c.value))).toList
+      eqFilters = currencies.map(c => PropertyFilter.eq("currency", c.value)).toList
       filter = CompositeFilter.and(
         PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano)),
-        eqFilters: _*
+//        eqFilters: _*
       )
-      query = Query.newEntityQueryBuilder().setKind(datastoreConfig.priceQuote).setFilter(filter).addOrderBy(OrderBy.desc("timestamp")).build()
+      query = Query.newEntityQueryBuilder().setKind(datastoreConfig.priceQuote).setFilter(filter).addOrderBy(OrderBy.asc("timestamp")).build()
       results <- Task(datastore.run(query, Seq.empty[ReadOption]: _*))
         .tapError(err => logger.warn(err.getMessage))
         .orElseFail(PriceQuoteFetchError("Unable to fetch quotes"))
-      quotes = results.asScala.toList.map(entityToPriceQuote).groupBy(_._1).view.mapValues(_.map(_._2)).toMap
+      quotes = results.asScala.toList.map(entityToPriceQuote)
+        .filter(t => t._2.timestamp.isBefore(interval.end) || t._2.timestamp == interval.end)
+        .groupBy(_._1).view.mapValues(_.map(_._2)).toMap
     } yield quotes
   }
 

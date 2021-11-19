@@ -32,14 +32,7 @@ final case class LiveAccountBalance(
   override def value(wallet: Wallet): IO[PortfolioError, FungibleData] =
     for {
       _   <- logger.info(s"Computing account balance for $wallet")
-      now <- clock.instant
-      marketPlays <- marketPlaysService
-                      .getPlays(wallet)
-                      .orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
-      positionsByCoinAddress = marketPlays.plays.collect {
-        case p: Position if p.coinAddress.isDefined => p.coinAddress.get -> p
-      }.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
-
+      marketPlays <- marketPlaysService.getPlays(wallet).orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
       trend = currencyTrend(marketPlays)
 
       currencyQuotes <- priceQuoteRepo.getQuotes(marketPlays.currencies.map(_._1), marketPlays.interval.get)
@@ -47,12 +40,14 @@ final case class LiveAccountBalance(
 
       _ <- logger.info("Finished processing")
 
-      //TODO Revisit computation when I have the quotes.
-      balance = trend.last.map { case (currency, (interval, fungibleData)) =>
+      balance = trend.last.map { case (currency, (day, fungibleData)) =>
         val quotes = PriceQuotes(currencyQuotes.getOrElse(currency, List.empty))
-        //get quotes for the interval and to an average
-        val quote = PriceQuote(10f, interval.start)
-        fungibleData.amount * quote.price
+        quotes.findPrice(day.start.atBeginningOfDay())
+          .map(quote => {
+            println(fungibleData + " " + quote.price)
+            quote.price * fungibleData.amount
+          })
+          .getOrElse(BigDecimal(0))
       }.sum
     } yield FungibleData(balance, USD)
 
@@ -70,7 +65,7 @@ final case class LiveAccountBalance(
           val interval = TimeInterval(timeInterval.start.atBeginningOfDay(), day.atEndOfDay())
           val plays = marketPlays.plays.filter(_.inInterval(interval))
           val currencyBalance: mutable.Map[Currency, BigDecimal] = mutable.Map(WBNB -> BigDecimal(0))
-          println(s"Processing ${plays.size} plays for interval $interval")
+//          println(s"Processing ${plays.size} plays for interval $interval")
           plays.foreach {
             case Position(entries, _, _, _) => entries.foreach {
               case a: AirDrop =>
