@@ -1,11 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.blockchain.error.TransactionsGetError
-import domain.model.{ TransactionHash, WalletAddress }
+import domain.blockchain.error.{BlockchainError, TransactionsGetError}
+import domain.model.{CoinAddress, TransactionHash, WalletAddress}
+import domain.pricequote.PriceQuote
+import vo.TimeInterval
 
 import zio.stream.ZStream
-import zio.{ Has, Task, ZIO }
+import zio.{Has, IO, Task, ZIO}
 
 import java.time.Instant
 
@@ -17,6 +19,8 @@ trait BlockchainRepo {
   def transactionsStream(address: WalletAddress, startFrom: Instant): ZStream[Any, TransactionsGetError, Transaction]
 
   def fetchTransaction(txHash: TransactionHash): Task[Transaction]
+
+  def getHistoricalPriceQuotes(coinAddress: CoinAddress, interval: TimeInterval): IO[BlockchainError, List[PriceQuote]]
 }
 
 object BlockchainRepo {

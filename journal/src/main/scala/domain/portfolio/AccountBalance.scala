@@ -42,7 +42,7 @@ final case class LiveAccountBalance(
 
       trend = currencyTrend(marketPlays)
 
-      currencyQuotes <- priceQuoteRepo.getQuotes(marketPlays.currencies, marketPlays.interval.get)
+      currencyQuotes <- priceQuoteRepo.getQuotes(marketPlays.currencies.map(_._1), marketPlays.interval.get)
         .orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
 
       _ <- logger.info("Finished processing")

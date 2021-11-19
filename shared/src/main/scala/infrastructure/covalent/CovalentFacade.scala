@@ -2,22 +2,27 @@ package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
 import config.CovalentConfig
-import domain.blockchain.error.TransactionsGetError
-import domain.blockchain.{ BlockchainRepo, Transaction }
-import domain.model.{ TransactionHash, WalletAddress }
-import infrastructure.covalent.dto.TransactionQueryResponse
+import domain.blockchain.error.{BlockchainError, HistoricalPriceGetError, TransactionsGetError}
+import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.model.{Currency, TransactionHash, WalletAddress}
+import infrastructure.covalent.dto.{PriceQuoteResponse, TransactionQueryResponse}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import eu.timepit.refined.string.Url
+import io.softwarechain.cryptojournal.domain.pricequote.PriceQuote
+import io.softwarechain.cryptojournal.domain.pricequote.error.{PriceQuoteFetchError, PriceQuoteNotFound}
+import io.softwarechain.cryptojournal.infrastructure.covalent.CovalentFacade.CovalentQParamDateFormat
+import io.softwarechain.cryptojournal.vo.TimeInterval
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
 import zio.json._
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO }
+import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
 
-import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
     extends BlockchainRepo {
@@ -134,9 +139,31 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
                       .tapError(t => logger.warn(t))
                       .mapBoth(err => new RuntimeException(err), _.data.items.head.toDomain())
     } yield transaction
+
+  override def getHistoricalPriceQuotes(currency: Currency, interval: TimeInterval): IO[BlockchainError, List[PriceQuote]] =
+    for {
+      _ <- logger.info(s"Get historical price quotes for ${currency.value} in interval $interval")
+      start = CovalentQParamDateFormat.format(interval.start)
+      end = CovalentQParamDateFormat.format(interval.end)
+      url = s"${config.baseUrl}/pricing/historical_by_addresses_v2/56/USD/${currency.value}/?from=$start&to=$end&key=${config.key}"
+      _ <- logger.debug(url)
+      response <- httpClient
+        .send(basicRequest.get(uri"$url").response(asString))
+        .tapError(t => logger.warn(s"Covalent price quote request failed: $t"))
+        .mapError(t => HistoricalPriceGetError(t.getMessage))
+      decoded <- ZIO
+        .fromEither(response.body)
+        .mapError(err => HistoricalPriceGetError(err))
+        .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).mapError(err => HistoricalPriceGetError(err)))
+      quotes = decoded.data.fold[List[PriceQuote]](List.empty)(data => data.prices.map(priceData =>
+        PriceQuote(priceData.price, LocalDate.parse(priceData.date).atStartOfDay().toInstant(ZoneOffset.UTC))
+      ))
+    } yield quotes
 }
 
 object CovalentFacade {
   val layer: URLayer[SttpClient with Has[CovalentConfig] with Logging, Has[BlockchainRepo]] =
     (CovalentFacade(_, _, _)).toLayer
+
+  private[covalent] val CovalentQParamDateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.from(ZoneOffset.UTC))
 }

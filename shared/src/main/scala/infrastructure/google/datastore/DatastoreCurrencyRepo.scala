@@ -4,7 +4,7 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.currency.CurrencyRepo
 import domain.currency.error.{CurrencyError, CurrencyFetchError}
-import domain.model.Currency
+import domain.model.{CoinAddress, Currency}
 
 import com.google.cloud.datastore.{Datastore, Entity, Query, ReadOption}
 import zio.logging.{Logger, Logging}
@@ -15,7 +15,7 @@ import scala.jdk.CollectionConverters._
 final case class DatastoreCurrencyRepo (datastore: Datastore,
                                         datastoreConfig: DatastoreConfig,
                                         logger: Logger[String]) extends CurrencyRepo {
-  override def getCurrencies(): IO[CurrencyError, Set[Currency]] = {
+  override def getCurrencies(): IO[CurrencyError, Set[(Currency, CoinAddress)]] = {
     for {
       _     <- logger.info("Fetch currencies")
       query = Query.newEntityQueryBuilder().setKind(datastoreConfig.currency).build()
@@ -23,7 +23,7 @@ final case class DatastoreCurrencyRepo (datastore: Datastore,
     } yield results.asScala.toSet.map(entityToCurrency)
   }
 
-  override def upsert(currencies: Set[Currency]): IO[CurrencyError, Unit] = {
+  override def upsert(currencies: Set[(Currency, CoinAddress)]): IO[CurrencyError, Unit] = {
     @inline
     def saveEntities(list: List[Entity]) =
       Task(datastore.newTransaction())
@@ -49,13 +49,17 @@ final case class DatastoreCurrencyRepo (datastore: Datastore,
     }
   }
 
-  private def entityToCurrency(entity: Entity): Currency = {
-    Currency.unsafeFrom(entity.getString("currency"))
+  private def entityToCurrency(entity: Entity): (Currency, CoinAddress) = {
+    (
+      Currency.unsafeFrom(entity.getString("currency")),
+      CoinAddress.unsafeFrom(entity.getString("address"))
+    )
   }
 
-  private def currencyToEntity(currency: Currency): Entity = {
-    Entity.newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.currency).newKey(currency.value))
-      .set("currency", currency.value)
+  private def currencyToEntity(tuple: (Currency, CoinAddress)): Entity = {
+    Entity.newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.currency).newKey(tuple._1.value))
+      .set("currency", tuple._1.value)
+      .set("address", tuple._2.value)
       .build()
   }
 }

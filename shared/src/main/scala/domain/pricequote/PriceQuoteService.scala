@@ -1,44 +1,52 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import domain.model.Currency
+import domain.blockchain.BlockchainRepo
+import domain.model.{CoinAddress, Currency}
+import domain.pricequote.LivePriceQuoteService.BeginningOfTime
 import domain.pricequote.error.PriceQuoteError
 import util.InstantOps
 import vo.TimeInterval
 
-import io.softwarechain.cryptojournal.domain.pricequote.LivePriceQuoteService.BeginningOfTime
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, URLayer}
+import zio.{Has, IO, URLayer, ZIO}
 
 import java.time.Instant
 
 trait PriceQuoteService {
   def getQuotes(currencies: Set[Currency], timeInterval: TimeInterval): IO[PriceQuoteError, Map[Currency, PriceQuotes]]
 
-  def updateQuotes(currencies: Set[Currency]): IO[PriceQuoteError, Unit]
+  def updateQuotes(currencies: Set[(Currency, CoinAddress)]): IO[PriceQuoteError, Unit]
 }
 
 final case class LivePriceQuoteService(priceQuoteRepo: PriceQuoteRepo,
+                                       blockchainRepo: BlockchainRepo,
                                        clock: Clock.Service,
                                        logger: Logger[String]) extends PriceQuoteService {
   override def getQuotes(currencies: Set[Currency], timeInterval: TimeInterval): IO[PriceQuoteError, Map[Currency, PriceQuotes]] = {
     priceQuoteRepo.getQuotes(currencies, timeInterval).map(_.map { case (currency, items) => currency -> PriceQuotes(items) })
   }
 
-  override def updateQuotes(currencies: Set[Currency]): IO[PriceQuoteError, Unit] = {
+  override def updateQuotes(currencies: Set[(Currency, CoinAddress)]): IO[PriceQuoteError, Unit] = {
     for {
       _            <- logger.info(s"Update price quotes for currencies: ${currencies.mkString(",")}")
-      latestQuotes <- priceQuoteRepo.getLatestQuotes(currencies)
+      latestQuotes <- priceQuoteRepo.getLatestQuotes(currencies.map(_._1))
       today        <- clock.instant.map(_.atBeginningOfDay())
+      addressToCurrency = currencies.toMap.map(_.swap)
       intervals    = currencies.map { currency =>
-        if(latestQuotes.contains(currency)) {
-          currency -> TimeInterval(latestQuotes(currency).timestamp, today)
+        if(latestQuotes.contains(currency._1)) {
+          currency._2 -> TimeInterval(latestQuotes(currency._1).timestamp, today)
         } else {
-          currency -> TimeInterval(BeginningOfTime, today)
+          currency._2 -> TimeInterval(BeginningOfTime, today)
         }
       }
-      _            <- logger.info(s"Generated intervals: ${intervals.mkString(",")}")
+      _            <- ZIO.foreachParN_(4)(intervals) { case (coinAddress, interval) =>
+        blockchainRepo
+          .getHistoricalPriceQuotes(coinAddress, interval)
+          .flatMap(quotes => logger.info(quotes.mkString(",")))
+          .ignore
+      }
       //2. for each currency - fetch quotes for interval from covalent.
       //3. for each currency - write quotes to datastore
     } yield ()
@@ -46,8 +54,8 @@ final case class LivePriceQuoteService(priceQuoteRepo: PriceQuoteRepo,
 }
 
 object LivePriceQuoteService {
-  lazy val layer: URLayer[Has[PriceQuoteRepo] with Clock with Logging, Has[PriceQuoteService]] =
-    (LivePriceQuoteService(_, _, _)).toLayer
+  lazy val layer: URLayer[Has[PriceQuoteRepo] with Has[BlockchainRepo] with Clock with Logging, Has[PriceQuoteService]] =
+    (LivePriceQuoteService(_, _, _, _)).toLayer
 
   private[pricequote] val BeginningOfTime = Instant.parse("2016-01-01T00:00:00.000Z")
 }

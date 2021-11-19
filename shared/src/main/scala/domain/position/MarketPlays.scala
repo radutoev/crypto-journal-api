@@ -3,8 +3,8 @@ package domain.position
 
 import domain.blockchain.Transaction
 import domain.model.fungible.OptionalFungibleDataOps
-import domain.model.{ Currency, FungibleData, WBNB, WalletAddress }
-import util.{ InstantOps, MarketPlaysListOps }
+import domain.model.{CoinAddress, Currency, FungibleData, WBNB, WalletAddress}
+import util.{InstantOps, MarketPlaysListOps}
 import vo.TimeInterval
 
 import java.time.Instant
@@ -40,23 +40,23 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     }
   }
 
-  lazy val currencies: Set[Currency] =
+  lazy val currencies: Set[(Currency, CoinAddress)] =
     (plays.flatMap { play =>
       play match {
         case p: Position =>
           p.entries.map {
-            case a: AirDrop => Some(a.received.currency)
-            case b: Buy => Some(b.received.currency)
-            case c: Claim => Some(c.received.currency)
-            case tIn: TransferIn => Some(tIn.value.currency)
+            case a: AirDrop => Some((a.received.currency, a.coinAddress))
+            case b: Buy => Some((b.received.currency, b.coinAddress))
+            case c: Claim => Some((c.received.currency, c.coinAddress))
+            case tIn: TransferIn if tIn.coinAddress.isDefined => Some((tIn.value.currency, tIn.coinAddress.get))
             case _ => None
           }.collect {
-            case Some(currency) => currency
+            case Some(currencyData) => currencyData
           }
 
         case _ => List.empty
       }
-    } :+ WBNB).toSet
+    } :+ (WBNB, CoinAddress.unsafeFrom("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"))).toSet
 
   //TODO implement merge.
   def merge(other: MarketPlays): MarketPlays = other

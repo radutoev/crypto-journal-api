@@ -2,11 +2,9 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.{CovalentConfig, DatastoreConfig}
-import domain.model.{CoinAddress, Currency}
-import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound}
+import domain.model.Currency
+import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError}
 import domain.pricequote.{PriceQuote, PriceQuoteRepo}
-import infrastructure.google.datastore.DatastorePriceQuoteRepo.CovalentQParamDateFormat
-import infrastructure.google.datastore.dto.dto.PriceQuoteResponse
 import util.InstantOps
 import vo.TimeInterval
 
@@ -14,22 +12,17 @@ import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import sttp.client3.httpclient.zio.SttpClient
-import sttp.client3.{UriContext, asString, basicRequest}
 import zio.clock.Clock
-import zio.json.DecoderOps
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{Has, IO, Task, UIO, URLayer}
 
-import java.time.format.DateTimeFormatter
-import java.time.{Instant, ZoneId, ZoneOffset}
+import java.time.Instant
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 final case class DatastorePriceQuoteRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
-  httpClient: SttpClient.Service,
-  covalentConfig: CovalentConfig,
   clock: Clock.Service,
   logger: Logger[String]
 ) extends PriceQuoteRepo {
@@ -94,25 +87,6 @@ final case class DatastorePriceQuoteRepo(
     } else {
       UIO(Map.empty)
     }
-
-//    for {
-//      now <- clock.instant
-//      day = CovalentQParamDateFormat.format(now)
-//      _   <- logger.info(s"Fetching quote for ${contract.value} at ${now.toString}")
-//      url = s"${covalentConfig.baseUrl}/v1/pricing/historical_by_addresses_v2/56/USD/${contract.value}/?from=$day&to=$day&key=${covalentConfig.key}"
-//      response <- httpClient
-//                   .send(basicRequest.get(uri"$url").response(asString))
-//                   .tapError(t => logger.warn(s"Covalent price quote request failed: $t"))
-//                   .mapError(t => PriceQuoteFetchError(t.getMessage))
-//      decoded <- ZIO
-//        .fromEither(response.body)
-//        .orElseFail(PriceQuoteNotFound(contract))
-//        .flatMap(r => ZIO.fromEither(r.fromJson[PriceQuoteResponse]).mapError(PriceQuoteFetchError))
-//      price <- ZIO
-//        .fromOption(decoded.data).orElseFail(PriceQuoteNotFound(contract))
-//        .flatMap(quote => ZIO.fromOption(quote.prices.headOption).orElseFail(PriceQuoteNotFound(contract)))
-//                .mapBoth(_ => PriceQuoteNotFound(contract), priceData => priceData.price)
-//    } yield PriceQuote(price, now.atBeginningOfDay())
   }
 
   private val entityToPriceQuote: Entity => (Currency, PriceQuote) = entity => {
@@ -127,8 +101,6 @@ final case class DatastorePriceQuoteRepo(
 }
 
 object DatastorePriceQuoteRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with SttpClient with Has[CovalentConfig] with Clock with Logging, Has[PriceQuoteRepo]] =
-    (DatastorePriceQuoteRepo(_, _, _, _, _, _)).toLayer
-
-  val CovalentQParamDateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.from(ZoneOffset.UTC))
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Clock with Logging, Has[PriceQuoteRepo]] =
+    (DatastorePriceQuoteRepo(_, _, _, _)).toLayer
 }
