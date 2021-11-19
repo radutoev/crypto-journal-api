@@ -61,6 +61,6 @@ final case class DatastoreCurrencyRepo (datastore: Datastore,
 }
 
 object DatastoreCurrencyRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging, Has[DatastoreCurrencyRepo]] =
-    (DatastorePriceQuoteRepo(_, _, _)).toLayer
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging, Has[CurrencyRepo]] =
+    (DatastoreCurrencyRepo(_, _, _)).toLayer
 }

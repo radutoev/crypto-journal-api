@@ -55,6 +55,8 @@ object CryptoJournal extends App {
 
     lazy val covalentFacadeLayer = (httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer
 
+    lazy val currencyRepoLayer = (datastoreLayer ++ datastoreConfigLayer ++ loggingLayer) >>> DatastoreCurrencyRepo.layer
+
     lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ httpClientLayer ++ covalentConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
     lazy val userWalletRepo =
@@ -70,7 +72,7 @@ object CryptoJournal extends App {
     lazy val walletRepoLayer = httpClientLayer ++ covalentConfigLayer ++ loggingLayer >>> CovalentWalletRepo.layer
 
     lazy val marketPlayService =
-      positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
+      positionRepoLayer ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ currencyRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
 
     lazy val walletServiceLayer =
       userWalletRepo ++ walletImportLayer ++ marketPlayService ++ loggingLayer >>> LiveWalletService.layer

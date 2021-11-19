@@ -2,19 +2,20 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{BlockchainRepo, Transaction}
-import domain.model.{ContextId, PlayId, UserId, WalletAddress}
+import domain.blockchain.{ BlockchainRepo, Transaction }
+import domain.currency.CurrencyRepo
+import domain.model.{ ContextId, PlayId, UserId, WalletAddress }
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
-import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
 import domain.wallet.Wallet
 import util.MarketPlaysListOps
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 
@@ -57,15 +58,15 @@ final case class LiveMarketPlayService(
   priceQuoteRepo: PriceQuoteRepo,
   blockchainRepo: BlockchainRepo,
   journalingRepo: JournalingRepo,
+  currencyRepo: CurrencyRepo,
   logger: Logger[String]
 ) extends MarketPlayService {
 
-  override def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays] = {
+  override def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays] =
     positionRepo
       .getPlays(userWallet.address)
       .flatMap(enrichPlays)
       .mapBoth(_ => MarketPlaysFetchError(userWallet.address), MarketPlays(_))
-  }
 
   override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
     for {
@@ -131,7 +132,7 @@ final case class LiveMarketPlayService(
     } else UIO(marketPlays)
   }
 
-  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, Position] = {
+  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, Position] =
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
     positionRepo
@@ -143,7 +144,6 @@ final case class LiveMarketPlayService(
       .mapBoth(_ => MarketPlayFetchError(positionId, new RuntimeException("Unable to enrich position")), {
         case (position, entry) => position.copy(journal = entry)
       })
-  }
 
   private def enrichPosition(position: Position): Task[Position] = {
     val interval = position.timeInterval
@@ -191,6 +191,11 @@ final case class LiveMarketPlayService(
             noPlaysEffect
           } else {
             handlePlayImport(plays)
+              .zipRight(
+                currencyRepo
+                  .upsert(plays.currencies)
+                  .orElseFail(MarketPlayImportError(walletAddress, new RuntimeException("Currency upsert failed")))
+              )
           }
     } yield ()
   }
@@ -199,8 +204,8 @@ final case class LiveMarketPlayService(
 object LiveMarketPlayService {
   lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteRepo] with Has[BlockchainRepo] with Has[
     JournalingRepo
-  ] with Logging, Has[
+  ] with Has[CurrencyRepo] with Logging, Has[
     MarketPlayService
   ]] =
-    (LiveMarketPlayService(_, _, _, _, _)).toLayer
+    (LiveMarketPlayService(_, _, _, _, _, _)).toLayer
 }
