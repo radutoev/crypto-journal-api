@@ -233,8 +233,18 @@ object PositionEntry {
       } else if (isBuyWithOtherCoin) {
         val transfers = transaction.logEvents.filter(_.isTransferEvent)
         val buyOptional = for {
+          (received, from, coinAddress, coinName) <- transfers.headOption.flatMap(ev =>
+            for {
+              amount   <- ev.paramValue("value").map(BigDecimal(_))
+              from     <- ev.paramValue("from").flatMap(refineV[WalletAddressPredicate](_).toOption)
+              decimals <- ev.senderContractDecimals
+              currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
+              name     <- ev.senderName.toRight("coin name not found").flatMap(refineV[CoinNamePredicate](_)).toOption
+              address  <- refineV[CoinAddressPredicate](ev.senderAddress).toOption
+            } yield (FungibleData(amount * Math.pow(10, -decimals), currency), from, address, name)
+          )
           //sentTo is the coin router
-          (spentOriginal, sentTo) <- transfers.lastOption.flatMap(ev =>
+          spentOriginal <- transfers.lastOption.flatMap(ev =>
                                       for {
                                         amount   <- ev.paramValue("value").map(BigDecimal(_))
                                         decimals <- ev.senderContractDecimals
@@ -242,10 +252,10 @@ object PositionEntry {
                                         toAddress <- ev
                                                       .paramValue("to")
                                                       .flatMap(refineV[WalletAddressPredicate](_).toOption)
-                                      } yield (FungibleData(amount * Math.pow(10, -decimals), currency), toAddress)
+                                      } yield (FungibleData(amount * Math.pow(10, -decimals), currency))
                                     )
           spent <- transfers
-                    .findLast(_.isTransferFromAddress(sentTo))
+                    .find(_.isTransferToAddress(from))
                     .flatMap(ev =>
                       for {
                         amount   <- ev.paramValue("value").map(BigDecimal(_))
@@ -253,16 +263,6 @@ object PositionEntry {
                         currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
                       } yield FungibleData(amount * Math.pow(10, -decimals), currency)
                     )
-          (received, from, coinAddress, coinName) <- transfers.headOption.flatMap(ev =>
-                                      for {
-                                        amount   <- ev.paramValue("value").map(BigDecimal(_))
-                                        from     <- ev.paramValue("from").flatMap(refineV[WalletAddressPredicate](_).toOption)
-                                        decimals <- ev.senderContractDecimals
-                                        currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
-                                        name     <- ev.senderName.toRight("coin name not found").flatMap(refineV[CoinNamePredicate](_)).toOption
-                                        address  <- refineV[CoinAddressPredicate](ev.senderAddress).toOption
-                                      } yield (FungibleData(amount * Math.pow(10, -decimals), currency), from, address, name)
-                                    )
         } yield Buy(
           computedFee(),
           spent,

@@ -116,6 +116,37 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
       )
       assert(buys)(isRight(hasSameElements(expected)))
     },
+    test("Interpret transaction as Buy with multiple hops") {
+      val transactions = getTransactions("/covalent/transactions/buy_with_multiple_hops.json")
+      val buys = PositionEntry.fromTransaction(transactions(0), Address).
+        map(partial => partial ++ PositionEntry.fromTransaction(transactions(1), Address).right.get)
+      val expected = List(
+        Buy(
+          spent = FungibleData(BigDecimal("0.4610961971746591590"), WBNB),
+          spentOriginal = Some(FungibleData(BigDecimal("216.5751328334734103600"), Currency.unsafeFrom("BUSD"))),
+          received = FungibleData(BigDecimal("21499.0975321209498644260"), Currency.unsafeFrom("ZIN")),
+          receivedFrom = WalletAddress.unsafeFrom("0x8a61c758023e6bc0841203751635c076baff03b3"),
+          coinAddress = CoinAddress.unsafeFrom("0xfbe0b4ae6e5a200c36a341299604d5f71a5f0a48"),
+          name = CoinName.unsafeApply("ZomaInfinity"),
+          fee = FungibleData(BigDecimal("0.000938855"), WBNB),
+          hash = TransactionHash.unsafeApply("0x3aa6ddfd7b66c1ab72a6f30dc1e1c65490049c1e99e55191c7f567ab52517096"),
+          timestamp = Instant.parse("2021-08-31T19:05:16Z")
+        ),
+        //this is ignoring the Cake expenditure
+        Buy(
+          spent = FungibleData(BigDecimal("0.416813186602036685"), WBNB),
+          spentOriginal = Some(FungibleData(BigDecimal("194.2794489739126615920"), Currency.unsafeFrom("BUSD"))),
+          received = FungibleData(BigDecimal("23075.8463782345181451960"), Currency.unsafeFrom("ZIN")),
+          receivedFrom = WalletAddress.unsafeFrom("0x8a61c758023e6bc0841203751635c076baff03b3"),
+          coinAddress = CoinAddress.unsafeFrom("0xfbe0b4ae6e5a200c36a341299604d5f71a5f0a48"),
+          name = CoinName.unsafeApply("ZomaInfinity"),
+          fee = FungibleData(BigDecimal("0.0013576500000000002"), WBNB),
+          hash = TransactionHash.unsafeApply("0xadafc5acc8243c0d153a7fa8c1f3ea788cb59ed10157b6bedbc16591a59ea6b5"),
+          timestamp = Instant.parse("2021-08-31T17:37:46Z")
+        ),
+      )
+      assert(buys)(isRight(hasSameElements(expected)))
+    },
     test("Interpret transaction as Claim") {
       val transaction = getTransaction("/covalent/transactions/claim.json")
       val claim       = PositionEntry.fromTransaction(transaction, Address)
