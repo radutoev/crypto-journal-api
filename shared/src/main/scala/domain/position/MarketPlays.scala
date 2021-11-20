@@ -58,6 +58,17 @@ final case class MarketPlays(plays: List[MarketPlay]) {
       }
     } :+ (WBNB, CoinAddress.unsafeFrom("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"))).toSet
 
+  def filter(currency: Currency): MarketPlays = {
+    MarketPlays {
+      plays.filter {
+        case p: Position => p.currency.contains(currency)
+        case topUp: TopUp => topUp.value.currency == currency
+        case w: Withdraw => w.value.currency == currency
+        case _ => false
+      }
+    }
+  }
+
   //TODO implement merge.
   def merge(other: MarketPlays): MarketPlays = other
 //    var currencyPositionMap = Map.empty[Currency, Position]
