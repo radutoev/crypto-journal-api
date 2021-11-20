@@ -61,16 +61,15 @@ final case class LiveAccountBalance(
   private def currencyTrend(marketPlays: MarketPlays): List[Map[Currency, (TimeInterval, FungibleData)]] = {
     marketPlays.interval match {
       case Some(timeInterval) =>
-        timeInterval.days().map { day =>
+        List(timeInterval.days().last).map { day =>
           val interval = TimeInterval(timeInterval.start.atBeginningOfDay(), day.atEndOfDay())
           val plays = marketPlays.plays.filter(_.inInterval(interval))
           val currencyBalance: mutable.Map[Currency, BigDecimal] = mutable.Map(WBNB -> BigDecimal(0))
-//          println(s"Processing ${plays.size} plays for interval $interval")
           plays.foreach {
             case Position(entries, _, _, _) => entries.foreach {
               case a: AirDrop =>
                 currencyBalance.update(WBNB, currencyBalance(WBNB) - a.fee.amount)
-                currencyBalance.update(a.received.currency, currencyBalance.getOrElse(a.received.currency, BigDecimal(0) + a.received.amount))
+                currencyBalance.update(a.received.currency, currencyBalance.getOrElse(a.received.currency, BigDecimal(0)) + a.received.amount)
               case a: Approval =>
                 currencyBalance.update(WBNB, currencyBalance(WBNB) - a.fee.amount)
               case buy: Buy =>
@@ -88,10 +87,8 @@ final case class LiveAccountBalance(
                 currencyBalance.update(WBNB, currencyBalance(WBNB) - c.fee.amount)
                 currencyBalance.update(c.spent.currency, currencyBalance.getOrElse(c.spent.currency, BigDecimal(0)) - c.spent.amount)
               case s: Sell =>
-                currencyBalance.update(
-                  s.received.currency,
-                  currencyBalance.getOrElse(s.received.currency, BigDecimal(0)) + s.received.amount
-                )
+                currencyBalance.update(s.sold.currency, currencyBalance.getOrElse(s.sold.currency, BigDecimal(0)) - s.sold.amount)
+                currencyBalance.update(s.received.currency, currencyBalance.getOrElse(s.received.currency, BigDecimal(0)) + s.received.amount)
                 currencyBalance.update(WBNB, currencyBalance(WBNB) - s.fee.amount)
               case tIn: TransferIn =>
                 currencyBalance.update(WBNB, currencyBalance(WBNB) - tIn.fee.amount)
@@ -99,7 +96,6 @@ final case class LiveAccountBalance(
               case tOut: TransferOut =>
                 currencyBalance.update(WBNB, currencyBalance(WBNB) - tOut.fee.amount)
                 currencyBalance.update(tOut.amount.currency, currencyBalance.getOrElse(tOut.amount.currency, BigDecimal(0)) + tOut.amount.amount)
-              case _ =>
             }
             case TopUp(_, value, fee, _, _, _) =>
               currencyBalance.update(WBNB, currencyBalance(WBNB) + value.amount - fee.amount)

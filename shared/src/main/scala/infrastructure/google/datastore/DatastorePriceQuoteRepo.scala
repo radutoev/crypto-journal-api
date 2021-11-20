@@ -49,6 +49,7 @@ final case class DatastorePriceQuoteRepo(
     for {
       _     <- logger.info(s"Fetch quotes in $interval for currencies ${currencies.mkString(",")}")
       start = interval.start.atBeginningOfDay()
+      //TODO composition equality filter doesn't seem to work.
       eqFilters = currencies.map(c => PropertyFilter.eq("currency", c.value)).toList
       filter = CompositeFilter.and(
         PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano)),

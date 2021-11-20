@@ -118,8 +118,9 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
     },
     test("Interpret transaction as Buy with multiple hops") {
       val transactions = getTransactions("/covalent/transactions/buy_with_multiple_hops.json")
-      val buys = PositionEntry.fromTransaction(transactions(0), Address).
-        map(partial => partial ++ PositionEntry.fromTransaction(transactions(1), Address).right.get)
+      val buys = transactions.flatMap(PositionEntry.fromTransaction(_, Address).right.get)
+//      val buys = PositionEntry.fromTransaction(transactions(0), Address).
+//        map(partial => partial ++ PositionEntry.fromTransaction(transactions(1), Address).right.get ++ PositionEntry.fromTransaction(transactions(2)))
       val expected = List(
         Buy(
           spent = FungibleData(BigDecimal("0.4610961971746591590"), WBNB),
@@ -132,7 +133,6 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
           hash = TransactionHash.unsafeApply("0x3aa6ddfd7b66c1ab72a6f30dc1e1c65490049c1e99e55191c7f567ab52517096"),
           timestamp = Instant.parse("2021-08-31T19:05:16Z")
         ),
-        //this is ignoring the Cake expenditure
         Buy(
           spent = FungibleData(BigDecimal("0.416813186602036685"), WBNB),
           spentOriginal = Some(FungibleData(BigDecimal("194.2794489739126615920"), Currency.unsafeFrom("BUSD"))),
@@ -144,8 +144,19 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
           hash = TransactionHash.unsafeApply("0xadafc5acc8243c0d153a7fa8c1f3ea788cb59ed10157b6bedbc16591a59ea6b5"),
           timestamp = Instant.parse("2021-08-31T17:37:46Z")
         ),
+        Buy(
+          spent = FungibleData(BigDecimal("0.8457870030433411580"), WBNB),
+          spentOriginal = Some(FungibleData(BigDecimal("350.0000000000000000000"), Currency.unsafeFrom("BUSD"))),
+          received = FungibleData(BigDecimal("26738614.7271130"), Currency.unsafeFrom("SIMP")),
+          receivedFrom = WalletAddress.unsafeFrom("0x2920bae0e1fdcb1f999a2700bba0155d1500dfe1"),
+          coinAddress = CoinAddress.unsafeFrom("0xd0accf05878cafe24ff8b3f82f194c62ed755707"),
+          name = CoinName.unsafeApply("SIMP Token"),
+          fee = FungibleData(BigDecimal("0.004809605000000001"), WBNB),
+          hash = TransactionHash.unsafeApply("0x31d6db9b145d50628ebf8a46bf51774b6dac3f14bafbf6576cdafa02b3ca4f9b"),
+          timestamp = Instant.parse("2021-10-11T19:06:46Z")
+        )
       )
-      assert(buys)(isRight(hasSameElements(expected)))
+      assert(buys)(hasSameElements(expected))
     },
     test("Interpret transaction as Claim") {
       val transaction = getTransaction("/covalent/transactions/claim.json")

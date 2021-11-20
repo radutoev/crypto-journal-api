@@ -562,7 +562,7 @@ final case class DatastoreMarketPlayRepo(
                                        InvalidRepresentation("Invalid spentOriginal representation")
                                      )
                 spentOriginalCurrency <- tryOrLeft(
-                                          entity.getString("spentCurrency"),
+                                          entity.getString("spentOriginalCurrency"),
                                           InvalidRepresentation("Invalid spentCurrency representation")
                                         )
                 spentOriginal = if (spentOriginalValue.nonEmpty) {

@@ -243,16 +243,12 @@ object PositionEntry {
               address  <- refineV[CoinAddressPredicate](ev.senderAddress).toOption
             } yield (FungibleData(amount * Math.pow(10, -decimals), currency), from, address, name)
           )
-          //sentTo is the coin router
           spentOriginal <- transfers.lastOption.flatMap(ev =>
                                       for {
                                         amount   <- ev.paramValue("value").map(BigDecimal(_))
                                         decimals <- ev.senderContractDecimals
                                         currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
-                                        toAddress <- ev
-                                                      .paramValue("to")
-                                                      .flatMap(refineV[WalletAddressPredicate](_).toOption)
-                                      } yield (FungibleData(amount * Math.pow(10, -decimals), currency))
+                                      } yield FungibleData(amount * Math.pow(10, -decimals), currency)
                                     )
           spent <- transfers
                     .find(_.isTransferToAddress(from))
