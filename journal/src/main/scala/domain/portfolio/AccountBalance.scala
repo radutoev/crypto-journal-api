@@ -44,7 +44,7 @@ final case class LiveAccountBalance(
         val quotes = PriceQuotes(currencyQuotes.getOrElse(currency, List.empty))
         quotes.findPrice(day.start.atBeginningOfDay())
           .map(quote => {
-            println(fungibleData + " " + quote.price)
+            println(fungibleData + " at " + quote.price + " totaling " + (quote.price * fungibleData.amount))
             quote.price * fungibleData.amount
           })
           .getOrElse(BigDecimal(0))
