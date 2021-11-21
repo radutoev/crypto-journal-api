@@ -3,7 +3,7 @@ package domain.position
 
 import domain.blockchain.Transaction
 import domain.model.fungible.OptionalFungibleDataOps
-import domain.model.{CoinAddress, Currency, FungibleData, WBNB, WalletAddress}
+import domain.model.{CoinAddress, Currency, FungibleData, TransactionHash, WBNB, WalletAddress}
 import util.{InstantOps, MarketPlaysListOps}
 import vo.TimeInterval
 
@@ -69,6 +69,69 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     }
   }
 
+  def filterByHash(hash: TransactionHash): MarketPlays = {
+    MarketPlays {
+      plays.filter {
+        case p: Position => p.entries.exists(_.hash == hash)
+        case topUp: TopUp => topUp.txHash == hash
+        case withdraw: Withdraw => withdraw.txHash == hash
+        case _ => false
+      }
+    }
+  }
+
+  def distributionOverTime(): Map[Currency, List[FungibleDataTimePoint]] = ???
+
+  def distributionOverTime(currency: Currency): List[FungibleDataTimePoint] = {
+    distributionByCurrencyOverTime().getOrElse(currency, List.empty)
+  }
+
+  def distributionByCurrencyOverTime(): Map[Currency, List[FungibleDataTimePoint]] = {
+    val currencyBalance: CurrencyBalance = new CurrencyBalance(mutable.Map.empty)
+
+    plays.foreach {
+      case Position(entries, _, _, _) => entries.foreach {
+        case a: AirDrop =>
+          currencyBalance.subtract(a.fee, a.timestamp, a.hash)
+          currencyBalance.add(a.received, a.timestamp, a.hash)
+        case a: Approval =>
+          currencyBalance.subtract(a.fee, a.timestamp, a.hash)
+        case buy: Buy =>
+          currencyBalance.subtract(buy.fee, buy.timestamp, buy.hash)
+          if(buy.spentOriginal.isDefined) {
+            currencyBalance.subtract(buy.spentOriginal.get, buy.timestamp, buy.hash)
+          } else {
+            currencyBalance.subtract(buy.spent, buy.timestamp, buy.hash)
+          }
+          currencyBalance.add(buy.received, buy.timestamp, buy.hash)
+        case c: Claim =>
+          currencyBalance.subtract(c.fee, c.timestamp, c.hash)
+          currencyBalance.add(c.received, c.timestamp, c.hash)
+        case c: Contribute =>
+          currencyBalance.subtract(c.fee, c.timestamp, c.hash)
+          currencyBalance.subtract(c.spent, c.timestamp, c.hash)
+        case s: Sell =>
+          currencyBalance.subtract(s.fee, s.timestamp, s.hash)
+          currencyBalance.subtract(s.sold, s.timestamp, s.hash)
+          currencyBalance.add(s.received, s.timestamp, s.hash)
+        case tIn: TransferIn =>
+          currencyBalance.subtract(tIn.fee, tIn.timestamp, tIn.hash)
+          currencyBalance.add(tIn.value, tIn.timestamp, tIn.hash)
+        case tOut: TransferOut =>
+          currencyBalance.subtract(tOut.fee, tOut.timestamp, tOut.hash)
+          currencyBalance.subtract(tOut.amount, tOut.timestamp, tOut.hash)
+      }
+      case TopUp(hash, value, fee, timestamp, _, _) =>
+        currencyBalance.subtract(fee, timestamp, hash)
+        currencyBalance.add(value, timestamp, hash)
+      case Withdraw(hash, value, fee, timestamp, _, _) =>
+        currencyBalance.subtract(fee, timestamp, hash)
+        currencyBalance.subtract(value, timestamp, hash)
+    }
+
+    currencyBalance.map.toMap
+  }
+
   //TODO implement merge.
   def merge(other: MarketPlays): MarketPlays = other
 //    var currencyPositionMap = Map.empty[Currency, Position]
@@ -110,9 +173,21 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 
   def isEmpty: Boolean = plays.isEmpty
 
-  def filter(interval: TimeInterval): MarketPlays =
-    MarketPlays(positions.filter(_.inInterval(interval)))
+  def filter(interval: TimeInterval): MarketPlays = {
+    MarketPlays {
+      plays.filter {
+        case p: Position =>
+          val openInInterval = interval.contains(p.openedAt)
+          val closeInInterval = p.closedAt.forall(interval.contains)
+          openInInterval && closeInInterval
+        case t: TopUp => interval.contains(t.timestamp)
+        case w: Withdraw => interval.contains(w.timestamp)
+        case _ => false
+      }
+    }
+  }
 
+  //TODO Refactor this to support topUps and withdrawals??
   def trend(of: Position => Option[FungibleData]): List[FungibleData] =
     (for {
       reference <- positions.headOption
@@ -268,3 +343,26 @@ object MarketPlays {
     }
   }
 }
+
+private class CurrencyBalance(val map: mutable.Map[Currency, List[FungibleDataTimePoint]]) {
+  def add(fungibleData: FungibleData, timestamp: Instant, hash: TransactionHash): Unit = {
+    map.update(
+      fungibleData.currency,
+      map.getOrElse(fungibleData.currency, List.empty) :+ FungibleDataTimePoint(fungibleData, timestamp, FungibleDataTimePointMetadata(hash))
+    )
+  }
+
+  def subtract(fungibleData: FungibleData, timestamp: Instant, hash: TransactionHash): Unit = {
+    map.update(
+      fungibleData.currency,
+      map.getOrElse(fungibleData.currency, List.empty) :+ FungibleDataTimePoint(fungibleData.negate(), timestamp, FungibleDataTimePointMetadata(hash))
+    )
+  }
+}
+
+final case class FungibleDataTimePoint(fungibleData: FungibleData,
+                                               timestamp: Instant,
+                                               metadata: FungibleDataTimePointMetadata)
+
+final case class FungibleDataTimePointMetadata(hash: TransactionHash)
+

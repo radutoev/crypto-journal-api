@@ -104,4 +104,16 @@ lazy val sync = project
   .dependsOn(shared)
   .enablePlugins(JavaAppPackaging, DockerPlugin)
 
+lazy val reports = project
+  .settings(
+    commonSettings ++ Seq(name := "reports"),
+    libraryDependencies ++= Seq(
+      "dev.zio"        %% "zio-config-magnolia"         % zioConfigVersion,
+      "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
+      "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
+      "ch.qos.logback" % "logback-classic" % logbackVersion
+    )
+  )
+  .dependsOn(shared)
+
 addCommandAlias("fmt", ";scalafmtAll;scalafmtSbt")

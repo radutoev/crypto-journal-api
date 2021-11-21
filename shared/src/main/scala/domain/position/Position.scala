@@ -268,8 +268,8 @@ final case class Position(
   }
 
   override def inInterval(interval: TimeInterval): Boolean = {
-    val startOk = interval.start.isBefore(openedAt) || interval.start == openedAt
-    closedAt.fold(startOk)(t => startOk && (interval.end.isAfter(t) || interval.end == t))
+    val moreRecentThanStart = interval.start.isBefore(openedAt) || interval.start == openedAt
+    closedAt.fold(moreRecentThanStart)(t => moreRecentThanStart && (interval.end.isAfter(t) || interval.end == t))
   }
 }
 

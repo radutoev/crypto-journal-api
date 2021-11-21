@@ -24,7 +24,6 @@ trait AccountBalance {
 final case class LiveAccountBalance(
   marketPlaysService: MarketPlayService,
   priceQuoteRepo: PriceQuoteRepo, //TODO Use PriceQuoteService.
-
   walletRepo: WalletRepo,
   clock: Clock.Service,
   logger: Logger[String]
@@ -35,14 +34,19 @@ final case class LiveAccountBalance(
       marketPlays <- marketPlaysService.getPlays(wallet).orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
       trend = currencyTrend(marketPlays)
 
+      _ = trend.foreach(map => map.get(Currency.unsafeFrom("WBNB")) match {
+        case Some(value) => println(value._1 + "  " + value._2.amount)
+        case None => println()
+      })
+
       currencyQuotes <- priceQuoteRepo.getQuotes(marketPlays.currencies.map(_._1), marketPlays.interval.get)
         .orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
 
       _ <- logger.info("Finished processing")
 
-      balance = trend.last.map { case (currency, (day, fungibleData)) =>
+      balance = trend.last.map { case (currency, (interval, fungibleData)) =>
         val quotes = PriceQuotes(currencyQuotes.getOrElse(currency, List.empty))
-        quotes.findPrice(day.start.atBeginningOfDay())
+        quotes.findPrice(interval.start.atBeginningOfDay())
           .map(quote => {
             println(fungibleData + " at " + quote.price + " totaling " + (quote.price * fungibleData.amount))
             quote.price * fungibleData.amount
@@ -58,54 +62,69 @@ final case class LiveAccountBalance(
     } yield List.empty
   }
 
+  //TODO I think I need to return the last day, not the interval here.
   private def currencyTrend(marketPlays: MarketPlays): List[Map[Currency, (TimeInterval, FungibleData)]] = {
     marketPlays.interval match {
       case Some(timeInterval) =>
-        List(timeInterval.days().last).map { day =>
+        timeInterval.days().map { day =>
           val interval = TimeInterval(timeInterval.start.atBeginningOfDay(), day.atEndOfDay())
-          val plays = marketPlays.plays.filter(_.inInterval(interval))
-          val currencyBalance: mutable.Map[Currency, BigDecimal] = mutable.Map(WBNB -> BigDecimal(0))
-          plays.foreach {
+          val intervalPlays = marketPlays.filter(interval)
+          val currencyBalance: CurrencyBalance = new CurrencyBalance(mutable.Map(WBNB -> BigDecimal(0)))
+          intervalPlays.plays.foreach {
             case Position(entries, _, _, _) => entries.foreach {
               case a: AirDrop =>
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - a.fee.amount)
-                currencyBalance.update(a.received.currency, currencyBalance.getOrElse(a.received.currency, BigDecimal(0)) + a.received.amount)
+                currencyBalance.subtract(WBNB, a.fee.amount)
+                currencyBalance.add(a.received.currency, a.received.amount)
               case a: Approval =>
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - a.fee.amount)
+                currencyBalance.subtract(WBNB, a.fee.amount)
               case buy: Buy =>
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - buy.fee.amount)
+                currencyBalance.subtract(WBNB, buy.fee.amount)
                 if(buy.spentOriginal.isDefined) {
-                  currencyBalance.update(buy.spentOriginal.get.currency, currencyBalance.getOrElse(buy.spentOriginal.get.currency, BigDecimal(0)) - buy.spentOriginal.get.amount)
+                  currencyBalance.subtract(buy.spentOriginal.get.currency, buy.spentOriginal.get.amount)
                 } else {
-                  currencyBalance.update(buy.spent.currency, currencyBalance.getOrElse(buy.spent.currency, BigDecimal(0)) - buy.spent.amount)
+                  currencyBalance.subtract(buy.spent.currency, buy.spent.amount)
                 }
-                currencyBalance.update(buy.received.currency, currencyBalance.getOrElse(buy.received.currency, BigDecimal(0)) + buy.received.amount)
+                currencyBalance.add(buy.received.currency, buy.received.amount)
               case c: Claim =>
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - c.fee.amount)
-                currencyBalance.update(c.received.currency, currencyBalance.getOrElse(c.received.currency, BigDecimal(0)) + c.received.amount)
+                currencyBalance.subtract(WBNB, c.fee.amount)
+                currencyBalance.add(c.received.currency, c.received.amount)
               case c: Contribute =>
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - c.fee.amount)
-                currencyBalance.update(c.spent.currency, currencyBalance.getOrElse(c.spent.currency, BigDecimal(0)) - c.spent.amount)
+                currencyBalance.subtract(WBNB, c.fee.amount)
+                currencyBalance.subtract(c.spent.currency, c.spent.amount)
               case s: Sell =>
-                currencyBalance.update(s.sold.currency, currencyBalance.getOrElse(s.sold.currency, BigDecimal(0)) - s.sold.amount)
-                currencyBalance.update(s.received.currency, currencyBalance.getOrElse(s.received.currency, BigDecimal(0)) + s.received.amount)
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - s.fee.amount)
+                currencyBalance.subtract(WBNB, s.fee.amount)
+                currencyBalance.subtract(s.sold.currency, s.sold.amount)
+                currencyBalance.add(s.received.currency, s.received.amount)
               case tIn: TransferIn =>
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - tIn.fee.amount)
-                currencyBalance.update(tIn.value.currency, currencyBalance.getOrElse(tIn.value.currency, BigDecimal(0)) + tIn.value.amount)
+                currencyBalance.subtract(WBNB, tIn.fee.amount)
+                currencyBalance.add(tIn.value.currency, tIn.value.amount)
               case tOut: TransferOut =>
-                currencyBalance.update(WBNB, currencyBalance(WBNB) - tOut.fee.amount)
-                currencyBalance.update(tOut.amount.currency, currencyBalance.getOrElse(tOut.amount.currency, BigDecimal(0)) + tOut.amount.amount)
+                currencyBalance.subtract(WBNB, tOut.fee.amount)
+                currencyBalance.subtract(tOut.amount.currency, tOut.amount.amount)
             }
             case TopUp(_, value, fee, _, _, _) =>
-              currencyBalance.update(WBNB, currencyBalance(WBNB) + value.amount - fee.amount)
+              currencyBalance.subtract(WBNB, fee.amount)
+              currencyBalance.add(value.currency, value.amount)
             case Withdraw(_, value, fee, _, _, _) =>
-              currencyBalance.update(WBNB, currencyBalance(WBNB) - value.amount - fee.amount)
+              currencyBalance.subtract(WBNB, fee.amount)
+              currencyBalance.subtract(value.currency, value.amount)
           }
-          currencyBalance.map { case (currency, amount) => currency -> (interval, FungibleData(amount, currency)) }.toMap
+          currencyBalance.map.map { case (currency, amount) => currency -> (interval, FungibleData(amount, currency)) }.toMap
         }
       case None => List.empty
     }
+  }
+}
+
+private class CurrencyBalance(val map: mutable.Map[Currency, BigDecimal]) {
+  def add(currency: Currency, amount: BigDecimal): Unit = {
+//    println(s"+$amount $currency")
+    map.update(currency, map.getOrElse(currency, BigDecimal(0)) + amount)
+  }
+
+  def subtract(currency: Currency, amount: BigDecimal): Unit = {
+//    println(s"-$amount $currency")
+    map.update(currency, map.getOrElse(currency, BigDecimal(0)) - amount)
   }
 }
 
