@@ -183,6 +183,59 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
       ).sortBy(_.openedAt)(Ordering[Instant])
       assert(expected.size)(equalTo(marketPlays.plays.size)) &&
       assert(expected)(hasSameElementsDistinct(marketPlays.plays))
+    },
+    test("Multiple Sells group into the same position") {
+      val file         = readFile("/covalent/position_generation/multi_sells.json").fromJson[List[Transaction]]
+      val transactions = file.right.get
+      val marketPlays  = findMarketPlays(Address, transactions.map(_.toDomain()))
+      val expected = List(
+        Position.unsafeApply(
+          List(
+            Buy(
+              spent = FungibleData(BigDecimal("1.0000000000000000000"), WBNB),
+              received = FungibleData(BigDecimal("1212432631.92968317241202253"), Currency.unsafeFrom("INTO")),
+              receivedFrom = WalletAddress.unsafeFrom("0x4db2cc41f5dcc10cb975c3bff7a82a350b1d493e"),
+              coinAddress = CoinAddress.unsafeFrom("0xf7469bad4e3da85b15b02a0dcfadb2c2d219a4b7"),
+              fee = FungibleData(BigDecimal("0.001002155"), WBNB),
+              hash = TransactionHash.unsafeApply("0xaab1049e82aa84a23dd434816c05de2c9d03f77d9166e2d4aabc07bb72a2e15f"),
+              timestamp = Instant.parse("2021-05-21T15:07:43Z"),
+              name = CoinName.unsafeApply("Infiniti Token")
+            ),
+            Buy(
+              spent = FungibleData(BigDecimal("1.0890264815376054640"), WBNB),
+              received = FungibleData(BigDecimal("1002920100.9100000000000000000"), Currency.unsafeFrom("INTO")),
+              receivedFrom = WalletAddress.unsafeFrom("0x4db2cc41f5dcc10cb975c3bff7a82a350b1d493e"),
+              coinAddress = CoinAddress.unsafeFrom("0xf7469bad4e3da85b15b02a0dcfadb2c2d219a4b7"),
+              fee = FungibleData(BigDecimal("0.0009670500000000001"), WBNB),
+              hash = TransactionHash.unsafeApply("0xb7ca8e68fe49854abda01f54f4a89a0acc599e1fbde3423a4ce9e46be8e57d2d"),
+              timestamp = Instant.parse("2021-05-21T15:07:55Z"),
+              name = CoinName.unsafeApply("Infiniti Token")
+            ),
+            Approval(
+              fee = FungibleData(BigDecimal("0.000225805"), WBNB),
+              forContract = WalletAddress.unsafeFrom("0xf7469bad4e3da85b15b02a0dcfadb2c2d219a4b7"),
+              hash = TransactionHash.unsafeApply("0x245d4dc5e6ac4e81609c55bf1c786a39816412609b22884cfbe4d6eb06d8f4ad"),
+              timestamp = Instant.parse("2021-05-21T15:09:04Z")
+            ),
+            Sell(
+              sold = FungibleData(BigDecimal("2017128892.8700000000000000000"), Currency.unsafeFrom("INTO")),
+              received = FungibleData(BigDecimal("1.2697708523432198300"), WBNB),
+              fee = FungibleData(BigDecimal("0.0011310200000000002"), WBNB),
+              hash = TransactionHash.unsafeApply("0x55fc3c9ca1381a39187d3220954ea2338ec9eac5ebbb7a815ad18e559e5ffea6"),
+              timestamp = Instant.parse("2021-05-21T15:35:30Z")
+            ),
+            Sell(
+              sold = FungibleData(BigDecimal("541713.1131874661361097510"), Currency.unsafeFrom("INTO")),
+              received = FungibleData(BigDecimal("0.0002759270959180200"), WBNB),
+              fee = FungibleData(BigDecimal("0.0011309"), WBNB),
+              hash = TransactionHash.unsafeApply("0x22104a05668026278bf4171a693b69044f94ee1aab1532526ba545d6686295ee"),
+              timestamp = Instant.parse("2021-05-21T15:56:54Z")
+            )
+          )
+        )
+      )
+      assert(expected.size)(equalTo(marketPlays.plays.size)) &&
+        assert(expected)(hasSameElements(marketPlays.plays))
     }
   )
 }

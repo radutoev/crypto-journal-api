@@ -170,6 +170,19 @@ object MarketPlays {
     def getForAddress(address: WalletAddress): Option[List[PositionEntry]] =
       incomingByContract.get(address).map(_.toList)
 
+    def createPlayIfPreviousEventIsSell(currency: Currency): Unit = {
+      val entries = currencyBuffer.getOrElse(currency, ListBuffer.empty)
+      if (entries.nonEmpty && entries.last.isInstanceOf[Sell]) {
+        val maybeLookupContract = findFirstOccurrenceOfTokenContract(entries.toList)
+        if (maybeLookupContract.isDefined && incomingByContract.contains(maybeLookupContract.get)) {
+          entries.addAll(incomingByContract(maybeLookupContract.get).toList)
+          incomingByContract(maybeLookupContract.get).clear()
+        }
+        playsBuffer.addOne(Position.unsafeApply(entries = entries.toList.sortBy(_.timestamp)(Ordering[Instant])))
+        entries.clear()
+      }
+    }
+
     val entries = transactions
       .filter(_.successful)
       .flatMap(tx =>
@@ -184,15 +197,18 @@ object MarketPlays {
 
     entries.foreach {
       case airDrop: AirDrop =>
+        createPlayIfPreviousEventIsSell(airDrop.received.currency)
         addToCurrencyBuffer(airDrop.received.currency, airDrop)
 
       case approval: Approval =>
         addToContractIncoming(approval.forContract, approval)
 
       case buy: Buy =>
+        createPlayIfPreviousEventIsSell(buy.received.currency)
         addToCurrencyBuffer(buy.received.currency, buy)
 
-      case claim: Claim =>
+      case claim: Claim => //check if last is Sell.
+        createPlayIfPreviousEventIsSell(claim.received.currency)
         val itemsToAdd = incomingByContract.getOrElse(claim.receivedFrom, ListBuffer.empty)
         itemsToAdd.addOne(claim)
         addAllToCurrencyBuffer(claim.received.currency, itemsToAdd)
@@ -202,22 +218,10 @@ object MarketPlays {
         addToContractIncoming(contrib.to, contrib)
 
       case sell: Sell =>
-        val entries = currencyBuffer.getOrElse(sell.sold.currency, ListBuffer.empty)
-
-        if (entries.nonEmpty) {
-          val maybeLookupContract = findFirstOccurrenceOfTokenContract(entries.toList)
-          if (maybeLookupContract.isDefined && incomingByContract.contains(maybeLookupContract.get)) {
-            entries.addAll(incomingByContract(maybeLookupContract.get).toList)
-            incomingByContract(maybeLookupContract.get).clear()
-          }
-        }
-        entries.addOne(sell)
-
-        playsBuffer.addOne(Position.unsafeApply(entries = entries.toList.sortBy(_.timestamp)(Ordering[Instant])))
-
-        entries.clear()
+        addToCurrencyBuffer(sell.sold.currency, sell)
 
       case transferIn: TransferIn =>
+        createPlayIfPreviousEventIsSell(transferIn.value.currency)
         addToCurrencyBuffer(transferIn.value.currency, transferIn)
 
       case transferOut: TransferOut =>
