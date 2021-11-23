@@ -22,7 +22,7 @@ object Reports extends App {
     ReportsApi
       .coinHistoryInWallet(
         WalletAddress.unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41"),
-        Currency.unsafeFrom("WBNB")
+        Currency.unsafeFrom("BUSD")
       )
       .provideCustomLayer(layer(config))
 

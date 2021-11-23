@@ -12,7 +12,7 @@ object ReportsApi {
     ZIO.services[MarketPlayRepo, Logger[String]].flatMap { case (marketPlayRepo, logger) =>
       marketPlayRepo.getPlays(address)
         .map(MarketPlays(_))
-        .map(_.distributionOverTime(currency))
+        .map(_.currencyDistributionOverTime(currency))
         .mapBoth(
           _ => new RuntimeException("Generate report error"), {
           timePoints => {

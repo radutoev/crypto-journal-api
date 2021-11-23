@@ -5,6 +5,7 @@ import domain.model._
 import domain.position.model.CoinName
 
 import zio.test.Assertion._
+import zio.test.TestAspect.ignore
 import zio.test._
 
 import java.time.Instant
@@ -286,6 +287,27 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
         )
       )
       assert(transferOutList)(isRight(hasSameElements(expected)))
-    }
+    },
+    test("Interpret TransferIn and TransferOut from direct swap") {
+      val transaction     = getTransaction("/covalent/transactions/swap_direct.json")
+      val result = PositionEntry.fromTransaction(transaction, Address)
+      val expected = List(
+        TransferOut(
+          amount = FungibleData(BigDecimal("10.0000000000000000000"), Currency.unsafeFrom("BUSD")),
+          to = WalletAddress.unsafeFrom("0x7efaef62fddcca950418312c6c91aef321375a00"),
+          fee = FungibleData(BigDecimal("0.000628525"), WBNB),
+          hash = TransactionHash.unsafeApply("0x627909adab1ab107b59a22e7ddd15e5d9029bc41"),
+          timestamp = Instant.parse("2021-09-04T20:31:09Z")
+        ),
+        TransferIn(
+          value = FungibleData(BigDecimal("9.9634733079382401390"), Currency.unsafeFrom("BSC-USD")),
+          fee = FungibleData.zero(WBNB),
+          receivedFrom = WalletAddress.unsafeFrom("0x7efaef62fddcca950418312c6c91aef321375a00"),
+          hash = TransactionHash.unsafeApply("0x627909adab1ab107b59a22e7ddd15e5d9029bc41"),
+          timestamp = Instant.parse("2021-09-04T20:31:09Z")
+        )
+      )
+      assert(result)(isRight(hasSameElements(expected)))
+    } @@ ignore
   )
 }

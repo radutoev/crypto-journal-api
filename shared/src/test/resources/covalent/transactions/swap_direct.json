@@ -1,0 +1,269 @@
+[
+  {
+    "block_signed_at": "2021-09-04T20:31:09Z",
+    "block_height": 10630729,
+    "tx_hash": "0x9c4eab3c626b269326ca299ee0d3b1e7e18dfbf6d2638bf73254fa17cad0fd3e",
+    "tx_offset": 39,
+    "successful": true,
+    "from_address": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41",
+    "from_address_label": null,
+    "to_address": "0x10ed43c718714eb63d5aa57b78b54704e256024e",
+    "to_address_label": null,
+    "value": "0",
+    "value_quote": 0.0,
+    "gas_offered": 176731,
+    "gas_spent": 125705,
+    "gas_price": 5000000000,
+    "gas_quote": 0.3138148907653809,
+    "gas_quote_rate": 499.287841796875,
+    "log_events": [
+      {
+        "block_signed_at": "2021-09-04T20:31:09Z",
+        "block_height": 10630729,
+        "tx_offset": 39,
+        "log_offset": 112,
+        "tx_hash": "0x9c4eab3c626b269326ca299ee0d3b1e7e18dfbf6d2638bf73254fa17cad0fd3e",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
+          "0x00000000000000000000000010ed43c718714eb63d5aa57b78b54704e256024e",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Pancake LPs",
+        "sender_contract_ticker_symbol": "Cake-LP",
+        "sender_address": "0x7efaef62fddcca950418312c6c91aef321375a00",
+        "sender_address_label": null,
+        "sender_logo_url": "",
+        "raw_log_data": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ac7230489e800000000000000000000000000000000000000000000000000008a455e2f50beb68b0000000000000000000000000000000000000000000000000000000000000000",
+        "decoded": {
+          "name": "Swap",
+          "signature": "Swap(indexed address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, indexed address to)",
+          "params": [
+            {
+              "name": "sender",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x10ed43c718714eb63d5aa57b78b54704e256024e"
+            },
+            {
+              "name": "amount0In",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "0"
+            },
+            {
+              "name": "amount1In",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "10000000000000000000"
+            },
+            {
+              "name": "amount0Out",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "9963473307938240139"
+            },
+            {
+              "name": "amount1Out",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "0"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-09-04T20:31:09Z",
+        "block_height": 10630729,
+        "tx_offset": 39,
+        "log_offset": 111,
+        "tx_hash": "0x9c4eab3c626b269326ca299ee0d3b1e7e18dfbf6d2638bf73254fa17cad0fd3e",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Pancake LPs",
+        "sender_contract_ticker_symbol": "Cake-LP",
+        "sender_address": "0x7efaef62fddcca950418312c6c91aef321375a00",
+        "sender_address_label": null,
+        "sender_logo_url": "",
+        "raw_log_data": "0x00000000000000000000000000000000000000000076e7a611fb991417281e9e000000000000000000000000000000000000000000770addc63586ff412dcd90",
+        "decoded": {
+          "name": "Sync",
+          "signature": "Sync(uint112 reserve0, uint112 reserve1)",
+          "params": [
+            {
+              "name": "reserve0",
+              "type": "uint112",
+              "indexed": false,
+              "decoded": true,
+              "value": "143747176827382995811311262"
+            },
+            {
+              "name": "reserve1",
+              "type": "uint112",
+              "indexed": false,
+              "decoded": true,
+              "value": "143913487211880082196778384"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-09-04T20:31:09Z",
+        "block_height": 10630729,
+        "tx_offset": 39,
+        "log_offset": 110,
+        "tx_hash": "0x9c4eab3c626b269326ca299ee0d3b1e7e18dfbf6d2638bf73254fa17cad0fd3e",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x0000000000000000000000007efaef62fddcca950418312c6c91aef321375a00",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "Tether USD",
+        "sender_contract_ticker_symbol": "USDT",
+        "sender_address": "0x55d398326f99059ff775485246999027b3197955",
+        "sender_address_label": null,
+        "sender_logo_url": "https://logos.covalenthq.com/tokens/0xdac17f958d2ee523a2206206994597c13d831ec7.png",
+        "raw_log_data": "0x0000000000000000000000000000000000000000000000008a455e2f50beb68b",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x7efaef62fddcca950418312c6c91aef321375a00"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "9963473307938240139"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-09-04T20:31:09Z",
+        "block_height": 10630729,
+        "tx_offset": 39,
+        "log_offset": 109,
+        "tx_hash": "0x9c4eab3c626b269326ca299ee0d3b1e7e18dfbf6d2638bf73254fa17cad0fd3e",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41",
+          "0x00000000000000000000000010ed43c718714eb63d5aa57b78b54704e256024e"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "BUSD Token",
+        "sender_contract_ticker_symbol": "BUSD",
+        "sender_address": "0xe9e7cea3dedca5984780bafc599bd69add087d56",
+        "sender_address_label": null,
+        "sender_logo_url": "",
+        "raw_log_data": "0xfffffffffffffffffffffffffffffffffffffffffffffcd596e7ea02e0a023f6",
+        "decoded": {
+          "name": "Approval",
+          "signature": "Approval(indexed address owner, indexed address spender, uint256 value)",
+          "params": [
+            {
+              "name": "owner",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "spender",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x10ed43c718714eb63d5aa57b78b54704e256024e"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "115792089237316195423570985008687907853269984665640564024508148481258072056822"
+            }
+          ]
+        }
+      },
+      {
+        "block_signed_at": "2021-09-04T20:31:09Z",
+        "block_height": 10630729,
+        "tx_offset": 39,
+        "log_offset": 108,
+        "tx_hash": "0x9c4eab3c626b269326ca299ee0d3b1e7e18dfbf6d2638bf73254fa17cad0fd3e",
+        "_raw_log_topics_bytes": null,
+        "raw_log_topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000627909adab1ab107b59a22e7ddd15e5d9029bc41",
+          "0x0000000000000000000000007efaef62fddcca950418312c6c91aef321375a00"
+        ],
+        "sender_contract_decimals": 18,
+        "sender_name": "BUSD Token",
+        "sender_contract_ticker_symbol": "BUSD",
+        "sender_address": "0xe9e7cea3dedca5984780bafc599bd69add087d56",
+        "sender_address_label": null,
+        "sender_logo_url": "",
+        "raw_log_data": "0x0000000000000000000000000000000000000000000000008ac7230489e80000",
+        "decoded": {
+          "name": "Transfer",
+          "signature": "Transfer(indexed address from, indexed address to, uint256 value)",
+          "params": [
+            {
+              "name": "from",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x627909adab1ab107b59a22e7ddd15e5d9029bc41"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "indexed": true,
+              "decoded": true,
+              "value": "0x7efaef62fddcca950418312c6c91aef321375a00"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "indexed": false,
+              "decoded": true,
+              "value": "10000000000000000000"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

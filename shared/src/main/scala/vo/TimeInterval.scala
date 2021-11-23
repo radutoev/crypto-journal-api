@@ -47,4 +47,8 @@ object TimeInterval {
   def apply(start: Instant, end: Instant) = new TimeInterval(start, end)
 
   def apply(start: Instant) = new TimeInterval(start, start)
+
+  implicit def orderingOfTimeInterval[T <: TimeInterval]: Ordering[T] = Ordering.by(t => t.start)
+
+  implicit def orderByEnd[T <: TimeInterval]: Ordering[T] = Ordering.by(_.end)
 }

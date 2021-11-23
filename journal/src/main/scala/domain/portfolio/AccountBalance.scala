@@ -30,30 +30,32 @@ final case class LiveAccountBalance(
 ) extends AccountBalance {
   override def value(wallet: Wallet): IO[PortfolioError, FungibleData] =
     for {
-      _   <- logger.info(s"Computing account balance for $wallet")
-      marketPlays <- marketPlaysService.getPlays(wallet).orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
-      trend = currencyTrend(marketPlays)
+      _            <- logger.info(s"Computing account balance for $wallet")
+      marketPlays  <- marketPlaysService.getPlays(wallet).orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
+      distribution = marketPlays.distributionByDay()
+      _            <- logger.info("Computed distribution")
+//      trend = currencyTrend(marketPlays)
 
-      _ = trend.foreach(map => map.get(Currency.unsafeFrom("WBNB")) match {
-        case Some(value) => println(value._1 + "  " + value._2.amount)
-        case None => println()
-      })
+//      _ = trend.foreach(map => map.get(Currency.unsafeFrom("WBNB")) match {
+//        case Some(value) => println(value._1 + "  " + value._2.amount)
+//        case None => println()
+//      })
 
-      currencyQuotes <- priceQuoteRepo.getQuotes(marketPlays.currencies.map(_._1), marketPlays.interval.get)
-        .orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
-
-      _ <- logger.info("Finished processing")
-
-      balance = trend.last.map { case (currency, (interval, fungibleData)) =>
-        val quotes = PriceQuotes(currencyQuotes.getOrElse(currency, List.empty))
-        quotes.findPrice(interval.start.atBeginningOfDay())
-          .map(quote => {
-            println(fungibleData + " at " + quote.price + " totaling " + (quote.price * fungibleData.amount))
-            quote.price * fungibleData.amount
-          })
-          .getOrElse(BigDecimal(0))
-      }.sum
-    } yield FungibleData(balance, USD)
+//      currencyQuotes <- priceQuoteRepo.getQuotes(marketPlays.currencies.map(_._1), marketPlays.interval.get)
+//        .orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
+//
+//      _ <- logger.info("Finished processing")
+//
+//      balance = trend.last.map { case (currency, (interval, fungibleData)) =>
+//        val quotes = PriceQuotes(currencyQuotes.getOrElse(currency, List.empty))
+//        quotes.findPrice(interval.start.atBeginningOfDay())
+//          .map(quote => {
+//            println(fungibleData + " at " + quote.price + " totaling " + (quote.price * fungibleData.amount))
+//            quote.price * fungibleData.amount
+//          })
+//          .getOrElse(BigDecimal(0))
+//      }.sum
+    } yield FungibleData(0, USD)
 
   override def trend(wallet: Wallet): IO[PortfolioError, List[FungibleData]] = {
     for {
