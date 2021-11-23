@@ -145,7 +145,7 @@ object Routes {
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
                     .orElseFail(BadRequest("Invalid address"))
 
-        filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
+        filter <- req.url.playsFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
                      .getLatestPlays(address, filter)
@@ -159,7 +159,7 @@ object Routes {
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
                     .orElseFail(BadRequest("Invalid address"))
 
-        filter <- req.url.positionFilter().toZIO.mapError(reason => BadRequest(reason))
+        filter <- req.url.playsFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
                      .getPlays(address, filter)
@@ -459,8 +459,8 @@ object Routes {
       }
   }
 
-  implicit class PositionsQParamsOps(url: URL) extends QParamsOps {
-    def positionFilter(): Validation[String, PlayFilter] = {
+  implicit class PlaysQParamsOps(url: URL) extends QParamsOps {
+    def playsFilter(): Validation[String, PlayFilter] = {
       val qParams = url.queryParams.map { case (key, values) => key.toLowerCase -> values.head }
 
       Validation.validateWith(
