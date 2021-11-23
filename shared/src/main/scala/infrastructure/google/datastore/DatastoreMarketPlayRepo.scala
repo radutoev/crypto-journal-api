@@ -2,10 +2,11 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{CoinAddress, ContextId, ContextIdPredicate, Currency, CurrencyPredicate, FungibleData, PlayId, PlayIdPredicate, TransactionHash, WalletAddress}
+import domain.model._
 import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
+import domain.position.model.CoinName
 import util.{InstantOps, ListEitherOps, tryOrLeft}
 import vo.filter.PlayFilter
 import vo.pagination.{CursorPredicate, Page, PaginationContext}
@@ -15,7 +16,6 @@ import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, Pro
 import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.domain.position.model.CoinName
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, UIO, URLayer, ZIO}
@@ -94,13 +94,7 @@ final case class DatastoreMarketPlayRepo(
             resultsOpt.fold[(Page[MarketPlays], Option[PaginationContext])](
               (Page(MarketPlays(List.empty), None), None)
             ) { results =>
-              val marketPlays = MarketPlays(results.asScala.toList.map(entityToPlay).collect {
-                case Right(play) =>
-                  play match {
-                    case p: Position                  => p
-                    case t @ (_: TopUp | _: Withdraw) => t
-                  }
-              })
+              val marketPlays = MarketPlays(results.asScala.toList.map(entityToPlay).rights)
               val nextCursor = results.getCursorAfter
               val paginationContext = if (nextCursor.toUrlSafe.nonEmpty) {
                 Some(

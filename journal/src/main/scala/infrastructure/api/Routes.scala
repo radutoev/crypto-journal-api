@@ -167,6 +167,13 @@ object Routes {
                      .fold(marketPlayErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
+    //addresses -> play-timeline
+    //  -> optional previous and next based on count. previous means more recent.
+    //  -> optional headers with the pagination contexts
+    // params:
+    //  count (how many we want to fetch around the start point)
+    //
+
     case Method.GET -> Root / "positions" / rawPositionId =>
       for {
         positionId <- ZIO
