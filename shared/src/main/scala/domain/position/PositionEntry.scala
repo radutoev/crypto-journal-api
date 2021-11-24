@@ -373,14 +373,22 @@ object PositionEntry {
           } yield TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant, Some(name), Some(address))
 
         val (receivedCandidate, receivedAmount, transferIns) = {
-          val maybeWithdrawal = transaction.logEvents.find(_.isWithdrawal)
-          maybeWithdrawal.fold(
+          //I need to check if withdrawal is the last event in the transaction.
+          //Withdrawal value matches the BNB value transferred to the wallet in some transactions, as part as internal transactions.
+          //This means that they are not indexed, so I need to use Withdrawal as stand-in.
+          //There are some transactions however that don't have internal transactions with the wallet of interest.
+          //The observation is that for these types of transactions, the Withdrawal event is not the last one in the event log.
+          val accountForInternalTxEvent = transaction.logEvents.head.isWithdrawal
+          if(accountForInternalTxEvent) {
+            val withdrawal = transaction.logEvents.head
+            (Some(withdrawal), withdrawal.paramValue("wad"), transfersToWallet)
+          } else {
             (
               transfersToWallet.headOption,
               transfersToWallet.headOption.flatMap(_.paramValue("value")),
               transfersToWallet.tail
             )
-          )(withdrawal => (Some(withdrawal), withdrawal.paramValue("wad"), transfersToWallet))
+          }
         }
 
         val sellEither = for {
