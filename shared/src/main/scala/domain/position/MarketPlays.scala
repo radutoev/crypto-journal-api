@@ -344,7 +344,7 @@ object MarketPlays {
     }
 
     MarketPlays(
-      items = (playsBuffer.toList ::: topUpsBuffer.toList).sortBy(_.openedAt)(Ordering[Instant])
+      items = (playsBuffer.toList ::: topUpsBuffer.toList ::: withdrawBuffer.toList).sortBy(_.openedAt)(Ordering[Instant])
     )
   }
 

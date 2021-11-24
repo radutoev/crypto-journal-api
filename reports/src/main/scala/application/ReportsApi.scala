@@ -16,6 +16,7 @@ object ReportsApi {
         .mapBoth(
           _ => new RuntimeException("Generate report error"), {
           timePoints => {
+            println(timePoints.map(_.fungibleData.amount).sum)
             timePoints.foreach(point => println(point.toString))
           }
       })
