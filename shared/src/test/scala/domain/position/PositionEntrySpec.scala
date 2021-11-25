@@ -197,7 +197,7 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
       )
       assert(sell)(isRight(hasSameElements(List(expected))))
     },
-    test("Interpret transaction as Sell") {
+    test("Interpret transaction as Sell with withdrawal value as internal transaction substitute") {
       val transaction = getTransaction("/covalent/transactions/sell1.json")
       val sell        = PositionEntry.fromTransaction(transaction, Address)
       val expected = List(
@@ -216,6 +216,20 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
           fee = FungibleData(BigDecimal("0.00496212"), WBNB),
           hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
           timestamp = Instant.parse("2021-10-18T14:04:18Z")
+        )
+      )
+      assert(sell)(isRight(hasSameElements(expected)))
+    },
+    test("Interpret transaction as Sell without withdrawal value as internal transaction substitute") {
+      val transaction = getTransaction("/covalent/transactions/sell_without_withdrawal_no_internal_tx_transfer.json")
+      val sell        = PositionEntry.fromTransaction(transaction, Address)
+      val expected    = List(
+        Sell(
+          sold = FungibleData(BigDecimal("481163090351.1791603120"), Currency.unsafeFrom("XHT")),
+          received = FungibleData(BigDecimal("773.8938948647369934950"), Currency.unsafeFrom("USDT")),
+          fee = FungibleData(BigDecimal("0.0026266400000000004"), WBNB),
+          hash = TransactionHash.unsafeApply("0xe744f05da5f22b1455ca386625155e7288754707ad2673b0d55cee798e61d5e8"),
+          timestamp = Instant.parse("2021-09-16T07:44:14Z")
         )
       )
       assert(sell)(isRight(hasSameElements(expected)))
