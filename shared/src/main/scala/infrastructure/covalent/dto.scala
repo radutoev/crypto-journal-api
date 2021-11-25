@@ -164,83 +164,82 @@ object dto {
     implicit val encoder: JsonDecoder[Pagination] = DeriveJsonDecoder.gen[Pagination]
   }
 
-
   final case class AccountBalanceResponse(
-                                           data: AccountBalanceData,
-                                           error: Boolean,
-                                           @jsonField("error_message") errorMessage: Option[String],
-                                           @jsonField("error_code") errorCode: Option[String]
-                                         )
+    data: AccountBalanceData,
+    error: Boolean,
+    @jsonField("error_message") errorMessage: Option[String],
+    @jsonField("error_code") errorCode: Option[String]
+  )
 
   final case class AccountBalanceData(
-                                       address: String,
-                                       @jsonField("updated_at") updatedAt: String,
-                                       @jsonField("next_update_at") nextUpdateAt: String,
-                                       @jsonField("quote_currency") quoteCurrency: String,
-                                       @jsonField("chain_id") chainId: Int,
-                                       items: List[AccountBalanceItem],
-                                       pagination: Option[String] //we never use this.
-                                     )
+    address: String,
+    @jsonField("updated_at") updatedAt: String,
+    @jsonField("next_update_at") nextUpdateAt: String,
+    @jsonField("quote_currency") quoteCurrency: String,
+    @jsonField("chain_id") chainId: Int,
+    items: List[AccountBalanceItem],
+    pagination: Option[String] //we never use this.
+  )
 
   final case class AccountBalanceItem(
-                                       @jsonField("contract_decimals") contractDecimals: Int,
-                                       @jsonField("contract_name") contractName: String,
-                                       @jsonField("contract_ticker_symbol") contractTickerSymbol: String,
-                                       @jsonField("contract_address") contractAddress: String,
-                                       @jsonField("supports_erc") supportsErc: Option[List[String]],
-                                       @jsonField("logo_url") logoUrl: String,
-                                       @jsonField("last_transferred_at") lastTransferredAt: Option[String],
-                                       `type`: String,
-                                       balance: String,
-                                       @jsonField("balance_24h") balance24H: Option[String],
-                                       @jsonField("quote_rate") quoteRate: Float,
-                                       @jsonField("quote_rate_24h") quoteRate24h: Option[Float],
-                                       quote: Float,
-                                       @jsonField("quote_24h") quote24H: Option[Float],
-                                       @jsonField("nft_data") nftData: Option[String]
-                                     )
+    @jsonField("contract_decimals") contractDecimals: Int,
+    @jsonField("contract_name") contractName: String,
+    @jsonField("contract_ticker_symbol") contractTickerSymbol: String,
+    @jsonField("contract_address") contractAddress: String,
+    @jsonField("supports_erc") supportsErc: Option[List[String]],
+    @jsonField("logo_url") logoUrl: String,
+    @jsonField("last_transferred_at") lastTransferredAt: Option[String],
+    `type`: String,
+    balance: String,
+    @jsonField("balance_24h") balance24H: Option[String],
+    @jsonField("quote_rate") quoteRate: Float,
+    @jsonField("quote_rate_24h") quoteRate24h: Option[Float],
+    quote: Float,
+    @jsonField("quote_24h") quote24H: Option[Float],
+    @jsonField("nft_data") nftData: Option[String]
+  )
 
   implicit val accountBalanceItemDecoder: JsonDecoder[AccountBalanceItem] = DeriveJsonDecoder.gen[AccountBalanceItem]
   implicit val accountBalanceDataDecoder: JsonDecoder[AccountBalanceData] = DeriveJsonDecoder.gen[AccountBalanceData]
-  implicit val accountBalanceResponseDecoder: JsonDecoder[AccountBalanceResponse] = DeriveJsonDecoder.gen[AccountBalanceResponse]
-
+  implicit val accountBalanceResponseDecoder: JsonDecoder[AccountBalanceResponse] =
+    DeriveJsonDecoder.gen[AccountBalanceResponse]
 
   final case class PriceQuoteResponse(
-                                       data: List[PriceQuoteData],
-                                       error: Boolean,
-                                       @jsonField("error_message") errorMessage: Option[String],
-                                       @jsonField("error_code") errorCode: Option[Int]
-                                     )
+    data: List[PriceQuoteData],
+    error: Boolean,
+    @jsonField("error_message") errorMessage: Option[String],
+    @jsonField("error_code") errorCode: Option[Int]
+  )
 
   final case class PriceQuoteData(
-                                   @jsonField("contract_decimals") contractDecimals: Int,
-                                   @jsonField("contract_name") contractName: String,
-                                   @jsonField("contract_ticker_symbol") contractTickerSymbol: String,
-                                   @jsonField("contract_address") contractAddress: String,
-                                   @jsonField("supports_erc") supportsErc: List[String],
-                                   @jsonField("logo_url") logoUrl: String,
-                                   @jsonField("update_at") updateAt: String,
-                                   @jsonField("quote_currency") quoteCurrency: String,
-                                   @jsonField("prices") prices: List[PriceData]
-                                 )
+    @jsonField("contract_decimals") contractDecimals: Int,
+    @jsonField("contract_name") contractName: String,
+    @jsonField("contract_ticker_symbol") contractTickerSymbol: String,
+    @jsonField("contract_address") contractAddress: String,
+    @jsonField("supports_erc") supportsErc: List[String],
+    @jsonField("logo_url") logoUrl: String,
+    @jsonField("update_at") updateAt: String,
+    @jsonField("quote_currency") quoteCurrency: String,
+    @jsonField("prices") prices: List[PriceData]
+  )
 
   final case class PriceData(
-                              @jsonField("contract_metadata") contractMetadata: ContractMetadata,
-                              date: String,
-                              price: Float
-                            )
+    @jsonField("contract_metadata") contractMetadata: ContractMetadata,
+    date: String,
+    price: Float
+  )
 
   final case class ContractMetadata(
-                                     @jsonField("contract_decimals") contractDecimals: Int,
-                                     @jsonField("contract_name") contractName: String,
-                                     @jsonField("contract_ticker_symbol") contractTickerSymbol: String,
-                                     @jsonField("contract_address") contractAddress: String,
-                                     @jsonField("supports_erc") supportsErc: List[String],
-                                     @jsonField("logo_url") logoUrl: String
-                                   )
+    @jsonField("contract_decimals") contractDecimals: Int,
+    @jsonField("contract_name") contractName: String,
+    @jsonField("contract_ticker_symbol") contractTickerSymbol: String,
+    @jsonField("contract_address") contractAddress: String,
+    @jsonField("supports_erc") supportsErc: List[String],
+    @jsonField("logo_url") logoUrl: String
+  )
 
   implicit val contractDecoder: JsonDecoder[ContractMetadata] = DeriveJsonDecoder.gen[ContractMetadata]
-  implicit val priceDecoder: JsonDecoder[PriceData] = DeriveJsonDecoder.gen[PriceData]
-  implicit val dataDecoder: JsonDecoder[PriceQuoteData] = DeriveJsonDecoder.gen[PriceQuoteData]
-  implicit val decoder: JsonDecoder[PriceQuoteResponse] = DeriveJsonDecoder.gen[PriceQuoteResponse]
+  implicit val priceDecoder: JsonDecoder[PriceData]           = DeriveJsonDecoder.gen[PriceData]
+  implicit val dataDecoder: JsonDecoder[PriceQuoteData]       = DeriveJsonDecoder.gen[PriceQuoteData]
+  implicit val decoder: JsonDecoder[PriceQuoteResponse]       = DeriveJsonDecoder.gen[PriceQuoteResponse]
 }

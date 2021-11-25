@@ -13,5 +13,5 @@ object error {
   final case class WalletFetchError(address: WalletAddress, throwable: Throwable) extends WalletError
   final case class WalletsFetchError(throwable: Throwable)                        extends WalletError
   final case class WalletMessagingError(throwable: Throwable)                     extends WalletError
-  final case class BalanceGetError(reason: String) extends WalletError
+  final case class BalanceGetError(reason: String)                                extends WalletError
 }

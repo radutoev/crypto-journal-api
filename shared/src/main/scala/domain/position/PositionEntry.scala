@@ -1,15 +1,15 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{LogEvent, Transaction}
+import domain.blockchain.{ LogEvent, Transaction }
 import domain.model._
 import domain.position.PositionEntry.PositionEntryId
-import util.{ListEitherOps, ListOptionOps}
+import util.{ ListEitherOps, ListOptionOps }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.domain.position.model.{CoinName, CoinNamePredicate}
+import io.softwarechain.cryptojournal.domain.position.model.{ CoinName, CoinNamePredicate }
 
 import java.time.Instant
 import scala.util.Try
@@ -57,7 +57,9 @@ object PositionEntry {
     }
   }
 
-  private def dataFromTransferInEvent(event: LogEvent): Either[String, (CoinAddress, WalletAddress, CoinName, FungibleData)] =
+  private def dataFromTransferInEvent(
+    event: LogEvent
+  ): Either[String, (CoinAddress, WalletAddress, CoinName, FungibleData)] =
     for {
       senderDecimals <- event.senderContractDecimals.toRight("Did not find contract decimals")
       rawCurrency    <- event.senderContractSymbol.toRight("Did not find currency")
@@ -67,9 +69,9 @@ object PositionEntry {
                  "Cannot determine amount"
                )
       senderAddress <- refineV[CoinAddressPredicate](event.senderAddress)
-      rawFrom <- event.paramValue("from").toRight("Cannot determine from value")
-      from <- refineV[WalletAddressPredicate](rawFrom)
-      name <- event.senderName.toRight("Did not find coin name").flatMap(refineV[CoinNamePredicate](_))
+      rawFrom       <- event.paramValue("from").toRight("Cannot determine from value")
+      from          <- refineV[WalletAddressPredicate](rawFrom)
+      name          <- event.senderName.toRight("Did not find coin name").flatMap(refineV[CoinNamePredicate](_))
     } yield (senderAddress, from, name, FungibleData(amount, currency))
 
   implicit class TransactionOps(transaction: Transaction) {
@@ -216,15 +218,23 @@ object PositionEntry {
               amountSpent <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -decimals)).toEither.left.map(_ =>
                               "Cannot determine amount spent"
                             )
-              currency                <- depositEvent.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
-              spent                   = FungibleData(amountSpent, currency)
+              currency                            <- depositEvent.senderContractSymbol.toRight("Did not find currency").flatMap(Currency(_))
+              spent                               = FungibleData(amountSpent, currency)
               (coinAddress, from, name, received) <- dataFromTransferInEvent(buy)
             } yield Buy(fee, spent, received, from, name, coinAddress, transaction.hash, transaction.instant) :: transferIns
               .map(dataFromTransferInEvent)
               .rights
               .map {
                 case (coinAddress, from, name, data) =>
-                  TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant, Some(name), Some(coinAddress))
+                  TransferIn(
+                    data,
+                    from,
+                    FungibleData.zero(WBNB),
+                    transaction.hash,
+                    transaction.instant,
+                    Some(name),
+                    Some(coinAddress)
+                  )
               }
           } else {
             Left("Unable to extract Buy from transaction")
@@ -234,22 +244,34 @@ object PositionEntry {
         val transfers = transaction.logEvents.filter(_.isTransferEvent)
         val buyOptional = for {
           (received, from, coinAddress, coinName) <- transfers.headOption.flatMap(ev =>
-            for {
-              amount   <- ev.paramValue("value").map(BigDecimal(_))
-              from     <- ev.paramValue("from").flatMap(refineV[WalletAddressPredicate](_).toOption)
-              decimals <- ev.senderContractDecimals
-              currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
-              name     <- ev.senderName.toRight("coin name not found").flatMap(refineV[CoinNamePredicate](_)).toOption
-              address  <- refineV[CoinAddressPredicate](ev.senderAddress).toOption
-            } yield (FungibleData(amount * Math.pow(10, -decimals), currency), from, address, name)
-          )
+                                                      for {
+                                                        amount <- ev.paramValue("value").map(BigDecimal(_))
+                                                        from <- ev
+                                                                 .paramValue("from")
+                                                                 .flatMap(refineV[WalletAddressPredicate](_).toOption)
+                                                        decimals <- ev.senderContractDecimals
+                                                        currency <- ev.senderContractSymbol.flatMap(
+                                                                     Currency(_).toOption
+                                                                   )
+                                                        name <- ev.senderName
+                                                                 .toRight("coin name not found")
+                                                                 .flatMap(refineV[CoinNamePredicate](_))
+                                                                 .toOption
+                                                        address <- refineV[CoinAddressPredicate](ev.senderAddress).toOption
+                                                      } yield (
+                                                        FungibleData(amount * Math.pow(10, -decimals), currency),
+                                                        from,
+                                                        address,
+                                                        name
+                                                      )
+                                                    )
           spentOriginal <- transfers.lastOption.flatMap(ev =>
-                                      for {
-                                        amount   <- ev.paramValue("value").map(BigDecimal(_))
-                                        decimals <- ev.senderContractDecimals
-                                        currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
-                                      } yield FungibleData(amount * Math.pow(10, -decimals), currency)
-                                    )
+                            for {
+                              amount   <- ev.paramValue("value").map(BigDecimal(_))
+                              decimals <- ev.senderContractDecimals
+                              currency <- ev.senderContractSymbol.flatMap(Currency(_).toOption)
+                            } yield FungibleData(amount * Math.pow(10, -decimals), currency)
+                          )
           spent <- transfers
                     .find(_.isTransferToAddress(from))
                     .flatMap(ev =>
@@ -370,7 +392,15 @@ object PositionEntry {
             from     <- ev.paramValue("from").toRight("Did not find sender").flatMap(refineV[WalletAddressPredicate](_))
             name     <- ev.senderName.toRight("Did not find coin name").flatMap(refineV[CoinNamePredicate](_))
             address  <- refineV[CoinNamePredicate](ev.senderAddress)
-          } yield TransferIn(data, from, FungibleData.zero(WBNB), transaction.hash, transaction.instant, Some(name), Some(address))
+          } yield TransferIn(
+            data,
+            from,
+            FungibleData.zero(WBNB),
+            transaction.hash,
+            transaction.instant,
+            Some(name),
+            Some(address)
+          )
 
         val (receivedCandidate, receivedAmount, transferIns) = {
           //I need to check if withdrawal is the last event in the transaction.
@@ -379,7 +409,7 @@ object PositionEntry {
           //There are some transactions however that don't have internal transactions with the wallet of interest.
           //The observation is that for these types of transactions, the Withdrawal event is not the last one in the event log.
           val accountForInternalTxEvent = transaction.logEvents.head.isWithdrawal
-          if(accountForInternalTxEvent) {
+          if (accountForInternalTxEvent) {
             val withdrawal = transaction.logEvents.head
             (Some(withdrawal), withdrawal.paramValue("wad"), transfersToWallet)
           } else {
@@ -480,12 +510,12 @@ object PositionEntry {
       lazy val hasDirectTransfers = txValue == 0d && transaction.logEvents.exists(_.isTransferFromAddress(address))
       lazy val possibleTokenBuys  = txValue != 0d && transaction.logEvents.exists(_.isTokenPurchase(address))
 
-      if(noLogEvents && transaction.fromAddress == address.value) {
+      if (noLogEvents && transaction.fromAddress == address.value) {
         Some {
           for {
             txValue <- Try(BigDecimal(transaction.rawValue) * Math.pow(10, -18)).toEither.left.map(_ =>
-              "Cannot determine amount"
-            )
+                        "Cannot determine amount"
+                      )
             toAddress <- refineV[WalletAddressPredicate](transaction.toAddress)
           } yield List(
             TransferOut(
@@ -504,17 +534,17 @@ object PositionEntry {
             .map { ev =>
               for {
                 currency <- ev.senderContractSymbol
-                  .toRight("Did not find currency")
-                  .flatMap(refineV[CurrencyPredicate](_))
+                             .toRight("Did not find currency")
+                             .flatMap(refineV[CurrencyPredicate](_))
                 decimals <- ev.senderContractDecimals.toRight("Did not find decimals")
                 toAddress <- ev
-                  .paramValue("to")
-                  .toRight("Did not find destination address")
-                  .flatMap(refineV[WalletAddressPredicate](_))
+                              .paramValue("to")
+                              .toRight("Did not find destination address")
+                              .flatMap(refineV[WalletAddressPredicate](_))
                 amount <- ev
-                  .paramValue("value")
-                  .map(BigDecimal(_) * Math.pow(10, -decimals))
-                  .toRight("Did not find value")
+                           .paramValue("value")
+                           .map(BigDecimal(_) * Math.pow(10, -decimals))
+                           .toRight("Did not find value")
               } yield TransferOut(
                 FungibleData(amount, currency),
                 toAddress,

@@ -88,7 +88,8 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
           timestamp = Instant.parse("2021-10-14T18:42:11Z")
         ),
         TransferIn(
-          value = FungibleData(BigDecimal("10093678.5108933023485965940"), Currency.unsafeFrom("EMPDOGE_Dividend_Tracker")),
+          value =
+            FungibleData(BigDecimal("10093678.5108933023485965940"), Currency.unsafeFrom("EMPDOGE_Dividend_Tracker")),
           receivedFrom = WalletAddress.unsafeFrom("0x0000000000000000000000000000000000000000"),
           fee = FungibleData.zero(WBNB),
           name = Some(CoinName.unsafeApply("EMPDOGE_Dividend_Tracker")),
@@ -119,7 +120,7 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
     },
     test("Interpret transaction as Buy with multiple hops") {
       val transactions = getTransactions("/covalent/transactions/buy_with_multiple_hops.json")
-      val buys = transactions.flatMap(PositionEntry.fromTransaction(_, Address).right.get)
+      val buys         = transactions.flatMap(PositionEntry.fromTransaction(_, Address).right.get)
 //      val buys = PositionEntry.fromTransaction(transactions(0), Address).
 //        map(partial => partial ++ PositionEntry.fromTransaction(transactions(1), Address).right.get ++ PositionEntry.fromTransaction(transactions(2)))
       val expected = List(
@@ -223,7 +224,7 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
     test("Interpret transaction as Sell without withdrawal value as internal transaction substitute") {
       val transaction = getTransaction("/covalent/transactions/sell_without_withdrawal_no_internal_tx_transfer.json")
       val sell        = PositionEntry.fromTransaction(transaction, Address)
-      val expected    = List(
+      val expected = List(
         Sell(
           sold = FungibleData(BigDecimal("481163090351.1791603120"), Currency.unsafeFrom("XHT")),
           received = FungibleData(BigDecimal("773.8938948647369934950"), Currency.unsafeFrom("USDT")),
@@ -303,8 +304,8 @@ object PositionEntrySpec extends DefaultRunnableSpec with FileOps {
       assert(transferOutList)(isRight(hasSameElements(expected)))
     },
     test("Interpret TransferIn and TransferOut from direct swap") {
-      val transaction     = getTransaction("/covalent/transactions/swap_direct.json")
-      val result = PositionEntry.fromTransaction(transaction, Address)
+      val transaction = getTransaction("/covalent/transactions/swap_direct.json")
+      val result      = PositionEntry.fromTransaction(transaction, Address)
       val expected = List(
         TransferOut(
           amount = FungibleData(BigDecimal("10.0000000000000000000"), Currency.unsafeFrom("BUSD")),

@@ -1,13 +1,13 @@
 package io.softwarechain.cryptojournal
 package domain.blockchain
 
-import domain.blockchain.error.{BlockchainError, TransactionsGetError}
-import domain.model.{CoinAddress, TransactionHash, WalletAddress}
+import domain.blockchain.error.{ BlockchainError, TransactionsGetError }
+import domain.model.{ CoinAddress, TransactionHash, WalletAddress }
 import domain.pricequote.PriceQuote
 import vo.TimeInterval
 
 import zio.stream.ZStream
-import zio.{Has, IO, Task, ZIO}
+import zio.{ Has, IO, Task, ZIO }
 
 import java.time.Instant
 

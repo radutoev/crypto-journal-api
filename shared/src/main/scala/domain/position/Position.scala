@@ -2,15 +2,15 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.model.fungible.{FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps}
+import domain.model.fungible.{ FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps }
 import domain.position.error.InvalidPosition
 import domain.position.model.CoinName
-import domain.pricequote.{PriceQuote, PriceQuotes}
+import domain.pricequote.{ PriceQuote, PriceQuotes }
 import util.ListOps.cond
 import util.ListOptionOps
 import vo.TimeInterval
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 final case class Position(
   entries: List[PositionEntry],
@@ -61,14 +61,14 @@ final case class Position(
   }
 
   lazy val coinName: Option[CoinName] = entries.map {
-    case AirDrop(name, _, _, _, _, _, _, _) => Some(name)
-    case _: Approval => None
-    case Buy(_, _, _, _, name, _, _, _, _, _) => Some(name)
-    case Claim(_, _, _, name, _, _, _, _) => Some(name)
-    case _: Contribute => None
-    case _: Sell => None
+    case AirDrop(name, _, _, _, _, _, _, _)    => Some(name)
+    case _: Approval                           => None
+    case Buy(_, _, _, _, name, _, _, _, _, _)  => Some(name)
+    case Claim(_, _, _, name, _, _, _, _)      => Some(name)
+    case _: Contribute                         => None
+    case _: Sell                               => None
     case TransferIn(_, _, _, _, _, name, _, _) => name
-    case _: TransferOut => None
+    case _: TransferOut                        => None
   }.collectFirst {
     case Some(coinName) => coinName
   }

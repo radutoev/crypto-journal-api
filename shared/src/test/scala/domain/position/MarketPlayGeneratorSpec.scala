@@ -88,7 +88,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
               fee = FungibleData(BigDecimal("0.003242655"), WBNB),
               hash = TransactionHash.unsafeApply("0x27aaf173d99d0936faab0b71b28fb69ded43ca40e39dcc238591a40725c717b3"),
               timestamp = Instant.parse("2021-10-14T18:42:11Z"),
-              name = CoinName.unsafeApply("Emperor Doge"),
+              name = CoinName.unsafeApply("Emperor Doge")
             )
           )
         ),
@@ -235,7 +235,7 @@ object MarketPlayGeneratorSpec extends DefaultRunnableSpec with FileOps {
         )
       )
       assert(expected.size)(equalTo(marketPlays.plays.size)) &&
-        assert(expected)(hasSameElements(marketPlays.plays))
+      assert(expected)(hasSameElements(marketPlays.plays))
     }
   )
 }

@@ -35,7 +35,7 @@ package object util {
   }
 
   object ListOps {
-    def cond[T]( p : => Boolean, v : () => T ) : List[T] = if(p) v.apply() :: Nil else Nil
+    def cond[T](p: => Boolean, v: () => T): List[T] = if (p) v.apply() :: Nil else Nil
   }
 
   implicit class ListEitherOps[Err, Value](list: List[Either[Err, Value]]) {

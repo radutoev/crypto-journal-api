@@ -21,10 +21,14 @@ final case class TopUp(
 
   lazy val fees: Map[Currency, Fee] = {
     (List(fee.currency -> fee) ++
-      cond(priceQuotes.isDefined, () => USD -> priceQuotes.get.findPrice(timestamp)
-        .map(quote => quote.price * fee.amount)
-        .map(FungibleData(_, USD))
-        .getOrElse(FungibleData.zero(USD))
+      cond(
+        priceQuotes.isDefined,
+        () =>
+          USD -> priceQuotes.get
+            .findPrice(timestamp)
+            .map(quote => quote.price * fee.amount)
+            .map(FungibleData(_, USD))
+            .getOrElse(FungibleData.zero(USD))
       )).toMap
   }
 }

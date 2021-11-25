@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{FungibleData, TransactionHash, WBNB}
+import domain.model.{ FungibleData, TransactionHash, WBNB }
 
 import zio.test._
 import zio.test.Assertion._

@@ -3,25 +3,25 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.currency.CurrencyRepo
-import domain.currency.error.{CurrencyError, CurrencyFetchError}
-import domain.model.{CoinAddress, Currency}
+import domain.currency.error.{ CurrencyError, CurrencyFetchError }
+import domain.model.{ CoinAddress, Currency }
 
-import com.google.cloud.datastore.{Datastore, Entity, Query, ReadOption}
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import com.google.cloud.datastore.{ Datastore, Entity, Query, ReadOption }
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import scala.jdk.CollectionConverters._
 
-final case class DatastoreCurrencyRepo (datastore: Datastore,
-                                        datastoreConfig: DatastoreConfig,
-                                        logger: Logger[String]) extends CurrencyRepo {
-  override def getCurrencies(): IO[CurrencyError, Set[(Currency, CoinAddress)]] = {
+final case class DatastoreCurrencyRepo(datastore: Datastore, datastoreConfig: DatastoreConfig, logger: Logger[String])
+    extends CurrencyRepo {
+  override def getCurrencies(): IO[CurrencyError, Set[(Currency, CoinAddress)]] =
     for {
       _     <- logger.info("Fetch currencies")
       query = Query.newEntityQueryBuilder().setKind(datastoreConfig.currency).build()
-      results <- Task(datastore.run(query, Seq.empty[ReadOption]:_*)).tapError(err => logger.warn(err.getMessage)).orElseFail(CurrencyFetchError())
+      results <- Task(datastore.run(query, Seq.empty[ReadOption]: _*))
+                  .tapError(err => logger.warn(err.getMessage))
+                  .orElseFail(CurrencyFetchError())
     } yield results.asScala.toSet.map(entityToCurrency)
-  }
 
   override def upsert(currencies: Set[(Currency, CoinAddress)]): IO[CurrencyError, Unit] = {
     @inline
@@ -38,7 +38,7 @@ final case class DatastoreCurrencyRepo (datastore: Datastore,
         )
         .ignore //TODO handle transactions response when doing error handling.
 
-    if(currencies.isEmpty) {
+    if (currencies.isEmpty) {
       logger.info("No currencies provided for upsert")
     } else {
       val entities = currencies.map(currencyToEntity).grouped(23).toList
@@ -49,19 +49,18 @@ final case class DatastoreCurrencyRepo (datastore: Datastore,
     }
   }
 
-  private def entityToCurrency(entity: Entity): (Currency, CoinAddress) = {
+  private def entityToCurrency(entity: Entity): (Currency, CoinAddress) =
     (
       Currency.unsafeFrom(entity.getString("currency")),
       CoinAddress.unsafeFrom(entity.getString("address"))
     )
-  }
 
-  private def currencyToEntity(tuple: (Currency, CoinAddress)): Entity = {
-    Entity.newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.currency).newKey(tuple._1.value))
+  private def currencyToEntity(tuple: (Currency, CoinAddress)): Entity =
+    Entity
+      .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.currency).newKey(tuple._1.value))
       .set("currency", tuple._1.value)
       .set("address", tuple._2.value)
       .build()
-  }
 }
 
 object DatastoreCurrencyRepo {

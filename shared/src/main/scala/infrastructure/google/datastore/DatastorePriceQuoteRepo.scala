@@ -1,19 +1,19 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
-import config.{CovalentConfig, DatastoreConfig}
+import config.{ CovalentConfig, DatastoreConfig }
 import domain.model.Currency
-import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError}
-import domain.pricequote.{PriceQuote, PriceQuoteRepo}
+import domain.pricequote.error.{ PriceQuoteError, PriceQuoteFetchError }
+import domain.pricequote.{ PriceQuote, PriceQuoteRepo }
 import util.InstantOps
 import vo.TimeInterval
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -45,28 +45,39 @@ final case class DatastorePriceQuoteRepo(
 //      priceQuotes = results.asScala.toList.map(entityToPriceQuote).sortBy(_.timestamp)(Ordering[Instant])
     } yield List.empty
 
-  override def getQuotes(currencies: Set[Currency], interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] = {
+  override def getQuotes(
+    currencies: Set[Currency],
+    interval: TimeInterval
+  ): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] =
     for {
       _     <- logger.info(s"Fetch quotes in $interval for currencies ${currencies.mkString(",")}")
       start = interval.start.atBeginningOfDay()
       //TODO composition equality filter doesn't seem to work.
       eqFilters = currencies.map(c => PropertyFilter.eq("currency", c.value)).toList
       filter = CompositeFilter.and(
-        PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano)),
+        PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano))
 //        eqFilters: _*
       )
-      query = Query.newEntityQueryBuilder().setKind(datastoreConfig.priceQuote).setFilter(filter).addOrderBy(OrderBy.asc("timestamp")).build()
+      query = Query
+        .newEntityQueryBuilder()
+        .setKind(datastoreConfig.priceQuote)
+        .setFilter(filter)
+        .addOrderBy(OrderBy.asc("timestamp"))
+        .build()
       results <- Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-        .tapError(err => logger.warn(err.getMessage))
-        .orElseFail(PriceQuoteFetchError("Unable to fetch quotes"))
-      quotes = results.asScala.toList.map(entityToPriceQuote)
+                  .tapError(err => logger.warn(err.getMessage))
+                  .orElseFail(PriceQuoteFetchError("Unable to fetch quotes"))
+      quotes = results.asScala.toList
+        .map(entityToPriceQuote)
         .filter(t => t._2.timestamp.isBefore(interval.end) || t._2.timestamp == interval.end)
-        .groupBy(_._1).view.mapValues(_.map(_._2)).toMap
+        .groupBy(_._1)
+        .view
+        .mapValues(_.map(_._2))
+        .toMap
     } yield quotes
-  }
 
-  override def getLatestQuotes(currencies: Set[Currency]): IO[PriceQuoteError, Map[Currency, PriceQuote]] = {
-    if(currencies.nonEmpty) {
+  override def getLatestQuotes(currencies: Set[Currency]): IO[PriceQuoteError, Map[Currency, PriceQuote]] =
+    if (currencies.nonEmpty) {
       UIO(Map.empty)
 
 //      val filter = currencies.map(currency => PropertyFilter.eq("currency", currency.value))
@@ -95,7 +106,6 @@ final case class DatastorePriceQuoteRepo(
     } else {
       UIO(Map.empty)
     }
-  }
 
   override def saveQuotes(quotes: Map[Currency, List[PriceQuote]]): IO[PriceQuoteError, Unit] = {
     @inline
@@ -113,8 +123,9 @@ final case class DatastorePriceQuoteRepo(
         .ignore //TODO handle transactions response when doing error handling.
 
     {
-      val entities = quotes.flatMap { case (currency, quotes) =>
-        quotes.map(quote => priceQuoteWithCurrencyToEntity(currency -> quote))
+      val entities = quotes.flatMap {
+        case (currency, quotes) =>
+          quotes.map(quote => priceQuoteWithCurrencyToEntity(currency -> quote))
       }.grouped(25).toList
       for {
         _ <- ZIO.foreach(entities)(items => saveEntities(items.toList)).ignore
@@ -133,13 +144,16 @@ final case class DatastorePriceQuoteRepo(
     )
   }
 
-  private def priceQuoteWithCurrencyToEntity(data: (Currency, PriceQuote)) = {
-    Entity.newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.priceQuote).newKey(UUID.randomUUID().toString))
+  private def priceQuoteWithCurrencyToEntity(data: (Currency, PriceQuote)) =
+    Entity
+      .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.priceQuote).newKey(UUID.randomUUID().toString))
       .set("currency", data._1.value)
-      .set("timestamp", TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(data._2.timestamp.getEpochSecond, data._2.timestamp.getNano)))
+      .set(
+        "timestamp",
+        TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(data._2.timestamp.getEpochSecond, data._2.timestamp.getNano))
+      )
       .set("price", data._2.price)
       .build()
-  }
 }
 
 object DatastorePriceQuoteRepo {

@@ -3,14 +3,14 @@ package domain.position
 
 import domain.blockchain.Transaction
 import domain.model.fungible.OptionalFungibleDataOps
-import domain.model.{CoinAddress, Currency, FungibleData, TransactionHash, WBNB, WalletAddress}
-import util.{InstantOps, MarketPlaysListOps}
+import domain.model.{ CoinAddress, Currency, FungibleData, TransactionHash, WBNB, WalletAddress }
+import util.{ InstantOps, MarketPlaysListOps }
 import vo.TimeInterval
 import vo.TimeInterval.orderingOfTimeInterval
 
 import java.time.Instant
 import scala.collection.immutable.ListMap
-import scala.collection.{immutable, mutable}
+import scala.collection.{ immutable, mutable }
 import scala.collection.mutable.ListBuffer
 
 //most recent items first.
@@ -25,14 +25,13 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   lazy val wins: List[Position]  = closedPositions.filter(_.isWin.get)
   lazy val loses: List[Position] = closedPositions.filter(_.isLoss.get)
 
-
   lazy val interval: Option[TimeInterval] = {
-    if(plays.nonEmpty) {
+    if (plays.nonEmpty) {
       Some(
         TimeInterval(
           plays.head.openedAt,
           positions.map(_.closedAt).collect { case Some(closedAt) => closedAt } match {
-            case Nil => Instant.now()
+            case Nil  => Instant.now()
             case list => list.max
           }
         )
@@ -47,11 +46,11 @@ final case class MarketPlays(plays: List[MarketPlay]) {
       play match {
         case p: Position =>
           p.entries.map {
-            case a: AirDrop => Some((a.received.currency, a.coinAddress))
-            case b: Buy => Some((b.received.currency, b.coinAddress))
-            case c: Claim => Some((c.received.currency, c.coinAddress))
+            case a: AirDrop                                   => Some((a.received.currency, a.coinAddress))
+            case b: Buy                                       => Some((b.received.currency, b.coinAddress))
+            case c: Claim                                     => Some((c.received.currency, c.coinAddress))
             case tIn: TransferIn if tIn.coinAddress.isDefined => Some((tIn.value.currency, tIn.coinAddress.get))
-            case _ => None
+            case _                                            => None
           }.collect {
             case Some(currencyData) => currencyData
           }
@@ -60,87 +59,85 @@ final case class MarketPlays(plays: List[MarketPlay]) {
       }
     } :+ (WBNB, CoinAddress.unsafeFrom("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"))).toSet
 
-  def filter(currency: Currency): MarketPlays = {
+  def filter(currency: Currency): MarketPlays =
     MarketPlays {
       plays.filter {
-        case p: Position => p.currency.contains(currency)
+        case p: Position  => p.currency.contains(currency)
         case topUp: TopUp => topUp.value.currency == currency
-        case w: Withdraw => w.value.currency == currency
-        case _ => false
+        case w: Withdraw  => w.value.currency == currency
+        case _            => false
       }
     }
-  }
 
-  def filterByHash(hash: TransactionHash): MarketPlays = {
+  def filterByHash(hash: TransactionHash): MarketPlays =
     MarketPlays {
       plays.filter {
-        case p: Position => p.entries.exists(_.hash == hash)
-        case topUp: TopUp => topUp.txHash == hash
+        case p: Position        => p.entries.exists(_.hash == hash)
+        case topUp: TopUp       => topUp.txHash == hash
         case withdraw: Withdraw => withdraw.txHash == hash
-        case _ => false
+        case _                  => false
       }
     }
-  }
 
-  def currencyDistributionOverTime(currency: Currency): List[FungibleDataTimePoint] = {
+  def currencyDistributionOverTime(currency: Currency): List[FungibleDataTimePoint] =
     distributionByCurrency().getOrElse(currency, List.empty)
-  }
 
-  def distributionByDay(): List[(TimeInterval, List[FungibleDataTimePoint])] = {
-    if(interval.isDefined) {
-      var dataPoints = distributionByCurrency().values.flatten.toList.sortBy(_.timestamp)(Ordering[Instant])
-      val start = interval.get.start.atBeginningOfDay()
+  def distributionByDay(): List[(TimeInterval, List[FungibleDataTimePoint])] =
+    if (interval.isDefined) {
+      var dataPoints    = distributionByCurrency().values.flatten.toList.sortBy(_.timestamp)(Ordering[Instant])
+      val start         = interval.get.start.atBeginningOfDay()
       val trendInterval = TimeInterval(start, Instant.now().atEndOfDay())
-      trendInterval.days()
+      trendInterval
+        .days()
         .reverse
         .map(_.atEndOfDay())
-        .map(day => {
+        .map { day =>
           println(day)
           val filterInterval = TimeInterval(start, day)
           dataPoints = dataPoints.filter(dataPoint => filterInterval.contains(dataPoint.timestamp))
           filterInterval -> dataPoints
-        })
+        }
         .sortBy(_._1)(TimeInterval.orderByEnd)
     } else {
       List.empty
     }
-  }
 
   def distributionByCurrency(): Map[Currency, List[FungibleDataTimePoint]] = {
     val currencyBalance: CurrencyBalance = new CurrencyBalance(mutable.Map.empty)
 
     plays.foreach {
-      case Position(entries, _, _, _) => entries.foreach {
-        case a: AirDrop =>
-          currencyBalance.subtract(a.fee, a.timestamp, a.hash, "Fee")
-          currencyBalance.add(a.received, a.timestamp, a.hash, "AirDrop")
-        case a: Approval =>
-          currencyBalance.subtract(a.fee, a.timestamp, a.hash, "Fee")
-        case buy: Buy =>
-          currencyBalance.subtract(buy.fee, buy.timestamp, buy.hash, "Fee")
-          if(buy.spentOriginal.isDefined) {
-            currencyBalance.subtract(buy.spentOriginal.get, buy.timestamp, buy.hash, "Buy")
-          } else {
-            currencyBalance.subtract(buy.spent, buy.timestamp, buy.hash, "Buy")
-          }
-          currencyBalance.add(buy.received, buy.timestamp, buy.hash, "Buy")
-        case c: Claim =>
-          currencyBalance.subtract(c.fee, c.timestamp, c.hash, "Fee")
-          currencyBalance.add(c.received, c.timestamp, c.hash, "Claim")
-        case c: Contribute =>
-          currencyBalance.subtract(c.fee, c.timestamp, c.hash, "Fee")
-          currencyBalance.subtract(c.spent, c.timestamp, c.hash, "Contribute")
-        case s: Sell =>
-          currencyBalance.subtract(s.fee, s.timestamp, s.hash, "Fee")
-          currencyBalance.subtract(s.sold, s.timestamp, s.hash, "Sell")
-          currencyBalance.add(s.received, s.timestamp, s.hash, "Sell")
-        case tIn: TransferIn =>
-          currencyBalance.subtract(tIn.fee, tIn.timestamp, tIn.hash, "Fee")
-          currencyBalance.add(tIn.value, tIn.timestamp, tIn.hash, "TransferIn")
-        case tOut: TransferOut =>
-          currencyBalance.subtract(tOut.fee, tOut.timestamp, tOut.hash, "Fee")
-          currencyBalance.subtract(tOut.amount, tOut.timestamp, tOut.hash, "TransferOut")
-      }
+      case Position(entries, _, _, _) =>
+        entries.foreach {
+          case a: AirDrop =>
+            currencyBalance.subtract(a.fee, a.timestamp, a.hash, "Fee")
+            currencyBalance.add(a.received, a.timestamp, a.hash, "AirDrop")
+          case a: Approval =>
+            currencyBalance.subtract(a.fee, a.timestamp, a.hash, "Fee")
+          case buy: Buy =>
+            currencyBalance.subtract(buy.fee, buy.timestamp, buy.hash, "Fee")
+            if (buy.spentOriginal.isDefined) {
+              currencyBalance.subtract(buy.spentOriginal.get, buy.timestamp, buy.hash, "Buy")
+            } else {
+              currencyBalance.subtract(buy.spent, buy.timestamp, buy.hash, "Buy")
+            }
+            currencyBalance.add(buy.received, buy.timestamp, buy.hash, "Buy")
+          case c: Claim =>
+            currencyBalance.subtract(c.fee, c.timestamp, c.hash, "Fee")
+            currencyBalance.add(c.received, c.timestamp, c.hash, "Claim")
+          case c: Contribute =>
+            currencyBalance.subtract(c.fee, c.timestamp, c.hash, "Fee")
+            currencyBalance.subtract(c.spent, c.timestamp, c.hash, "Contribute")
+          case s: Sell =>
+            currencyBalance.subtract(s.fee, s.timestamp, s.hash, "Fee")
+            currencyBalance.subtract(s.sold, s.timestamp, s.hash, "Sell")
+            currencyBalance.add(s.received, s.timestamp, s.hash, "Sell")
+          case tIn: TransferIn =>
+            currencyBalance.subtract(tIn.fee, tIn.timestamp, tIn.hash, "Fee")
+            currencyBalance.add(tIn.value, tIn.timestamp, tIn.hash, "TransferIn")
+          case tOut: TransferOut =>
+            currencyBalance.subtract(tOut.fee, tOut.timestamp, tOut.hash, "Fee")
+            currencyBalance.subtract(tOut.amount, tOut.timestamp, tOut.hash, "TransferOut")
+        }
       case TopUp(hash, value, fee, timestamp, _, _) =>
         currencyBalance.subtract(fee, timestamp, hash, "Fee")
         currencyBalance.add(value, timestamp, hash, "TopUp")
@@ -193,19 +190,18 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 
   def isEmpty: Boolean = plays.isEmpty
 
-  def filter(interval: TimeInterval): MarketPlays = {
+  def filter(interval: TimeInterval): MarketPlays =
     MarketPlays {
       plays.filter {
         case p: Position =>
-          val openInInterval = interval.contains(p.openedAt)
+          val openInInterval  = interval.contains(p.openedAt)
           val closeInInterval = p.closedAt.forall(interval.contains)
           openInInterval && closeInInterval
-        case t: TopUp => interval.contains(t.timestamp)
+        case t: TopUp    => interval.contains(t.timestamp)
         case w: Withdraw => interval.contains(w.timestamp)
-        case _ => false
+        case _           => false
       }
     }
-  }
 
   //TODO Refactor this to support topUps and withdrawals??
   def trend(of: Position => Option[FungibleData]): List[FungibleData] =
@@ -344,11 +340,12 @@ object MarketPlays {
     }
 
     MarketPlays(
-      items = (playsBuffer.toList ::: topUpsBuffer.toList ::: withdrawBuffer.toList).sortBy(_.openedAt)(Ordering[Instant])
+      items =
+        (playsBuffer.toList ::: topUpsBuffer.toList ::: withdrawBuffer.toList).sortBy(_.openedAt)(Ordering[Instant])
     )
   }
 
-  private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] = {
+  private def findFirstOccurrenceOfTokenContract(items: List[PositionEntry]): Option[WalletAddress] =
     //TODO: receivedFrom is considered to be a wallet address, while the rest are coin addresses;
     // in essence they are the same, but see if this can be done better
     items.head match {
@@ -361,33 +358,37 @@ object MarketPlays {
       case TransferIn(_, _, _, _, _, _, coinAddress, _) => coinAddress.map(a => WalletAddress.unsafeFrom(a.value))
       case _: TransferOut                               => None
     }
-  }
 }
 
 private class CurrencyBalance(val map: mutable.Map[Currency, List[FungibleDataTimePoint]]) {
-  def add(fungibleData: FungibleData, timestamp: Instant, hash: TransactionHash, entryType: String): Unit = {
+  def add(fungibleData: FungibleData, timestamp: Instant, hash: TransactionHash, entryType: String): Unit =
     map.update(
       fungibleData.currency,
-      map.getOrElse(fungibleData.currency, List.empty) :+ FungibleDataTimePoint(fungibleData, timestamp, FungibleDataTimePointMetadata(hash, entryType))
+      map.getOrElse(fungibleData.currency, List.empty) :+ FungibleDataTimePoint(
+        fungibleData,
+        timestamp,
+        FungibleDataTimePointMetadata(hash, entryType)
+      )
     )
-  }
 
-  def subtract(fungibleData: FungibleData, timestamp: Instant, hash: TransactionHash, entryType: String): Unit = {
+  def subtract(fungibleData: FungibleData, timestamp: Instant, hash: TransactionHash, entryType: String): Unit =
     map.update(
       fungibleData.currency,
-      map.getOrElse(fungibleData.currency, List.empty) :+ FungibleDataTimePoint(fungibleData.negate(), timestamp, FungibleDataTimePointMetadata(hash, entryType))
+      map.getOrElse(fungibleData.currency, List.empty) :+ FungibleDataTimePoint(
+        fungibleData.negate(),
+        timestamp,
+        FungibleDataTimePointMetadata(hash, entryType)
+      )
     )
-  }
 }
 
-final case class FungibleDataTimePoint(fungibleData: FungibleData,
-                                       timestamp: Instant,
-                                       metadata: FungibleDataTimePointMetadata) {
-  override def toString: String = {
+final case class FungibleDataTimePoint(
+  fungibleData: FungibleData,
+  timestamp: Instant,
+  metadata: FungibleDataTimePointMetadata
+) {
+  override def toString: String =
     s"${fungibleData.amount},${fungibleData.currency},${timestamp},${metadata.hash},${metadata.entryType}"
-  }
 }
 
-final case class FungibleDataTimePointMetadata(hash: TransactionHash,
-                                               entryType: String)
-
+final case class FungibleDataTimePointMetadata(hash: TransactionHash, entryType: String)

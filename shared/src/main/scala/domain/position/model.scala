@@ -20,7 +20,7 @@ object model {
   }
 
   type CoinNamePredicate = NonEmpty
-  type CoinName = String Refined CoinNamePredicate
+  type CoinName          = String Refined CoinNamePredicate
 
   object CoinName {
     def unsafeApply(s: String): CoinName = refineV[CoinNamePredicate].unsafeFrom(s)

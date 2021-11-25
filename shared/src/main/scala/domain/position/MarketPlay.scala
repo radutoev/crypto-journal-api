@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{Currency, FungibleData, PlayId}
+import domain.model.{ Currency, FungibleData, PlayId }
 
 import io.softwarechain.cryptojournal.vo.TimeInterval
 
@@ -16,7 +16,7 @@ trait MarketPlay {
 
   def inInterval(interval: TimeInterval): Boolean = {
     val moreRecentThanStart = interval.start.isBefore(openedAt) || interval.start == openedAt
-    val beforeEnd = interval.end.isAfter(openedAt) || interval.end == openedAt
+    val beforeEnd           = interval.end.isAfter(openedAt) || interval.end == openedAt
     moreRecentThanStart && beforeEnd
   }
 }

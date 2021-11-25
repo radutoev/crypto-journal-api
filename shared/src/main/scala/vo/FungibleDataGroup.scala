@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package vo
 
 import domain.model.fungible.FungibleDataOps
-import domain.model.{Currency, FungibleData}
+import domain.model.{ Currency, FungibleData }
 
 /**
  * Semantically this represents the value of a "thing" in multiple currencies.
@@ -11,12 +11,11 @@ import domain.model.{Currency, FungibleData}
  *
  * This ennsu
  */
-final case class FungibleDataGroup (private val currencyData: Map[Currency, FungibleData]) {
+final case class FungibleDataGroup(private val currencyData: Map[Currency, FungibleData]) {
   def get(currency: Currency): Option[FungibleData] = ???
 }
 
 object FungibleDataGroup {
-  def apply(items: List[FungibleData]): FungibleDataGroup = {
+  def apply(items: List[FungibleData]): FungibleDataGroup =
     new FungibleDataGroup(items.sumByCurrency)
-  }
 }

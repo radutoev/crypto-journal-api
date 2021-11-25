@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.pricequote.{PriceQuote, PriceQuotes}
+import domain.pricequote.{ PriceQuote, PriceQuotes }
 import vo.TimeInterval
 
 import io.softwarechain.cryptojournal.domain.position.model.CoinName
@@ -16,24 +16,49 @@ object PositionSpec extends DefaultRunnableSpec {
     test("Properties of a Position") {
       val position = PositionUnderTest
       assert(position.currency)(isSome(equalTo(Currency.unsafeFrom("FOOFIGHT")))) &&
-        assert(position.numberOfExecutions)(equalTo(4)) &&
-        assert(position.timeInterval)(equalTo(TimeInterval(Instant.parse("2021-10-18T11:38:19Z"), Instant.parse("2021-10-18T14:04:18Z")))) &&
-        assert(position.cost)(equalTo(Map(WBNB -> FungibleData(BigDecimal("0.63754087290031064"), WBNB), USD -> FungibleData(BigDecimal("300.432966715797795248663236085984"), USD)))) &&
-        assert(position.fees)(equalTo(Map(WBNB -> FungibleData(BigDecimal("0.012934145"), WBNB), USD -> FungibleData(BigDecimal("6.1753836674609374056540"), USD)))) &&
-        assert(position.totalCost)(equalTo(Map(WBNB -> FungibleData(BigDecimal("0.65047501790031064"), WBNB), USD -> FungibleData(BigDecimal("306.608350383258732654317236085984"), USD)))) &&
-        assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), USD)))) &&
-        assert(position.fiatReturnPercentage)(isSome(equalTo(BigDecimal("-133.7020107873826938895499253848357")))) &&
-        assert(position.totalCoins)(equalTo(FungibleData(BigDecimal("432156304.43068674"), Currency.unsafeFrom("FOOFIGHT")))) &&
-        assert(position.orderSize)(equalTo(BigDecimal("432156304.43068674"))) &&
+      assert(position.numberOfExecutions)(equalTo(4)) &&
+      assert(position.timeInterval)(
+        equalTo(TimeInterval(Instant.parse("2021-10-18T11:38:19Z"), Instant.parse("2021-10-18T14:04:18Z")))
+      ) &&
+      assert(position.cost)(
+        equalTo(
+          Map(
+            WBNB -> FungibleData(BigDecimal("0.63754087290031064"), WBNB),
+            USD  -> FungibleData(BigDecimal("300.432966715797795248663236085984"), USD)
+          )
+        )
+      ) &&
+      assert(position.fees)(
+        equalTo(
+          Map(
+            WBNB -> FungibleData(BigDecimal("0.012934145"), WBNB),
+            USD  -> FungibleData(BigDecimal("6.1753836674609374056540"), USD)
+          )
+        )
+      ) &&
+      assert(position.totalCost)(
+        equalTo(
+          Map(
+            WBNB -> FungibleData(BigDecimal("0.65047501790031064"), WBNB),
+            USD  -> FungibleData(BigDecimal("306.608350383258732654317236085984"), USD)
+          )
+        )
+      ) &&
+      assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), USD)))) &&
+      assert(position.fiatReturnPercentage)(isSome(equalTo(BigDecimal("-133.7020107873826938895499253848357")))) &&
+      assert(position.totalCoins)(
+        equalTo(FungibleData(BigDecimal("432156304.43068674"), Currency.unsafeFrom("FOOFIGHT")))
+      ) &&
+      assert(position.orderSize)(equalTo(BigDecimal("432156304.43068674"))) &&
 //        assert(position.numberOfCoins)(equalTo(BigDecimal("0.0003132224")))
-        assert(position.isWin)(isSome(equalTo(false))) &&
-        assert(position.isLoss)(isSome(equalTo(true))) &&
-        assert(position.state)(equalTo(Closed)) &&
-        assert(position.isOpen)(equalTo(false)) &&
-        assert(position.isClosed)(equalTo(true)) &&
-        assert(position.openedAt)(equalTo(Instant.parse("2021-10-18T11:38:19Z"))) &&
-        assert(position.closedAt)(isSome(equalTo(Instant.parse("2021-10-18T14:04:18Z")))) &&
-        assert(position.holdTime)(isSome(equalTo(8759L)))
+      assert(position.isWin)(isSome(equalTo(false))) &&
+      assert(position.isLoss)(isSome(equalTo(true))) &&
+      assert(position.state)(equalTo(Closed)) &&
+      assert(position.isOpen)(equalTo(false)) &&
+      assert(position.isClosed)(equalTo(true)) &&
+      assert(position.openedAt)(equalTo(Instant.parse("2021-10-18T11:38:19Z"))) &&
+      assert(position.closedAt)(isSome(equalTo(Instant.parse("2021-10-18T14:04:18Z")))) &&
+      assert(position.holdTime)(isSome(equalTo(8759L)))
     }
   )
 
@@ -53,7 +78,7 @@ object PositionSpec extends DefaultRunnableSpec {
         fee = FungibleData(0.000222145, WBNB),
         forContract = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
         hash = TransactionHash.unsafeApply("0xdd69a8eafff819014295a007af3ca923c14afc6a673ed42923243a7cc04579d9"),
-        timestamp = Instant.parse("2021-10-18T11:38:55Z"),
+        timestamp = Instant.parse("2021-10-18T11:38:55Z")
       ),
       Buy(
         fee = FungibleData(BigDecimal(0.00377384), WBNB),
@@ -73,10 +98,14 @@ object PositionSpec extends DefaultRunnableSpec {
         timestamp = Instant.parse("2021-10-18T14:04:18Z")
       )
     ),
-    priceQuotes = Some(PriceQuotes(List(
-      PriceQuote(price = 473.00000000f, timestamp = Instant.parse("2021-10-18T11:00:00Z")),
-      PriceQuote(price = 470.10000000f, timestamp = Instant.parse("2021-10-18T12:00:00Z")),
-      PriceQuote(price = 486.80000000f, timestamp = Instant.parse("2021-10-18T14:00:00Z"))
-    )))
+    priceQuotes = Some(
+      PriceQuotes(
+        List(
+          PriceQuote(price = 473.00000000f, timestamp = Instant.parse("2021-10-18T11:00:00Z")),
+          PriceQuote(price = 470.10000000f, timestamp = Instant.parse("2021-10-18T12:00:00Z")),
+          PriceQuote(price = 486.80000000f, timestamp = Instant.parse("2021-10-18T14:00:00Z"))
+        )
+      )
+    )
   )
 }

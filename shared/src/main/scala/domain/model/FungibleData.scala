@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.model
 
-import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
+import domain.model.FungibleData.{ Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower }
 
 import currencyops.CurrencyOps
-import util.{ListOptionOps, math}
+import util.{ math, ListOptionOps }
 
 final case class FungibleData(amount: BigDecimal, currency: Currency) {
   def add(value: BigDecimal): FungibleData = copy(amount = amount + value)
@@ -70,23 +70,25 @@ object FungibleData {
 object fungible {
   implicit class FungibleDataOps(list: List[FungibleData]) {
     lazy val sumByCurrency: Map[Currency, FungibleData] =
-      list.groupBy(_.currency).map { case (currency, values) =>
-        currency -> values.foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => {
-          if(value.amount >= BigDecimal(0)) {
-            acc.add(value.amount)
-          } else {
-            acc.subtract(value.amount)
+      list.groupBy(_.currency).map {
+        case (currency, values) =>
+          currency -> values.foldLeft(FungibleData(BigDecimal(0), currency)) { (acc, value) =>
+            if (value.amount >= BigDecimal(0)) {
+              acc.add(value.amount)
+            } else {
+              acc.subtract(value.amount)
+            }
           }
-        })
       }
 
-    def sumOfCurrency(currency: Currency): FungibleData = {
-      list.filter(_.currency == currency).foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => acc.add(value.amount))
-    }
+    def sumOfCurrency(currency: Currency): FungibleData =
+      list
+        .filter(_.currency == currency)
+        .foldLeft(FungibleData(BigDecimal(0), currency))((acc, value) => acc.add(value.amount))
   }
 
   implicit class OptionalFungibleDataOps(list: List[Option[FungibleData]]) {
-    lazy val sumByCurrency: Map[Currency, FungibleData]  = {
+    lazy val sumByCurrency: Map[Currency, FungibleData] = {
       list.values.sumByCurrency
     }
   }

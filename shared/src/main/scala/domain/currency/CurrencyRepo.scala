@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.currency
 
 import domain.currency.error.CurrencyError
-import domain.model.{CoinAddress, Currency}
+import domain.model.{ CoinAddress, Currency }
 
 import zio.IO
 
