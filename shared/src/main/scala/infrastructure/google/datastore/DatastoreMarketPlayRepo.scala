@@ -7,18 +7,19 @@ import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
 import domain.position.model.CoinName
-import util.{InstantOps, ListEitherOps, tryOrLeft}
-import vo.filter.PlayFilter
-import vo.pagination.{CursorPredicate, Page, PaginationContext}
+import util.{ tryOrLeft, InstantOps, ListEitherOps }
+import vo.filter
+import vo.filter.{ Descending, PlayFilter, SortOrder }
+import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
-import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -61,19 +62,21 @@ final case class DatastoreMarketPlayRepo(
   }
 
   override def getPlays(address: WalletAddress): IO[MarketPlayError, List[MarketPlay]] =
-    doFetchPlays(address, Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.marketPlay)
-      .setFilter(PropertyFilter.eq("address", address.value))
-      .addOrderBy(OrderBy.asc("openedAt"))
-      .build()
+    doFetchPlays(
+      address,
+      Query
+        .newEntityQueryBuilder()
+        .setKind(datastoreConfig.marketPlay)
+        .setFilter(PropertyFilter.eq("address", address.value))
+        .addOrderBy(OrderBy.asc("openedAt"))
+        .build()
     )
 
   override def getPlays(
     address: WalletAddress,
     playFilter: PlayFilter
   ): IO[MarketPlayError, List[MarketPlay]] =
-    doFetchPlays(address, positionsQuery(address, playFilter).build(), Some(playFilter.interval.start))
+    doFetchPlays(address, positionsQuery(address, playFilter, Descending).build(), Some(playFilter.interval.start))
 
   override def getPlays(
     address: WalletAddress,
@@ -95,7 +98,7 @@ final case class DatastoreMarketPlayRepo(
               (Page(MarketPlays(List.empty), None), None)
             ) { results =>
               val marketPlays = MarketPlays(results.asScala.toList.map(entityToPlay).rights)
-              val nextCursor = results.getCursorAfter
+              val nextCursor  = results.getCursorAfter
               val paginationContext = if (nextCursor.toUrlSafe.nonEmpty) {
                 Some(
                   PaginationContext(
@@ -119,20 +122,20 @@ final case class DatastoreMarketPlayRepo(
     logger.info(s"Fetching positions for ${address.value}. Interval: ${filter.interval.start} - ${filter.interval.end}") *>
     getPaginationContext(contextId).flatMap { positionContext =>
       val query = if (filterHasChanged(positionContext.filterHash)) {
-        positionsQuery(address, filter).build()
+        positionsQuery(address, filter, Descending).build()
       } else {
-        positionsQuery(address, filter)
+        positionsQuery(address, filter, Descending)
           .setStartCursor(PaginationCursor.fromUrlSafe(positionContext.cursor.value))
           .build()
       }
       generatePageAndSavePaginationContext(query)
     }.catchSome {
       case PaginationContextNotFoundError(_) =>
-        generatePageAndSavePaginationContext(positionsQuery(address, filter).build())
+        generatePageAndSavePaginationContext(positionsQuery(address, filter, Descending).build())
     }
   }
 
-  private def positionsQuery(address: WalletAddress, positionFilter: PlayFilter) =
+  private def positionsQuery(address: WalletAddress, positionFilter: PlayFilter, sortOrder: SortOrder) =
     Query
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.marketPlay)
@@ -142,7 +145,10 @@ final case class DatastoreMarketPlayRepo(
           PropertyFilter.le("openedAt", positionFilter.interval.end.toDatastoreTimestamp())
         )
       )
-      .addOrderBy(OrderBy.desc("openedAt"))
+      .addOrderBy(sortOrder match {
+        case filter.Ascending  => OrderBy.asc("openedAt")
+        case filter.Descending => OrderBy.desc("openedAt")
+      })
       .setLimit(positionFilter.count)
 
   private def getPaginationContext(contextId: ContextId): IO[MarketPlayError, PaginationContext] = {
@@ -503,13 +509,13 @@ final case class DatastoreMarketPlayRepo(
             case "AirDrop" =>
               for {
                 coinName <- tryOrLeft(
-                  entity.getString("coinName"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
+                             entity.getString("coinName"),
+                             InvalidRepresentation("Invalid receivedFrom representation")
+                           ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
                 coinAddress <- tryOrLeft(
-                  entity.getString("receivedFrom"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
+                                entity.getString("receivedFrom"),
+                                InvalidRepresentation("Invalid receivedFrom representation")
+                              ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
                 receivedFrom <- tryOrLeft(
                                  entity.getString("receivedFrom"),
                                  InvalidRepresentation("Invalid receivedFrom representation")
@@ -569,17 +575,17 @@ final case class DatastoreMarketPlayRepo(
                              InvalidRepresentation("Invalid received representation")
                            ).map(BigDecimal(_))
                 receivedFrom <- tryOrLeft(
-                  entity.getString("receivedFrom"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
+                                 entity.getString("receivedFrom"),
+                                 InvalidRepresentation("Invalid receivedFrom representation")
+                               ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
                 receivedCurrency <- tryOrLeft(
                                      entity.getString("receivedCurrency"),
                                      InvalidRepresentation("Invalid receivedCurrency representation")
                                    ).map(Currency.unsafeFrom)
                 coinName <- tryOrLeft(
-                  entity.getString("coinName"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
+                             entity.getString("coinName"),
+                             InvalidRepresentation("Invalid receivedFrom representation")
+                           ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
                 coinAddress <- tryOrLeft(
                                 entity.getString("coinAddress"),
                                 InvalidRepresentation("Invalid receivedFrom representation")
@@ -612,14 +618,23 @@ final case class DatastoreMarketPlayRepo(
                                  InvalidRepresentation("Invalid receivedFrom representation")
                                ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
                 coinName <- tryOrLeft(
-                  entity.getString("coinName"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
+                             entity.getString("coinName"),
+                             InvalidRepresentation("Invalid receivedFrom representation")
+                           ).map(rawReceivedFrom => CoinName.unsafeApply(rawReceivedFrom))
                 coinAddress <- tryOrLeft(
-                  entity.getString("coinAddress"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
-              } yield Claim(fee, FungibleData(received, receivedCurrency), receivedFrom, coinName, coinAddress, hash, timestamp, Some(id))
+                                entity.getString("coinAddress"),
+                                InvalidRepresentation("Invalid receivedFrom representation")
+                              ).map(rawReceivedFrom => CoinAddress.unsafeFrom(rawReceivedFrom))
+              } yield Claim(
+                fee,
+                FungibleData(received, receivedCurrency),
+                receivedFrom,
+                coinName,
+                coinAddress,
+                hash,
+                timestamp,
+                Some(id)
+              )
 
             case "Contribute" =>
               for {
@@ -679,14 +694,27 @@ final case class DatastoreMarketPlayRepo(
                                  InvalidRepresentation("Invalid receivedFrom representation")
                                ).map(rawReceivedFrom => WalletAddress.unsafeFrom(rawReceivedFrom))
                 coinName <- tryOrLeft(
-                  entity.getString("coinName"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => if(rawReceivedFrom.isEmpty) None else Some(CoinName.unsafeApply(rawReceivedFrom)))
+                             entity.getString("coinName"),
+                             InvalidRepresentation("Invalid receivedFrom representation")
+                           ).map(rawReceivedFrom =>
+                             if (rawReceivedFrom.isEmpty) None else Some(CoinName.unsafeApply(rawReceivedFrom))
+                           )
                 coinAddress <- tryOrLeft(
-                  entity.getString("coinAddress"),
-                  InvalidRepresentation("Invalid receivedFrom representation")
-                ).map(rawReceivedFrom => if(rawReceivedFrom.isEmpty) None else Some(CoinAddress.unsafeFrom(rawReceivedFrom)))
-              } yield TransferIn(FungibleData(value, valueCurrency), receivedFrom, fee, hash, timestamp, coinName, coinAddress, Some(id))
+                                entity.getString("coinAddress"),
+                                InvalidRepresentation("Invalid receivedFrom representation")
+                              ).map(rawReceivedFrom =>
+                                if (rawReceivedFrom.isEmpty) None else Some(CoinAddress.unsafeFrom(rawReceivedFrom))
+                              )
+              } yield TransferIn(
+                FungibleData(value, valueCurrency),
+                receivedFrom,
+                fee,
+                hash,
+                timestamp,
+                coinName,
+                coinAddress,
+                Some(id)
+              )
 
             case "TransferOut" =>
               for {

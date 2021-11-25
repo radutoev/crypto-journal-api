@@ -16,4 +16,8 @@ object filter {
   }
 
   final case class KpiFilter(count: Option[Count], interval: Option[TimeInterval])
+
+  sealed trait SortOrder
+  final case object Ascending  extends SortOrder
+  final case object Descending extends SortOrder
 }
