@@ -3,10 +3,13 @@ package domain
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.{ NonEmpty, Size }
+import eu.timepit.refined.collection.{NonEmpty, Size}
 import eu.timepit.refined.generic.Equal
 import eu.timepit.refined.numeric.NonNegative
+import eu.timepit.refined.refineV
 import eu.timepit.refined.string.MatchesRegex
+
+import java.util.UUID
 
 package object model {
   val USD: Currency  = Currency.unsafeFrom("USD")
@@ -48,4 +51,10 @@ package object model {
 
   type PlayIdPredicate = NonEmpty
   type PlayId          = String Refined PlayIdPredicate
+
+  object PlayId {
+    def newId: PlayId = refineV[PlayIdPredicate].unsafeFrom(UUID.randomUUID().toString)
+
+    def unsafeFrom(rawPlayId: String): PlayId = refineV[PlayIdPredicate].unsafeFrom(rawPlayId)
+  }
 }

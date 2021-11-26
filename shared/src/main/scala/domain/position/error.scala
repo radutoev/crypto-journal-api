@@ -8,7 +8,7 @@ object error {
   sealed trait MarketPlayError
   final case class InvalidRepresentation(message: String) extends MarketPlayError
 
-  final case class MarketPlaysFetchError(address: WalletAddress) extends MarketPlayError
+  final case class MarketPlaysFetchError(message: String) extends MarketPlayError
 
   final case class MarketPlayNotFound(playId: PlayId)                         extends MarketPlayError
   final case class MarketPlayFetchError(playId: PlayId, throwable: Throwable) extends MarketPlayError

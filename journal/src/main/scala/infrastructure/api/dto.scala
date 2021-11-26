@@ -5,7 +5,7 @@ import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleDa
 import domain.market.{Ohlcv => CJOhlcv}
 import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
 import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTopUp, Withdraw => CJWithdraw}
+import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionDetails => CJPOsitionDetails, PositionLinks => CJPositionLinks, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTopUp, Withdraw => CJWithdraw}
 import domain.position.model.ScamStrategy
 import domain.pricequote.{PriceQuote => CJPriceQuote}
 import domain.wallet.{Wallet => CJWallet}
@@ -137,6 +137,25 @@ object dto {
     timestamp: Instant,
     id: Option[String]
   ) extends PositionEntry
+
+  final case class PositionDetails(position: Position, links: PositionLinks)
+
+  final case class PositionLinks(previous: List[Position], next: List[Position])
+
+  object PositionDetails {
+    implicit val positionLinksCodec: JsonCodec[PositionLinks] = DeriveJsonCodec.gen[PositionLinks]
+    implicit val positionDetailsCodec: JsonCodec[PositionDetails] = DeriveJsonCodec.gen[PositionDetails]
+
+    def fromPositionDetails(pd: CJPOsitionDetails[CJPosition]): PositionDetails = {
+      PositionDetails(
+        position = fromPosition(pd.position),
+        links = PositionLinks(
+          previous = pd.links.previous.map(fromPosition),
+          next = pd.links.next.map(fromPosition)
+        )
+      )
+    }
+  }
 
   final case class FungibleData(amount: String, currency: String)
 

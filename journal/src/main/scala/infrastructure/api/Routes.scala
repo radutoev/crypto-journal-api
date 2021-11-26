@@ -18,7 +18,7 @@ import infrastructure.api.dto.PositionJournalEntry._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{DailyTradeData, FungibleData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionJournalEntry, TagDistribution, TradeSummary}
+import infrastructure.api.dto.{DailyTradeData, FungibleData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionDetails, PositionJournalEntry, TagDistribution, TradeSummary}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
 import vo.filter.{Count, KpiFilter, PlayFilter}
@@ -167,13 +167,6 @@ object Routes {
                      .fold(marketPlayErrorToHttpResponse, _.asResponse(contextId))
       } yield response
 
-    //addresses -> play-timeline
-    //  -> optional previous and next based on count. previous means more recent.
-    //  -> optional headers with the pagination contexts
-    // params:
-    //  count (how many we want to fetch around the start point)
-    //
-
     case Method.GET -> Root / "positions" / rawPositionId =>
       for {
         positionId <- ZIO
@@ -185,7 +178,7 @@ object Routes {
                      .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        marketPlayErrorToHttpResponse,
-                       position => Response.jsonString(fromPosition(position).toJson)
+                       positionDetails => Response.jsonString(PositionDetails.fromPositionDetails(positionDetails).toJson)
                      )
       } yield response
 

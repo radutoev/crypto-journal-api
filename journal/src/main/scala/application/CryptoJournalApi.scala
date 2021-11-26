@@ -44,7 +44,7 @@ object CryptoJournalApi {
 
   def getPosition(
     positionId: PlayId
-  ): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, Position] =
+  ): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, PositionDetails[Position]] =
     for {
       userId   <- RequestContext.userId
       position <- ZIO.serviceWith[MarketPlayService](_.getPosition(userId, positionId))

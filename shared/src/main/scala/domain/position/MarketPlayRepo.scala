@@ -23,7 +23,9 @@ trait MarketPlayRepo {
 
   def getPositions(address: WalletAddress, state: State): IO[MarketPlayError, List[Position]]
 
-  def getPosition(playId: PlayId): IO[MarketPlayError, Position]
+  def getPositions(playIds: List[PlayId]): IO[MarketPlayError, List[Position]]
+
+  def getPosition(playId: PlayId): IO[MarketPlayError, PositionDetails[PlayId]]
 
   def getLatestPosition(address: WalletAddress, currency: Currency): IO[MarketPlayError, Option[Position]]
 }

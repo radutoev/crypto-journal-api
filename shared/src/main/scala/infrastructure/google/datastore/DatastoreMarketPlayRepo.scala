@@ -7,19 +7,19 @@ import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
 import domain.position.model.CoinName
-import util.{ tryOrLeft, InstantOps, ListEitherOps }
+import util.{InstantOps, ListEitherOps, ListOptionOps, tryOrLeft}
 import vo.filter
-import vo.filter.{ Descending, PlayFilter, SortOrder }
-import vo.pagination.{ CursorPredicate, Page, PaginationContext }
+import vo.filter.{Descending, PlayFilter, SortOrder}
+import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
-import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -49,7 +49,39 @@ final case class DatastoreMarketPlayRepo(
         )
         .ignore //TODO handle transactions response when doing error handling.
 
-    val entities = marketPlays.map(play => marketPlayToEntity(play, address)).grouped(23).toList
+    @inline
+    def previousPositions(source: List[MarketPlay], count: Int): List[MarketPlay] = {
+      if(count >= source.length) {
+        source.takeRight(source.length)
+      } else {
+        source.takeRight(count)
+      }
+    }
+
+    @inline
+    def nextPositions(source: List[MarketPlay], count: Int): List[MarketPlay] = {
+      if(count >= source.length) {
+        source.take(source.length)
+      } else {
+        source.take(count)
+      }
+    }
+
+    val identifiablePlays: List[MarketPlay] = marketPlays.sortBy(_.openedAt)(Ordering[Instant].reverse).map(withIds)
+    val playsWithLinks = identifiablePlays.zipWithIndex.map { case (play, idx) =>
+      play match {
+        case p: Position => p -> (
+          if(idx != 0) nextPositions(identifiablePlays.slice(0, idx), 10).map(_.id).values else List.empty,
+          if(idx < identifiablePlays.length) previousPositions(identifiablePlays.slice(idx, identifiablePlays.length), 10).map(_.id).values else List.empty
+        )
+        case _           => play -> (List.empty, List.empty)
+      }
+    }
+
+    val entities = playsWithLinks
+      .map(play => marketPlayToEntity(play, address))
+      .grouped(23)
+      .toList
 
     if (marketPlays.isEmpty) {
       logger.debug(s"No positions to save for ${address.value}")
@@ -59,6 +91,12 @@ final case class DatastoreMarketPlayRepo(
         _ <- logger.info(s"Finished saving positions for address ${address.value}")
       } yield ()
     }
+  }
+
+  private def withIds(play: MarketPlay): MarketPlay = play match {
+    case p: Position => p.copy(id = Some(PlayId.newId))
+    case t: TopUp => t.copy(id = Some(PlayId.newId))
+    case w: Withdraw => w.copy(id = Some(PlayId.newId))
   }
 
   override def getPlays(address: WalletAddress): IO[MarketPlayError, List[MarketPlay]] =
@@ -92,7 +130,7 @@ final case class DatastoreMarketPlayRepo(
       executeQuery(query)
         .map(Some(_))
         .mapBoth(
-          _ => MarketPlaysFetchError(address),
+          _ => MarketPlaysFetchError(s"Market plays fetch error for address ${address.value}"),
           resultsOpt =>
             resultsOpt.fold[(Page[MarketPlays], Option[PaginationContext])](
               (Page(MarketPlays(List.empty), None), None)
@@ -194,6 +232,17 @@ final case class DatastoreMarketPlayRepo(
     doFetchPositions(address, query)
   }
 
+  override def getPositions(playIds: List[PlayId]): IO[MarketPlayError, List[Position]] = {
+    val factory = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay)
+    val keys = playIds.map(playId => factory.newKey(playId.value))
+    Task(datastore.get(keys.asJava, Seq.empty[ReadOption]: _*))
+      .tapError(err => logger.warn(err.getMessage))
+      .mapBoth(
+        _ => MarketPlaysFetchError(s"Play fetch error: ${playIds.mkString(",")}"),
+        _.asScala.toList.map(entityToPosition).rights
+      )
+  }
+
   private def doFetchPlays(
     address: WalletAddress,
     query: EntityQuery,
@@ -201,7 +250,7 @@ final case class DatastoreMarketPlayRepo(
   ): IO[MarketPlaysFetchError, List[MarketPlay]] =
     doExecuteWrapped(query)
       .mapBoth(
-        _ => MarketPlaysFetchError(address),
+        _ => MarketPlaysFetchError(s"Plays fetch error for address ${address.value}"),
         resultsOpt =>
           resultsOpt.fold[List[MarketPlay]](List.empty) { results =>
             var list = results.asScala.toList
@@ -218,7 +267,7 @@ final case class DatastoreMarketPlayRepo(
   private def doFetchPositions(address: WalletAddress, query: EntityQuery): IO[MarketPlaysFetchError, List[Position]] =
     doExecuteWrapped(query)
       .mapBoth(
-        _ => MarketPlaysFetchError(address),
+        _ => MarketPlaysFetchError(s"Position fetch error for address: ${address.value}"),
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty) { results =>
             //TODO Why do we have empty entries.
@@ -233,8 +282,9 @@ final case class DatastoreMarketPlayRepo(
         case e: DatastoreException if e.getMessage.contains("no matching index found") => UIO.none
       }
 
-  override def getPosition(playId: PlayId): IO[MarketPlayError, Position] = {
+  override def getPosition(playId: PlayId): IO[MarketPlayError, PositionDetails[PlayId]] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay).newKey(playId.value)
+
     val query = Query
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.marketPlay)
@@ -246,11 +296,28 @@ final case class DatastoreMarketPlayRepo(
       .flatMap { queryResult =>
         val results = queryResult.asScala
         if (results.nonEmpty) {
-          ZIO
-            .fromEither(entityToPlay(results.next()))
-            .collect(MarketPlayNotFound(playId)) {
-              case p: Position => p
-            }
+          val datastoreEntry = results.next()
+          ZIO.fromEither {
+            for {
+              position <- entityToPosition(datastoreEntry)
+              next     <- tryOrLeft(datastoreEntry.getString("nextPlayIds"), InvalidRepresentation("Entity has no nextPlayIds"))
+                .map(rawPlayIds => {
+                  if(rawPlayIds.nonEmpty) {
+                    rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+                  } else {
+                    List.empty
+                  }
+                })
+              previous <- tryOrLeft(datastoreEntry.getString("previousPlayIds"), InvalidRepresentation("Entity has no previousPlayIds"))
+                .map(rawPlayIds => {
+                  if(rawPlayIds.nonEmpty) {
+                    rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+                  } else {
+                    List.empty
+                  }
+                })
+            } yield PositionDetails(position, PositionLinks(previous, next))
+          }
         } else {
           ZIO.fail(MarketPlayNotFound(playId))
         }
@@ -272,7 +339,7 @@ final case class DatastoreMarketPlayRepo(
       .build()
 
     executeQuery(query).mapBoth(
-      throwable => MarketPlaysFetchError(address),
+      throwable => MarketPlaysFetchError(s"Position fetch error for ${address.value}"),
       results => results.asScala.toList.map(entityToPosition).collectFirst { case Right(value) => value }
     )
   }
@@ -281,20 +348,21 @@ final case class DatastoreMarketPlayRepo(
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
       .tapError(throwable => logger.warn(throwable.getMessage))
 
-  private def marketPlayToEntity(marketPlay: MarketPlay, address: WalletAddress): Entity =
+  private def marketPlayToEntity(data: (MarketPlay, (List[PlayId], List[PlayId])), address: WalletAddress): Entity = {
+    val (marketPlay, (next, previous)) = data
     marketPlay match {
-      case p: Position => positionToEntity(p, address, datastoreConfig.marketPlay)
+      case p: Position => positionToEntity(p, address, next, previous, datastoreConfig.marketPlay)
       case t: TopUp    => topUpToEntity(t, address, datastoreConfig.marketPlay)
       case t: Withdraw => withdrawalToEntity(t, address, datastoreConfig.marketPlay)
     }
+  }
 
-  private val positionToEntity: (Position, WalletAddress, String) => Entity =
-    (position, address, kind) => {
-      val id = UUID.randomUUID().toString
+  private val positionToEntity: (Position, WalletAddress, List[PlayId], List[PlayId], String) => Entity =
+    (position, address, next, previous, kind) => {
       val entries = position.entries.map { entry =>
         val key = datastore
           .newKeyFactory()
-          .addAncestor(PathElement.of(kind, id))
+          .addAncestor(PathElement.of(kind, position.id.getOrElse(PlayId.newId).value))
           .setKind("PositionEntry")
           .newKey(UUID.randomUUID().toString)
 
@@ -387,7 +455,7 @@ final case class DatastoreMarketPlayRepo(
       }
 
       var builder = Entity
-        .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(id))
+        .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(position.id.getOrElse(PlayId.newId).value))
         .set("address", StringValue.of(address.value))
         .set("currency", StringValue.of(position.currency.map(_.value).getOrElse("")))
         .set("state", StringValue.of(position.state.toString))
@@ -396,6 +464,8 @@ final case class DatastoreMarketPlayRepo(
           TimestampValue
             .of(Timestamp.ofTimeSecondsAndNanos(position.openedAt.getEpochSecond, position.openedAt.getNano))
         )
+        .set("nextPlayIds", next.map(_.value).mkString(","))
+        .set("previousPlayIds", previous.map(_.value).mkString(","))
         .set("entries", ListValue.newBuilder().set(entries.asJava).build())
         .set("playType", "position")
 
@@ -416,7 +486,7 @@ final case class DatastoreMarketPlayRepo(
    */
   private def topUpToEntity(topUp: TopUp, address: WalletAddress, kind: String): Entity =
     Entity
-      .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
+      .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(topUp.id.getOrElse(PlayId.newId).value))
       .set("address", address.value)
       .set("hash", topUp.txHash.value)
       .set("value", DoubleValue.of(topUp.value.amount.doubleValue))
@@ -433,7 +503,7 @@ final case class DatastoreMarketPlayRepo(
 
   private def withdrawalToEntity(withdrawal: Withdraw, address: WalletAddress, kind: String): Entity =
     Entity
-      .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(UUID.randomUUID().toString))
+      .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(withdrawal.id.getOrElse(PlayId.newId).value))
       .set("address", address.value)
       .set("hash", withdrawal.txHash.value)
       .set("value", DoubleValue.of(withdrawal.value.amount.doubleValue))

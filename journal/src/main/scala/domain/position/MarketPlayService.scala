@@ -26,7 +26,7 @@ trait MarketPlayService {
 
   def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
 
-  def getPosition(userId: UserId, playId: PlayId): IO[MarketPlayError, Position]
+  def getPosition(userId: UserId, playId: PlayId): IO[MarketPlayError, PositionDetails[Position]]
 
   def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit]
 
@@ -66,14 +66,14 @@ final case class LiveMarketPlayService(
     positionRepo
       .getPlays(userWallet.address)
       .flatMap(enrichPlays)
-      .mapBoth(_ => MarketPlaysFetchError(userWallet.address), MarketPlays(_))
+      .mapBoth(_ => MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"), MarketPlays(_))
 
   override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
     for {
       marketPlays <- positionRepo
                       .getPlays(userWallet.address, playFilter)
                       .flatMap(enrichPlays)
-                      .orElseFail(MarketPlaysFetchError(userWallet.address))
+                      .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
       journalEntries <- journalingRepo.getEntries(
                          userWallet.userId,
                          marketPlays.map(_.id).collect { case Some(id) => id }
@@ -89,7 +89,7 @@ final case class LiveMarketPlayService(
       marketPlays <- positionRepo
                       .getPlays(userWallet.address, filter, contextId)
                       .flatMap(page => enrichPlays(page.data.plays))
-                      .orElseFail(MarketPlaysFetchError(userWallet.address))
+                      .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
       journalEntries <- journalingRepo.getEntries(
                          userWallet.userId,
                          marketPlays.map(_.id).collect { case Some(id) => id }
@@ -132,18 +132,23 @@ final case class LiveMarketPlayService(
     } else UIO(marketPlays)
   }
 
-  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, Position] =
+  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] = {
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
-    positionRepo
-      .getPosition(positionId)
-      .flatMap(enrichPosition)
-      .zipPar(journalingRepo.getEntry(userId, positionId).map(Some(_)).catchSome {
-        case _: JournalNotFound => UIO.none
-      })
-      .mapBoth(_ => MarketPlayFetchError(positionId, new RuntimeException("Unable to enrich position")), {
-        case (position, entry) => position.copy(journal = entry)
-      })
+    for {
+      positionWithLinkIds <- positionRepo.getPosition(positionId)
+      position            <- enrichPosition(positionWithLinkIds.position)
+        .zipPar(journalingRepo.getEntry(userId, positionId).map(Some(_)).catchSome {
+          case _: JournalNotFound => UIO.none
+        })
+        .mapBoth(
+          _ => MarketPlayFetchError(positionId, new RuntimeException("Unable to enrich position")),
+          { case (position, entry) => position.copy(journal = entry) }
+        )
+      linkedPositions <- positionRepo.getPositions(positionWithLinkIds.links.next ++ positionWithLinkIds.links.previous)
+      (next, previous) = linkedPositions.partition(p => positionWithLinkIds.links.next.contains(p.id.get))
+    } yield PositionDetails(position, PositionLinks(previous, next))
+  }
 
   private def enrichPosition(position: Position): Task[Position] = {
     val interval = position.timeInterval
