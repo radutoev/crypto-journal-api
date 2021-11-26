@@ -63,59 +63,6 @@ final case class LiveAccountBalance(
       marketPlays <- marketPlaysService.getPlays(wallet).orElseFail(AccountBalanceComputeError("MarketPlays fetch error"))
     } yield List.empty
   }
-
-  //TODO I think I need to return the last day, not the interval here.
-  private def currencyTrend(marketPlays: MarketPlays): List[Map[Currency, (TimeInterval, FungibleData)]] = {
-    marketPlays.interval match {
-      case Some(timeInterval) =>
-        timeInterval.days().map { day =>
-          val interval = TimeInterval(timeInterval.start.atBeginningOfDay(), day.atEndOfDay())
-          val intervalPlays = marketPlays.filter(interval)
-          val currencyBalance: CurrencyBalance = new CurrencyBalance(mutable.Map(WBNB -> BigDecimal(0)))
-          intervalPlays.plays.foreach {
-            case Position(entries, _, _, _) => entries.foreach {
-              case a: AirDrop =>
-                currencyBalance.subtract(WBNB, a.fee.amount)
-                currencyBalance.add(a.received.currency, a.received.amount)
-              case a: Approval =>
-                currencyBalance.subtract(WBNB, a.fee.amount)
-              case buy: Buy =>
-                currencyBalance.subtract(WBNB, buy.fee.amount)
-                if(buy.spentOriginal.isDefined) {
-                  currencyBalance.subtract(buy.spentOriginal.get.currency, buy.spentOriginal.get.amount)
-                } else {
-                  currencyBalance.subtract(buy.spent.currency, buy.spent.amount)
-                }
-                currencyBalance.add(buy.received.currency, buy.received.amount)
-              case c: Claim =>
-                currencyBalance.subtract(WBNB, c.fee.amount)
-                currencyBalance.add(c.received.currency, c.received.amount)
-              case c: Contribute =>
-                currencyBalance.subtract(WBNB, c.fee.amount)
-                currencyBalance.subtract(c.spent.currency, c.spent.amount)
-              case s: Sell =>
-                currencyBalance.subtract(WBNB, s.fee.amount)
-                currencyBalance.subtract(s.sold.currency, s.sold.amount)
-                currencyBalance.add(s.received.currency, s.received.amount)
-              case tIn: TransferIn =>
-                currencyBalance.subtract(WBNB, tIn.fee.amount)
-                currencyBalance.add(tIn.value.currency, tIn.value.amount)
-              case tOut: TransferOut =>
-                currencyBalance.subtract(WBNB, tOut.fee.amount)
-                currencyBalance.subtract(tOut.amount.currency, tOut.amount.amount)
-            }
-            case TopUp(_, value, fee, _, _, _) =>
-              currencyBalance.subtract(WBNB, fee.amount)
-              currencyBalance.add(value.currency, value.amount)
-            case Withdraw(_, value, fee, _, _, _) =>
-              currencyBalance.subtract(WBNB, fee.amount)
-              currencyBalance.subtract(value.currency, value.amount)
-          }
-          currencyBalance.map.map { case (currency, amount) => currency -> (interval, FungibleData(amount, currency)) }.toMap
-        }
-      case None => List.empty
-    }
-  }
 }
 
 private class CurrencyBalance(val map: mutable.Map[Currency, BigDecimal]) {
