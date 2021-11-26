@@ -15,7 +15,7 @@ import zio.{ Has, IO, URLayer, ZIO }
 import java.time.Instant
 
 trait PriceQuoteService {
-  def getQuotes(currencies: Set[Currency], timeInterval: TimeInterval): IO[PriceQuoteError, Map[Currency, PriceQuotes]]
+  def getQuotes(currencies: Set[Currency], timeInterval: TimeInterval): IO[PriceQuoteError, PriceQuotes]
 
   def updateQuotes(currencies: Set[(Currency, CoinAddress)]): IO[PriceQuoteError, Unit]
 }
@@ -29,10 +29,10 @@ final case class LivePriceQuoteService(
   override def getQuotes(
     currencies: Set[Currency],
     timeInterval: TimeInterval
-  ): IO[PriceQuoteError, Map[Currency, PriceQuotes]] =
+  ): IO[PriceQuoteError, PriceQuotes] =
     priceQuoteRepo
-      .getQuotes(currencies, timeInterval)
-      .map(_.map { case (currency, items) => currency -> PriceQuotes(items) })
+      .getQuotes(Set.empty, timeInterval)
+      .map(PriceQuotes(_))
 
   override def updateQuotes(currencies: Set[(Currency, CoinAddress)]): IO[PriceQuoteError, Unit] =
     for {

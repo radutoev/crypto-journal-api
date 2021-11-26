@@ -25,7 +25,7 @@ final case class TopUp(
         priceQuotes.isDefined,
         () =>
           USD -> priceQuotes.get
-            .findPrice(timestamp)
+            .findPrice(WBNB, timestamp)
             .map(quote => quote.price * fee.amount)
             .map(FungibleData(_, USD))
             .getOrElse(FungibleData.zero(USD))

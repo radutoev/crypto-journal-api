@@ -1,27 +1,27 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import vo.TimeInterval
-import util.InstantOps
+import domain.model.Currency
 
 import java.time.Instant
 
-final case class PriceQuotes(quotes: List[PriceQuote]) extends AnyVal {
-  def findPrice(timestamp: Instant): Option[PriceQuote] =
-    quotes.filter(quote => quote.timestamp.isBefore(timestamp) || quote.timestamp == timestamp).lastOption
-
-  def subset(interval: TimeInterval): PriceQuotes = PriceQuotes {
-    val startInstant = interval.start.atBeginningOfDay()
-    val endInstant   = interval.end.atBeginningOfDay()
-
-    quotes.filter(quote => quote.timestamp.isAfter(startInstant) || quote.timestamp == startInstant).filter { quote =>
-      quote.timestamp.isBefore(endInstant) || quote.timestamp == endInstant
-    }
+final case class PriceQuotes(quotes: Map[Currency, List[PriceQuote]]) extends AnyVal {
+  def findPrice(currency: Currency, timestamp: Instant): Option[PriceQuote] = {
+    quotes.get(currency)
+      .flatMap(currencyQuotes => currencyQuotes.filter(q => q.timestamp.isBefore(timestamp) || q.timestamp == timestamp).lastOption)
   }
+
+  def isEmpty(): Boolean = {
+    quotes.map { case (_, quotes) =>
+      quotes.isEmpty
+    }.forall(x => x)
+  }
+
+  def nonEmpty(): Boolean = !isEmpty()
 }
 
 object PriceQuotes {
-  def empty(): PriceQuotes = new PriceQuotes(List.empty)
+  def empty(): PriceQuotes = new PriceQuotes(Map.empty)
 
-  def apply(quotes: List[PriceQuote]) = new PriceQuotes(quotes)
+  def apply(quotes: Map[Currency, List[PriceQuote]]) = new PriceQuotes(quotes)
 }

@@ -26,24 +26,6 @@ final case class DatastorePriceQuoteRepo(
   clock: Clock.Service,
   logger: Logger[String]
 ) extends PriceQuoteRepo {
-  //TODO Revisit the implementation
-  override def getQuotes(interval: TimeInterval): Task[List[PriceQuote]] =
-    for {
-      results <- Task {
-                  val start = interval.start.atBeginningOfDay()
-                  val filter =
-                    PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano))
-                  val query: Query[Entity] = Query
-                    .newEntityQueryBuilder()
-                    .setKind(datastoreConfig.priceQuote)
-                    .setFilter(filter)
-                    .addOrderBy(OrderBy.desc("timestamp"))
-                    .build()
-                  val queryResults: QueryResults[Entity] = datastore.run(query, Seq.empty[ReadOption]: _*)
-                  queryResults
-                }.tapError(errr => UIO(println(errr)))
-//      priceQuotes = results.asScala.toList.map(entityToPriceQuote).sortBy(_.timestamp)(Ordering[Instant])
-    } yield List.empty
 
   override def getQuotes(
     currencies: Set[Currency],

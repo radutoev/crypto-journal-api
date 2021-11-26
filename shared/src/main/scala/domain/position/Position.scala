@@ -31,7 +31,7 @@ final case class Position(
       case _: Approval                              => None
       case Buy(_, _, received, _, _, _, _, _, _, _) => Some(received.currency)
       case Claim(_, received, _, _, _, _, _, _)     => Some(received.currency)
-      case _: Contribute                            => None
+      case c: Contribute                            => Some(c.spent.currency)
       case Sell(sold, _, _, _, _, _)                => Some(sold.currency)
       case TransferIn(amount, _, _, _, _, _, _, _)  => Some(amount.currency)
       case TransferOut(amount, _, _, _, _, _)       => Some(amount.currency)
@@ -80,10 +80,10 @@ final case class Position(
       case Buy(_, spent, _, _, _, _, _, timestamp, spentOriginal, _) =>
         List(spent) ++
           cond(
-            priceQuotes.isDefined && spent.currency == WBNB,
+            priceQuotes.isDefined,
             () =>
               priceQuotes.get
-                .findPrice(timestamp)
+                .findPrice(spent.currency, timestamp)
                 .map(quote => spent.amount * quote.price)
                 .map(FungibleData(_, USD))
                 .getOrElse(FungibleData.zero(USD))
@@ -93,10 +93,10 @@ final case class Position(
       case Contribute(spent, _, _, _, timestamp, _) =>
         List(spent) ++
           cond(
-            priceQuotes.isDefined && spent.currency == WBNB,
+            priceQuotes.isDefined,
             () =>
               priceQuotes.get
-                .findPrice(timestamp)
+                .findPrice(spent.currency, timestamp)
                 .map(quote => spent.amount * quote.price)
                 .map(FungibleData(_, USD))
                 .getOrElse(FungibleData.zero(USD))
@@ -115,7 +115,7 @@ final case class Position(
       quotedFee = entries
         .map(e =>
           quotes
-            .findPrice(e.timestamp)
+            .findPrice(WBNB, e.timestamp)
             .map(quote => e.fee.amount * quote.price)
             .map(FungibleData(_, USD))
             .getOrElse(FungibleData.zero(USD))
@@ -195,18 +195,28 @@ final case class Position(
   /**
    * @return Entry coin fiat price
    */
-  lazy val entryPrice: Option[PriceQuote] =
-    priceQuotes.flatMap(implicit quotes => quotes.findPrice(entries.head.timestamp))
+  lazy val entryPrice: Option[PriceQuote] = {
+    for {
+      c      <- currency
+      quotes <- priceQuotes
+      quote  <- quotes.findPrice(c, entries.head.timestamp)
+    } yield quote
+  }
 
   /**
    * @return Exit coin fiat price
    */
-  lazy val exitPrice: Option[PriceQuote] =
+  lazy val exitPrice: Option[PriceQuote] = {
     if (closedAt.isDefined) {
-      priceQuotes.flatMap(implicit quotes => quotes.findPrice(entries.last.timestamp))
+      for {
+        c      <- currency
+        quotes <- priceQuotes
+        quote  <- quotes.findPrice(c, entries.last.timestamp)
+      } yield quote
     } else {
       None
     }
+  }
 
   /**
    * Number of coins that are part of this Position
@@ -257,11 +267,12 @@ final case class Position(
     priceQuotes.map { quotes =>
       entries.map {
         case Sell(_, received, _, _, timestamp, _) =>
-          if (received.currency == WBNB) {
-            quotes.findPrice(timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
-          } else {
-            None
-          }
+          quotes.findPrice(received.currency, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
+//          if (received.currency == WBNB) {
+//            quotes.findPrice(WBNB, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
+//          } else {
+//            None
+//          }
         case _ => None
       }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
     }.getOrElse(FungibleData.zero(USD))
@@ -283,11 +294,6 @@ object Position {
 
   def unsafeApply(entries: List[PositionEntry]): Position =
     new Position(entries)
-//    if(isSorted(entries.map(_.timestamp))(Ordering[Instant])) {
-//
-//    } else {
-//      throw new RuntimeException("Invalid position - entities not in chronological order.")
-//    }
 
   def isSorted[T](seq: Seq[T])(implicit ord: Ordering[T]): Boolean = seq match {
     case Seq()  => true

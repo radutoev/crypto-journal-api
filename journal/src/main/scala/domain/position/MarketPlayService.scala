@@ -4,12 +4,12 @@ package domain.position
 import domain.blockchain.error._
 import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.currency.CurrencyRepo
-import domain.model.{ ContextId, PlayId, UserId, WalletAddress }
+import domain.model._
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
-import domain.pricequote.{ PriceQuoteRepo, PriceQuotes }
+import domain.pricequote.{ PriceQuote, PriceQuoteRepo, PriceQuotes }
 import domain.wallet.Wallet
-import util.MarketPlaysListOps
+import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
@@ -67,38 +67,36 @@ final case class LiveMarketPlayService(
 ) extends MarketPlayService {
 
   override def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays] =
-    positionRepo
-      .getPlays(userWallet.address)
-      .flatMap(enrichPlays)
-      .mapBoth(_ => MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"), MarketPlays(_))
+    (for {
+      marketPlays   <- positionRepo.getPlays(userWallet.address)
+      quotes        <- getQuotesForMarketPlays(marketPlays)
+      enrichedPlays = marketPlays.map(play => addQuotes(play, quotes))
+    } yield MarketPlays(enrichedPlays)).orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
 
   override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
-    for {
-      marketPlays <- positionRepo
-                      .getPlays(userWallet.address, playFilter)
-                      .flatMap(enrichPlays)
-                      .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
-      journalEntries <- journalingRepo.getEntries(
-                         userWallet.userId,
-                         marketPlays.map(_.id).collect { case Some(id) => id }
-                       )
-    } yield MarketPlays(withJournalEntries(marketPlays, journalEntries).mostRecentFirst())
+    (for {
+      marketPlays    <- positionRepo.getPlays(userWallet.address)
+      quotes         <- getQuotesForMarketPlays(marketPlays)
+      enrichedPlays  = marketPlays.map(play => addQuotes(play, quotes))
+      journalEntries <- journalingRepo.getEntries(userWallet.userId, marketPlays.map(_.id).values)
+    } yield MarketPlays(withJournalEntries(enrichedPlays, journalEntries)))
+      .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
 
+  //TODO I don't think I need to return Page from the repo, I could just return the plays.
   override def getPlays(
     userWallet: Wallet,
     filter: PlayFilter,
     contextId: ContextId
-  ): IO[MarketPlayError, MarketPlays] =
-    for {
-      marketPlays <- positionRepo
-                      .getPlays(userWallet.address, filter, contextId)
-                      .flatMap(page => enrichPlays(page.data.plays))
-                      .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
-      journalEntries <- journalingRepo.getEntries(
-                         userWallet.userId,
-                         marketPlays.map(_.id).collect { case Some(id) => id }
-                       )
-    } yield MarketPlays(withJournalEntries(marketPlays, journalEntries).mostRecentFirst())
+  ): IO[MarketPlayError, MarketPlays] = ???
+//    for {
+//      page        <- positionRepo.getPlays(userWallet.address, filter, contextId)
+//      quotes      <- getQuotesForMarketPlays(page.data)
+//      enrichedPlays = marketPlays.map(play => addQuotes(play, quotes))
+//      journalEntries <- journalingRepo.getEntries(
+//                         userWallet.userId,
+//                         marketPlays.map(_.id).values
+//                       )
+//    } yield MarketPlays(withJournalEntries(enrichedPlays, journalEntries).mostRecentFirst())
 
   private def withJournalEntries(plays: List[MarketPlay], entries: List[JournalEntry]): List[MarketPlay] = {
     val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
@@ -108,77 +106,113 @@ final case class LiveMarketPlayService(
     }
   }
 
-  private def enrichPlays(marketPlays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] = {
-    val interval = extractTimeInterval(marketPlays)
-    if (marketPlays.nonEmpty) {
-      logger.info(s"Fetching quotes for [${interval.get.start} - ${interval.get.end}]") *>
-      priceQuoteRepo
-        .getQuotes(interval.get)
-        .tap(quotes => logger.info(s"Found ${quotes.length} quotes"))
-        .mapBoth(PriceQuotesError, PriceQuotes.apply)
-        .map(priceQuotes =>
-          marketPlays.map {
-            case p: Position => p.copy(priceQuotes = Some(priceQuotes.subset(p.timeInterval)))
-            case t: TopUp =>
-              t.copy(priceQuotes =
-                //TODO Extract TimeInterval generation
-                Some(priceQuotes.subset(TimeInterval(t.timestamp.minusSeconds(3600), t.timestamp.plusSeconds(36000))))
-              )
-            case tOut: Withdraw =>
-              tOut.copy(priceQuotes =
-                //TODO Extract TimeInterval generation
-                Some(
-                  priceQuotes.subset(TimeInterval(tOut.timestamp.minusSeconds(3600), tOut.timestamp.plusSeconds(36000)))
-                )
-              )
-          }
+  private def addQuotes(marketPlay: MarketPlay, currencyQuotes: Map[Currency, List[PriceQuote]]): MarketPlay =
+    marketPlay match {
+      case p: Position =>
+        val interval = p.timeInterval
+        val currency = p.currency
+        var source = List(
+          WBNB -> currencyQuotes.getOrElse(WBNB, List.empty).filter(quote => interval.contains(quote.timestamp))
         )
-    } else UIO(marketPlays)
-  }
+        if (currency.isDefined) {
+          source = source :+ currency.get -> currencyQuotes
+            .getOrElse(currency.get, List.empty)
+            .filter(quote => interval.contains(quote.timestamp))
+        }
+        val quotes = PriceQuotes(source.toMap)
+        if (quotes.nonEmpty()) {
+          p.copy(priceQuotes = Some(quotes))
+        } else {
+          p
+        }
+      case t: TopUp =>
+        val interval = TimeInterval(t.timestamp.atBeginningOfDay(), t.timestamp.atEndOfDay())
+        val quotes = PriceQuotes(
+          Map(WBNB -> currencyQuotes.getOrElse(WBNB, List.empty).filter(quote => interval.contains(quote.timestamp)))
+        )
+        if (quotes.nonEmpty()) {
+          t.copy(priceQuotes = Some(quotes))
+        } else {
+          t
+        }
+      case w: Withdraw =>
+        val interval = TimeInterval(w.timestamp.atBeginningOfDay(), w.timestamp.atEndOfDay())
+        val quotes = PriceQuotes(
+          Map(WBNB -> currencyQuotes.getOrElse(WBNB, List.empty).filter(quote => interval.contains(quote.timestamp)))
+        )
+        if (quotes.nonEmpty()) {
+          w.copy(priceQuotes = Some(quotes))
+        } else {
+          w
+        }
+    }
 
-  //TODO Refactor enrich position such as to avoid the price quote repo calls.
-  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] = {
+  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] =
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
     for {
       positionWithLinkIds <- positionRepo.getPosition(positionId)
-      position            <- enrichPosition(positionWithLinkIds.position)
-        .zipPar(journalingRepo.getEntry(userId, positionId).map(Some(_)).catchSome {
-          case _: JournalNotFound => UIO.none
-        })
-        .mapBoth(
-          _ => MarketPlayFetchError(positionId, new RuntimeException("Unable to enrich position")),
-          { case (position, entry) => position.copy(journal = entry) }
-        )
-      linkedPositions <- positionRepo.getPositions(positionWithLinkIds.links.next ++ positionWithLinkIds.links.previous)
-      (next, previous) = linkedPositions.partition(p => positionWithLinkIds.links.next.contains(p.id.get))
-    } yield PositionDetails(position, PositionLinks(previous, next))
-  }
+      linkedPositions     <- positionRepo.getPositions(positionWithLinkIds.links.next ++ positionWithLinkIds.links.previous)
+      (next, previous)    = linkedPositions.partition(p => positionWithLinkIds.links.next.contains(p.id.get))
+      quotes              <- getQuotesForMarketPlays(next ++ previous)
+      (nextEnriched, previousEnriched) = (
+        next.map(n => addQuotes(n, quotes)).asInstanceOf[List[Position]],
+        previous.map(p => addQuotes(p, quotes)).asInstanceOf[List[Position]]
+      )
+      position = enrichPosition(positionWithLinkIds.position, quotes)
+      journalEntry <- journalingRepo.getEntry(userId, position.id.get).map(Some(_)).catchSome {
+                       case _: JournalNotFound => UIO.none
+                     }
+    } yield PositionDetails(position.copy(journal = journalEntry), PositionLinks(nextEnriched, previousEnriched))
 
-  private def enrichPosition(position: Position): Task[Position] = {
+  private def enrichPosition(position: Position, currencyQuotes: Map[Currency, List[PriceQuote]]): Position = {
     val interval = position.timeInterval
-    priceQuoteRepo
-      .getQuotes(interval)
-      .map(PriceQuotes.apply)
-      .map(priceQuotes => position.copy(priceQuotes = Some(priceQuotes)))
+    val currency = position.currency
+    var source = List(
+      WBNB -> currencyQuotes.getOrElse(WBNB, List.empty).filter(quote => interval.contains(quote.timestamp))
+    )
+    if (currency.isDefined) {
+      source = source :+ currency.get -> currencyQuotes
+        .getOrElse(currency.get, List.empty)
+        .filter(quote => interval.contains(quote.timestamp))
+    }
+    val quotes = PriceQuotes(source.toMap)
+    if (quotes.nonEmpty()) {
+      position.copy(priceQuotes = Some(quotes))
+    } else {
+      position
+    }
   }
 
-  //TODO Don't forget to enrich
-  override def getNextPositions(playId: PlayId): IO[MarketPlayError, List[Position]] = {
+  override def getNextPositions(playId: PlayId): IO[MarketPlayError, List[Position]] =
     for {
-      _         <- logger.info(s"Fetch next positions for position ${playId.value}")
-      nextIds   <- positionRepo.getNextPositionIds(playId)
-      positions <- positionRepo.getPositions(nextIds)
-    } yield positions
-  }
+      _             <- logger.info(s"Fetch next positions for position ${playId.value}")
+      nextIds       <- positionRepo.getNextPositionIds(playId)
+      positions     <- positionRepo.getPositions(nextIds)
+      quotes        <- getQuotesForMarketPlays(positions)
+      enrichedPlays = positions.map(play => addQuotes(play, quotes)).asInstanceOf[List[Position]]
+    } yield enrichedPlays
 
-  //TODO Don't forget to enrich
-  override def getPreviousPositions(playId: PlayId): IO[MarketPlayError, List[Position]] = {
+  override def getPreviousPositions(playId: PlayId): IO[MarketPlayError, List[Position]] =
     for {
-      _         <- logger.info(s"Fetch previous positions for position ${playId.value}")
-      nextIds   <- positionRepo.getPreviousPositionIds(playId)
-      positions <- positionRepo.getPositions(nextIds)
-    } yield positions
+      _             <- logger.info(s"Fetch previous positions for position ${playId.value}")
+      nextIds       <- positionRepo.getPreviousPositionIds(playId)
+      positions     <- positionRepo.getPositions(nextIds)
+      quotes        <- getQuotesForMarketPlays(positions)
+      enrichedPlays = positions.map(play => addQuotes(play, quotes)).asInstanceOf[List[Position]]
+    } yield enrichedPlays
+
+  private def getQuotesForMarketPlays(
+    marketPlays: List[MarketPlay]
+  ): IO[MarketPlayError, Map[Currency, List[PriceQuote]]] = {
+    val timeInterval = extractTimeInterval(marketPlays)
+    if (timeInterval.isDefined) {
+      priceQuoteRepo
+        .getQuotes(Set.empty, timeInterval.get)
+        .orElseFail(MarketPlaysFetchError(s"Price quotes fetch error"))
+    } else {
+      UIO(Map.empty[Currency, List[PriceQuote]])
+    }
   }
 
   override def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit] =

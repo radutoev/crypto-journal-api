@@ -100,10 +100,12 @@ object PositionSpec extends DefaultRunnableSpec {
     ),
     priceQuotes = Some(
       PriceQuotes(
-        List(
-          PriceQuote(price = 473.00000000f, timestamp = Instant.parse("2021-10-18T11:00:00Z")),
-          PriceQuote(price = 470.10000000f, timestamp = Instant.parse("2021-10-18T12:00:00Z")),
-          PriceQuote(price = 486.80000000f, timestamp = Instant.parse("2021-10-18T14:00:00Z"))
+        Map(
+          WBNB -> List(
+            PriceQuote(price = 473.00000000f, timestamp = Instant.parse("2021-10-18T11:00:00Z")),
+            PriceQuote(price = 470.10000000f, timestamp = Instant.parse("2021-10-18T12:00:00Z")),
+            PriceQuote(price = 486.80000000f, timestamp = Instant.parse("2021-10-18T14:00:00Z"))
+          )
         )
       )
     )
