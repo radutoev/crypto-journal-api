@@ -182,6 +182,36 @@ object Routes {
                      )
       } yield response
 
+    case Method.GET -> Root / "positions" / rawPositionId / "previous" =>
+      for {
+        positionId <- ZIO
+          .fromEither(refineV[PlayIdPredicate](rawPositionId))
+          .orElseFail(BadRequest("Invalid positionId"))
+
+        response <- CryptoJournalApi
+          .getPreviousPositions(positionId)
+          .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
+          .fold(
+            marketPlayErrorToHttpResponse,
+            positions => Response.jsonString(positions.map(fromPosition).toJson)
+          )
+      } yield response
+
+    case Method.GET -> Root / "positions" / rawPositionId / "next" =>
+      for {
+        positionId <- ZIO
+          .fromEither(refineV[PlayIdPredicate](rawPositionId))
+          .orElseFail(BadRequest("Invalid positionId"))
+
+        response <- CryptoJournalApi
+          .getNextPositions(positionId)
+          .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
+          .fold(
+            marketPlayErrorToHttpResponse,
+            positions => Response.jsonString(positions.map(fromPosition).toJson)
+          )
+      } yield response
+
     case req @ Method.PUT -> Root / "positions" / rawPositionId / "journal" =>
       for {
         positionId <- ZIO

@@ -28,6 +28,10 @@ trait MarketPlayService {
 
   def getPosition(userId: UserId, playId: PlayId): IO[MarketPlayError, PositionDetails[Position]]
 
+  def getNextPositions(playId: PlayId): IO[MarketPlayError, List[Position]]
+
+  def getPreviousPositions(playId: PlayId): IO[MarketPlayError, List[Position]]
+
   def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit]
 
   def importPlays(userWallet: Wallet, startingFrom: Instant): IO[MarketPlayError, Unit]
@@ -132,6 +136,7 @@ final case class LiveMarketPlayService(
     } else UIO(marketPlays)
   }
 
+  //TODO Refactor enrich position such as to avoid the price quote repo calls.
   override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] = {
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
@@ -156,6 +161,24 @@ final case class LiveMarketPlayService(
       .getQuotes(interval)
       .map(PriceQuotes.apply)
       .map(priceQuotes => position.copy(priceQuotes = Some(priceQuotes)))
+  }
+
+  //TODO Don't forget to enrich
+  override def getNextPositions(playId: PlayId): IO[MarketPlayError, List[Position]] = {
+    for {
+      _         <- logger.info(s"Fetch next positions for position ${playId.value}")
+      nextIds   <- positionRepo.getNextPositionIds(playId)
+      positions <- positionRepo.getPositions(nextIds)
+    } yield positions
+  }
+
+  //TODO Don't forget to enrich
+  override def getPreviousPositions(playId: PlayId): IO[MarketPlayError, List[Position]] = {
+    for {
+      _         <- logger.info(s"Fetch previous positions for position ${playId.value}")
+      nextIds   <- positionRepo.getPreviousPositionIds(playId)
+      positions <- positionRepo.getPositions(nextIds)
+    } yield positions
   }
 
   override def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit] =

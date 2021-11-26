@@ -50,6 +50,12 @@ object CryptoJournalApi {
       position <- ZIO.serviceWith[MarketPlayService](_.getPosition(userId, positionId))
     } yield position
 
+  def getNextPositions(positionId: PlayId): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, List[Position]] =
+    ZIO.serviceWith[MarketPlayService](_.getNextPositions(positionId))
+
+  def getPreviousPositions(positionId: PlayId): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, List[Position]] =
+    ZIO.serviceWith[MarketPlayService](_.getPreviousPositions(positionId))
+
   def getPortfolioKpis(
     address: WalletAddress
   )(kpiFilter: KpiFilter): ZIO[Has[KpiService] with Has[RequestContext], PortfolioError, PortfolioKpi] =

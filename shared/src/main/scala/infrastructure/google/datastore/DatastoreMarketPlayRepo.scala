@@ -324,6 +324,68 @@ final case class DatastoreMarketPlayRepo(
       }
   }
 
+  override def getNextPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]] = {
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay).newKey(playId.value)
+
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.marketPlay)
+      .setFilter(PropertyFilter.eq("__key__", key))
+      .build()
+
+    executeQuery(query)
+      .mapError(throwable => MarketPlayFetchError(playId, throwable))
+      .flatMap(result => {
+        val results = result.asScala
+        if (results.nonEmpty) {
+          val entity = results.next()
+          ZIO.fromEither {
+            tryOrLeft(entity.getString("nextPlayIds"), InvalidRepresentation("Entity has no nextPlayIds"))
+              .map(rawPlayIds => {
+                if (rawPlayIds.nonEmpty) {
+                  rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+                } else {
+                  List.empty
+                }
+              })
+          }
+        } else {
+          ZIO.fail(MarketPlayNotFound(playId))
+        }
+      })
+  }
+
+  override def getPreviousPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]] = {
+    val key = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay).newKey(playId.value)
+
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.marketPlay)
+      .setFilter(PropertyFilter.eq("__key__", key))
+      .build()
+
+    executeQuery(query)
+      .mapError(throwable => MarketPlayFetchError(playId, throwable))
+      .flatMap(result => {
+        val results = result.asScala
+        if (results.nonEmpty) {
+          val entity = results.next()
+          ZIO.fromEither {
+            tryOrLeft(entity.getString("previousPlayIds"), InvalidRepresentation("Entity has no nextPlayIds"))
+              .map(rawPlayIds => {
+                if (rawPlayIds.nonEmpty) {
+                  rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+                } else {
+                  List.empty
+                }
+              })
+          }
+        } else {
+          ZIO.fail(MarketPlayNotFound(playId))
+        }
+      })
+  }
+
   override def getLatestPosition(address: WalletAddress, currency: Currency): IO[MarketPlayError, Option[Position]] = {
     val query = Query
       .newEntityQueryBuilder()
