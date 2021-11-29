@@ -60,31 +60,29 @@ final case class DatastorePriceQuoteRepo(
 
   override def getLatestQuotes(currencies: Set[Currency]): IO[PriceQuoteError, Map[Currency, PriceQuote]] =
     if (currencies.nonEmpty) {
-      UIO(Map.empty)
+      val filter = currencies.map(currency => PropertyFilter.eq("currency", currency.value))
 
-//      val filter = currencies.map(currency => PropertyFilter.eq("currency", currency.value))
-//
-//      //TODO Figure why this doesn't work.
-//      val query = Query.newProjectionEntityQueryBuilder()
-//        .setKind(datastoreConfig.priceQuote)
+      val query = Query.newProjectionEntityQueryBuilder()
+        .setKind(datastoreConfig.priceQuote)
+        //TODO Figure why this doesn't work.
 //        .setFilter(CompositeFilter.and(filter.head, filter.tail.toList: _*))
-//        .setProjection("currency", "timestamp", "price")
-//        .setDistinctOn("currency")
-//        .setOrderBy(OrderBy.asc("currency"), OrderBy.desc("timestamp"), OrderBy.asc("price"))
-//        .build()
-//
-//      Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-//        .map(results => results.asScala.toList.map { entity =>
-//          (
-//            Currency.unsafeFrom(entity.getString("currency")),
-//            PriceQuote(
-//              Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
-//              Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
-//            )
-//          )
-//        }.toMap)
-//        .tapError(err => logger.warn(err.getMessage))
-//        .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
+        .setProjection("currency", "timestamp", "price")
+        .setDistinctOn("currency")
+        .setOrderBy(OrderBy.asc("currency"), OrderBy.desc("timestamp"), OrderBy.asc("price"))
+        .build()
+
+      Task(datastore.run(query, Seq.empty[ReadOption]: _*))
+        .map(results => results.asScala.toList.map { entity =>
+          (
+            Currency.unsafeFrom(entity.getString("currency")),
+            PriceQuote(
+              Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
+              Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
+            )
+          )
+        }.toMap)
+        .tapError(err => logger.warn(err.getMessage))
+        .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
     } else {
       UIO(Map.empty)
     }

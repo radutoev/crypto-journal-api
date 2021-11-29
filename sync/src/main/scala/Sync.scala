@@ -1,29 +1,27 @@
 package io.softwarechain.cryptojournal
 
+import application.SyncApi
 import config.CryptoJournalConfig
-import domain.blockchain.BlockchainRepo
-import domain.position.error.MarketPlaysFetchError
-import domain.position.{MarketPlayRepo, MarketPlays}
+import domain.model.WalletAddress
+import domain.pricequote.LivePriceQuoteService
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
-import infrastructure.binance.BnbListener
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.datastore.{DatastoreCurrencyRepo, DatastoreMarketPlayRepo, DatastorePriceQuoteRepo, DatastoreWalletImportRepo}
+import infrastructure.google.datastore.{
+  DatastoreCurrencyRepo,
+  DatastoreMarketPlayRepo,
+  DatastorePriceQuoteRepo,
+  DatastoreWalletImportRepo
+}
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{Config, ConfigFactory}
-import io.softwarechain.cryptojournal.application.SyncApi
-import io.softwarechain.cryptojournal.domain.model.{TransactionHash, WalletAddress}
-import io.softwarechain.cryptojournal.domain.pricequote.LivePriceQuoteService
-import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
+import com.typesafe.config.{ Config, ConfigFactory }
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zio._
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-
-import scala.jdk.CollectionConverters._
 
 object Sync extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -33,7 +31,8 @@ object Sync extends App {
 
   private def program(config: Config) =
     for {
-      _ <- SyncApi.syncPriceQuotes().provideCustomLayer(listenerEnvironment(config))
+      quotesSyncFiber <- SyncApi.syncPriceQuotes().provideCustomLayer(listenerEnvironment(config)).forever.fork
+      _               <- quotesSyncFiber.join
 //      bnbStream <- BnbListener
 //                    .positionEntryStream()
 //                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
@@ -103,18 +102,22 @@ object Sync extends App {
       Slf4jLogger.make((_, message) => logFormat.format(message))
     }
 
+    lazy val clockLayer = Clock.live
+
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
     lazy val positionsRepoLayer =
-      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer
+      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ clockLayer >>> DatastoreMarketPlayRepo.layer
     lazy val walletRepoLayer =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
     lazy val currencyRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreCurrencyRepo.layer
 
-    lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
+    lazy val priceQuoteRepoLayer =
+      datastoreLayer ++ datastoreConfigLayer ++ clockLayer ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
-    lazy val priceQuoteServiceLayer = (loggingLayer ++ priceQuoteRepoLayer ++ exchangeRepoLayer ++ Clock.live) >>> LivePriceQuoteService.layer
+    lazy val priceQuoteServiceLayer =
+      (loggingLayer ++ priceQuoteRepoLayer ++ exchangeRepoLayer ++ clockLayer) >>> LivePriceQuoteService.layer
 
-    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ positionsRepoLayer ++ currencyRepoLayer ++ priceQuoteServiceLayer
+    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ positionsRepoLayer ++ currencyRepoLayer ++ priceQuoteServiceLayer ++ clockLayer
   }
 }
