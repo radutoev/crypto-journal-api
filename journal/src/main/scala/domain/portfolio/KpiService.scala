@@ -18,7 +18,7 @@ trait KpiService {
   def portfolioKpi(userWallet: Wallet)(kpiFilter: KpiFilter): IO[PortfolioError, PortfolioKpi]
 }
 
-final case class LiveKpiService(positionService: MarketPlayService, clock: Clock.Service, logger: Logger[String])
+final case class LiveKpiService(marketPlaysService: MarketPlayService, clock: Clock.Service, logger: Logger[String])
     extends KpiService {
   override def portfolioKpi(wallet: Wallet)(kpiFilter: KpiFilter): IO[PortfolioError, PortfolioKpi] =
     for {
@@ -28,9 +28,9 @@ final case class LiveKpiService(positionService: MarketPlayService, clock: Clock
       timeIntervalForComparison = intervalForComparePositions(timeInterval)
       count                     = kpiFilter.count.getOrElse(30)
       filter                    <- PlayFilter(count, timeInterval).toZIO.mapError(InvalidPortfolioError)
-      positions                 <- positionService.getPlays(wallet, filter).mapError(portfolioErrorMapper)
+      positions                 <- marketPlaysService.getPlays(wallet, filter).mapError(portfolioErrorMapper)
       referencePositions <- if (timeInterval.start == BeginningOfCrypto) {
-                             positionService
+                             marketPlaysService
                                .getPlays(
                                  wallet,
                                  filter.copy(interval = timeIntervalForComparison)

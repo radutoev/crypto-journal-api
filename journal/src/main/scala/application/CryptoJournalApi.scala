@@ -17,12 +17,6 @@ import vo.filter.{KpiFilter, PlayFilter}
 import zio.{Has, ZIO}
 
 object CryptoJournalApi {
-  def getAccountBalance(address: WalletAddress): ZIO[Has[AccountBalance] with Has[RequestContext], PortfolioError, FungibleData] =
-    for {
-      userId <- RequestContext.userId
-      value  <- ZIO.serviceWith[AccountBalance](_.value(Wallet(userId, address)))
-    } yield value
-
   def getLatestPlays(
     address: WalletAddress,
     filter: PlayFilter

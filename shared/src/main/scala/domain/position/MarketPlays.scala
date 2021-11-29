@@ -3,14 +3,12 @@ package domain.position
 
 import domain.blockchain.Transaction
 import domain.model.fungible.OptionalFungibleDataOps
-import domain.model.{ CoinAddress, Currency, FungibleData, TransactionHash, WBNB, WalletAddress }
-import util.{ InstantOps, MarketPlaysListOps }
+import domain.model._
+import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
 import vo.TimeInterval
-import vo.TimeInterval.orderingOfTimeInterval
 
 import java.time.Instant
-import scala.collection.immutable.ListMap
-import scala.collection.{ immutable, mutable }
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 //most recent items first.
@@ -92,7 +90,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
         .reverse
         .map(_.atEndOfDay())
         .map { day =>
-          println(day)
           val filterInterval = TimeInterval(start, day)
           dataPoints = dataPoints.filter(dataPoint => filterInterval.contains(dataPoint.timestamp))
           filterInterval -> dataPoints
@@ -101,6 +98,29 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     } else {
       List.empty
     }
+
+  //hardcoded to USD for now
+  def balanceTrend(): List[(Instant, FungibleData)] = {
+    if(interval.isDefined) {
+      val start         = interval.get.start.atBeginningOfDay()
+      val trendInterval = TimeInterval(start, Instant.now().atEndOfDay())
+      trendInterval
+        .days()
+        .reverse
+        .map(_.atEndOfDay())
+        .map { day =>
+          val filterInterval = TimeInterval(start, day)
+          day -> plays.collect {
+            case p: Position => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance()
+            case t: TopUp if filterInterval.contains(t.timestamp) => t.balance()
+            case w: Withdraw if filterInterval.contains(w.timestamp) => w.balance()
+          }.values.foldLeft(FungibleData.zero(USD))((acc, balance) => acc.add(balance.amount))
+        }
+        .sortBy(_._1)(Ordering[Instant])
+    } else {
+      List.empty
+    }
+  }
 
   def distributionByCurrency(): Map[Currency, List[FungibleDataTimePoint]] = {
     val currencyBalance: CurrencyBalance = new CurrencyBalance(mutable.Map.empty)

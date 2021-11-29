@@ -29,6 +29,8 @@ final case class PortfolioKpi(
 ) {
   lazy val netReturn: NetReturn = NetReturn(marketPlays)
 
+  lazy val accountBalance: AccountBalance = AccountBalance(marketPlays)
+
   lazy val tradeCount: Int = marketPlays.closedPositions.size
 
   lazy val openTradesCount: Int = marketPlays.openPositions.size

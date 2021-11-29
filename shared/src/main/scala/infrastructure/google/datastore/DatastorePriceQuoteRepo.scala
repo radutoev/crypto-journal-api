@@ -110,7 +110,7 @@ final case class DatastorePriceQuoteRepo(
           quotes.map(quote => priceQuoteWithCurrencyToEntity(currency -> quote))
       }.grouped(25).toList
       for {
-        _ <- ZIO.foreach(entities)(items => saveEntities(items.toList)).ignore
+        _ <- ZIO.foreach_(entities)(items => saveEntities(items.toList))
         _ <- logger.info(s"Finished upsert of quotes")
       } yield ()
     }.when(quotes.nonEmpty)

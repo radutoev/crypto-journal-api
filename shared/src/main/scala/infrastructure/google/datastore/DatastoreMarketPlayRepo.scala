@@ -605,7 +605,7 @@ final case class DatastoreMarketPlayRepo(
                     .rights,
                   InvalidRepresentation("Invalid entries representation")
                 )
-    } yield Position(entries, id = Some(id))
+    } yield Position(entries, id)
   }
 
   private val entryToPositionEntry: EntityValue => Either[InvalidRepresentation, PositionEntry] = e => {
@@ -900,7 +900,7 @@ final case class DatastoreMarketPlayRepo(
       FungibleData(value, currency),
       FungibleData(feeValue, feeCurrency),
       timestamp,
-      id = Some(id)
+      id
     )
 
   private def entityToWithdrawal(entity: Entity): Either[InvalidRepresentation, Withdraw] =
@@ -933,7 +933,7 @@ final case class DatastoreMarketPlayRepo(
       FungibleData(value, currency),
       FungibleData(feeValue, feeCurrency),
       timestamp,
-      id = Some(id)
+      id
     )
 
   private def paginationContextAsEntity(context: PaginationContext): Entity =

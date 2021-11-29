@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 
 import config.CryptoJournalConfig
 import domain.market.LiveMarketService
-import domain.portfolio.{LiveAccountBalance, LiveKpiService}
+import domain.portfolio.LiveKpiService
 import domain.position.{LiveJournalingService, LiveMarketPlayService}
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
@@ -79,14 +79,12 @@ object CryptoJournal extends App {
 
     lazy val kpiServiceLayer = (marketPlayService ++ Clock.live ++ loggingLayer) >>> LiveKpiService.layer
 
-    lazy val accountBalanceLayer = (marketPlayService ++ priceQuoteRepoLayer ++ walletRepoLayer ++ loggingLayer ++ Clock.live) >>> LiveAccountBalance.layer
-
     lazy val journalServiceLayer = journalRepoLayer >>> LiveJournalingService.layer
 
     lazy val marketServiceLayer = coinApiFacadeLayer >>> LiveMarketService.layer
 
     lazy val applicationServiceLayer =
-      marketPlayService ++ walletServiceLayer ++ kpiServiceLayer ++ journalServiceLayer ++ marketServiceLayer ++ accountBalanceLayer
+      marketPlayService ++ walletServiceLayer ++ kpiServiceLayer ++ journalServiceLayer ++ marketServiceLayer
 
     zioHttpServerLayer ++ applicationServiceLayer ++ covalentFacadeLayer
   }

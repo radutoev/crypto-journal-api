@@ -245,19 +245,6 @@ object Routes {
   }
 
   private def portfolio(userId: UserId, contextId: ContextId) = HttpApp.collectM {
-    case Method.GET -> Root / "portfolio" / rawWalletAddress / "account-balance" =>
-      for {
-        address <- ZIO
-          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
-          .orElseFail(BadRequest("Invalid address"))
-        response <- CryptoJournalApi.getAccountBalance(address)
-          .provideSomeLayer[Has[AccountBalance]](JwtRequestContext.layer(userId, contextId))
-          .fold(
-            _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-            accountBalance => Response.jsonString(FungibleData(accountBalance).toJson)
-          )
-      } yield response
-
     case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
       for {
         address <- ZIO

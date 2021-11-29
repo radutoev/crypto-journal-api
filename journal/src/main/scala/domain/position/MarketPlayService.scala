@@ -2,20 +2,20 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{ BlockchainRepo, Transaction }
+import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.currency.CurrencyRepo
 import domain.model._
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
-import domain.pricequote.{ PriceQuote, PriceQuoteRepo, PriceQuotes }
+import domain.pricequote.{PriceQuote, PriceQuoteRepo, PriceQuotes}
 import domain.wallet.Wallet
-import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
+import util.{InstantOps, ListOptionOps}
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.{Has, IO, UIO, URLayer, ZIO}
 
 import java.time.Instant
 
@@ -121,7 +121,7 @@ final case class LiveMarketPlayService(
         }
         val quotes = PriceQuotes(source.toMap)
         if (quotes.nonEmpty()) {
-          p.copy(priceQuotes = Some(quotes))
+          p.copy(priceQuotes = quotes)
         } else {
           p
         }
@@ -131,7 +131,7 @@ final case class LiveMarketPlayService(
           Map(WBNB -> currencyQuotes.getOrElse(WBNB, List.empty).filter(quote => interval.contains(quote.timestamp)))
         )
         if (quotes.nonEmpty()) {
-          t.copy(priceQuotes = Some(quotes))
+          t.copy(priceQuotes = quotes)
         } else {
           t
         }
@@ -141,7 +141,7 @@ final case class LiveMarketPlayService(
           Map(WBNB -> currencyQuotes.getOrElse(WBNB, List.empty).filter(quote => interval.contains(quote.timestamp)))
         )
         if (quotes.nonEmpty()) {
-          w.copy(priceQuotes = Some(quotes))
+          w.copy(priceQuotes = quotes)
         } else {
           w
         }
@@ -178,7 +178,7 @@ final case class LiveMarketPlayService(
     }
     val quotes = PriceQuotes(source.toMap)
     if (quotes.nonEmpty()) {
-      position.copy(priceQuotes = Some(quotes))
+      position.copy(priceQuotes = quotes)
     } else {
       position
     }

@@ -1,17 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{ LogEvent, Transaction }
+import domain.blockchain.{LogEvent, Transaction}
 import domain.model._
 import domain.position.PositionEntry.PositionEntryId
-import util.{ ListEitherOps, ListOptionOps }
+import util.{ListEitherOps, ListOptionOps}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.domain.position.model.{ CoinName, CoinNamePredicate }
+import io.softwarechain.cryptojournal.domain.position.model.{CoinName, CoinNamePredicate}
 
 import java.time.Instant
+import scala.collection.mutable
 import scala.util.Try
 
 sealed trait PositionEntry {
@@ -19,6 +20,8 @@ sealed trait PositionEntry {
   val fee: Fee
   val timestamp: Instant
   val id: Option[PositionEntryId] = None
+
+  def balance(): Map[Currency, BigDecimal]
 }
 
 object PositionEntry {
@@ -623,7 +626,18 @@ final case class AirDrop(
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = {
+    if(fee.currency == received.currency) {
+      Map(fee.currency -> (received.amount - fee.amount))
+    } else {
+      Map(
+        fee.currency -> -fee.amount,
+        received.currency -> received.amount
+      )
+    }
+  }
+}
 
 final case class Approval(
   fee: Fee,
@@ -631,7 +645,9 @@ final case class Approval(
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = Map(fee.currency -> (-fee.amount))
+}
 
 final case class Buy(
   fee: Fee,
@@ -644,7 +660,18 @@ final case class Buy(
   timestamp: Instant,
   spentOriginal: Option[FungibleData] = None,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = {
+    val balance: mutable.Map[Currency, BigDecimal] = mutable.Map(fee.currency -> -fee.amount)
+    balance.put(received.currency, balance.getOrElse(received.currency, BigDecimal(0)) + received.amount)
+    if(spentOriginal.isDefined) {
+      balance.put(spentOriginal.get.currency, balance.getOrElse(spentOriginal.get.currency, BigDecimal(0)) - spentOriginal.get.amount)
+    } else {
+      balance.put(spent.currency, balance.getOrElse(spent.currency, BigDecimal(0)) - spent.amount)
+    }
+    balance.toMap
+  }
+}
 
 final case class Claim(
   fee: Fee,
@@ -655,7 +682,13 @@ final case class Claim(
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = {
+    val balance: mutable.Map[Currency, BigDecimal] = mutable.Map(fee.currency -> -fee.amount)
+    balance.put(received.currency, balance.getOrElse(received.currency, BigDecimal(0)) + received.amount)
+    balance.toMap
+  }
+}
 
 final case class Contribute(
   spent: FungibleData,
@@ -664,7 +697,13 @@ final case class Contribute(
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = {
+    val balance: mutable.Map[Currency, BigDecimal] = mutable.Map(fee.currency -> -fee.amount)
+    balance.put(spent.currency, balance.getOrElse(spent.currency, BigDecimal(0)) - spent.amount)
+    balance.toMap
+  }
+}
 
 final case class Sell(
   sold: FungibleData,
@@ -673,7 +712,14 @@ final case class Sell(
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = {
+    val balance: mutable.Map[Currency, BigDecimal] = mutable.Map(fee.currency -> -fee.amount)
+    balance.put(sold.currency, balance.getOrElse(sold.currency, BigDecimal(0)) - sold.amount)
+    balance.put(received.currency, balance.getOrElse(received.currency, BigDecimal(0)) + received.amount)
+    balance.toMap
+  }
+}
 
 final case class TransferIn(
   value: FungibleData,
@@ -684,7 +730,13 @@ final case class TransferIn(
   name: Option[CoinName] = None,
   coinAddress: Option[CoinAddress] = None,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = {
+    val balance: mutable.Map[Currency, BigDecimal] = mutable.Map(fee.currency -> -fee.amount)
+    balance.put(value.currency, balance.getOrElse(value.currency, BigDecimal(0)) + value.amount)
+    balance.toMap
+  }
+}
 
 final case class TransferOut(
   amount: FungibleData,
@@ -693,4 +745,10 @@ final case class TransferOut(
   hash: TransactionHash,
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
-) extends PositionEntry
+) extends PositionEntry {
+  override def balance(): Map[Currency, BigDecimal] = {
+    val balance: mutable.Map[Currency, BigDecimal] = mutable.Map(fee.currency -> -fee.amount)
+    balance.put(amount.currency, balance.getOrElse(amount.currency, BigDecimal(0)) - amount.amount)
+    balance.toMap
+  }
+}

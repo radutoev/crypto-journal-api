@@ -2,19 +2,20 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.model.fungible.{ FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps }
+import domain.model.fungible.{FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps}
 import domain.position.error.InvalidPosition
 import domain.position.model.CoinName
-import domain.pricequote.{ PriceQuote, PriceQuotes }
+import domain.pricequote.{PriceQuote, PriceQuotes}
 import util.ListOps.cond
 import util.ListOptionOps
 import vo.TimeInterval
 
-import java.time.{ Duration, Instant }
+import java.time.{Duration, Instant}
+import scala.collection.mutable
 
 final case class Position(
   entries: List[PositionEntry],
-  priceQuotes: Option[PriceQuotes] = None, //this is kind of a meta information for the aggregate.
+  priceQuotes: PriceQuotes,
   journal: Option[JournalEntry] = None,
   id: Option[PlayId] = None
 ) extends MarketPlay {
@@ -36,12 +37,12 @@ final case class Position(
       case TransferIn(amount, _, _, _, _, _, _, _)  => Some(amount.currency)
       case TransferOut(amount, _, _, _, _, _)       => Some(amount.currency)
     }.values.distinct
+
     if (currencies.size > 1) {
-      //Just a println atm, not sure if we need to treat this case, though it *should* be impossible to get to this point.
-      //However, as this is not enforced in types, so at compile time, I added this println here.
-      println(s"Found multiple currencies: ${currencies.mkString(",")} on position ${id.getOrElse("")}")
+      currencies.find(_ != WBNB)
+    } else {
+      currencies.headOption
     }
-    currencies.headOption
   }
 
   //TODO I think I need to see if I can add the coin address to all transaction types.
@@ -80,9 +81,9 @@ final case class Position(
       case Buy(_, spent, _, _, _, _, _, timestamp, spentOriginal, _) =>
         List(spent) ++
           cond(
-            priceQuotes.isDefined,
+            priceQuotes.nonEmpty(),
             () =>
-              priceQuotes.get
+              priceQuotes
                 .findPrice(spent.currency, timestamp)
                 .map(quote => spent.amount * quote.price)
                 .map(FungibleData(_, USD))
@@ -93,9 +94,9 @@ final case class Position(
       case Contribute(spent, _, _, _, timestamp, _) =>
         List(spent) ++
           cond(
-            priceQuotes.isDefined,
+            priceQuotes.nonEmpty(),
             () =>
-              priceQuotes.get
+              priceQuotes
                 .findPrice(spent.currency, timestamp)
                 .map(quote => spent.amount * quote.price)
                 .map(FungibleData(_, USD))
@@ -111,10 +112,9 @@ final case class Position(
     (for {
       currency    <- entries.headOption.map(_.fee.currency)
       currencyFee = entries.map(_.fee).sumByCurrency.getOrElse(currency, FungibleData.zero(currency))
-      quotes      <- priceQuotes
       quotedFee = entries
         .map(e =>
-          quotes
+          priceQuotes
             .findPrice(WBNB, e.timestamp)
             .map(quote => e.fee.amount * quote.price)
             .map(FungibleData(_, USD))
@@ -198,8 +198,7 @@ final case class Position(
   lazy val entryPrice: Option[PriceQuote] = {
     for {
       c      <- currency
-      quotes <- priceQuotes
-      quote  <- quotes.findPrice(c, entries.head.timestamp)
+      quote  <- priceQuotes.findPrice(c, entries.head.timestamp)
     } yield quote
   }
 
@@ -210,8 +209,7 @@ final case class Position(
     if (closedAt.isDefined) {
       for {
         c      <- currency
-        quotes <- priceQuotes
-        quote  <- quotes.findPrice(c, entries.last.timestamp)
+        quote  <- priceQuotes.findPrice(c, entries.last.timestamp)
       } yield quote
     } else {
       None
@@ -264,36 +262,51 @@ final case class Position(
   lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
   private lazy val fiatSellValue: FungibleData = {
-    priceQuotes.map { quotes =>
-      entries.map {
-        case Sell(_, received, _, _, timestamp, _) =>
-          quotes.findPrice(received.currency, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
+    entries.map {
+      case Sell(_, received, _, _, timestamp, _) =>
+        priceQuotes.findPrice(received.currency, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
 //          if (received.currency == WBNB) {
 //            quotes.findPrice(WBNB, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
 //          } else {
 //            None
 //          }
-        case _ => None
-      }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
-    }.getOrElse(FungibleData.zero(USD))
+      case _ => None
+    }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
   }
 
   override def inInterval(interval: TimeInterval): Boolean = {
     val moreRecentThanStart = interval.start.isBefore(openedAt) || interval.start == openedAt
     closedAt.fold(moreRecentThanStart)(t => moreRecentThanStart && (interval.end.isAfter(t) || interval.end == t))
   }
+
+  //hardcoded to USD for now
+  def balance(): Option[FungibleData] = {
+    var acc: BigDecimal = BigDecimal(0)
+
+    entries.foreach { entry =>
+      entry.balance().foreach { case (currency, amount) =>
+        acc = acc + priceQuotes.findPrice(currency, entry.timestamp)
+          .map(quote => quote.price * amount)
+          .getOrElse(BigDecimal(0))
+      }
+    }
+
+    Some(FungibleData(acc, USD))
+  }
 }
 
 object Position {
   def apply(entries: List[PositionEntry]): Either[InvalidPosition, Position] =
     if (isSorted(entries.map(_.timestamp))(Ordering[Instant])) {
-      Right(new Position(entries))
+      Right(new Position(entries, PriceQuotes.empty()))
     } else {
       Left(InvalidPosition("Entries not in chronological order"))
     }
 
+  def apply(entries: List[PositionEntry], id: PlayId): Position = new Position(entries, PriceQuotes.empty(), id = Some(id))
+
   def unsafeApply(entries: List[PositionEntry]): Position =
-    new Position(entries)
+    new Position(entries, PriceQuotes.empty())
 
   def isSorted[T](seq: Seq[T])(implicit ord: Ordering[T]): Boolean = seq match {
     case Seq()  => true

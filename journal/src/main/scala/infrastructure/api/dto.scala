@@ -1,26 +1,35 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData}
-import domain.market.{Ohlcv => CJOhlcv}
-import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
-import domain.portfolio.{AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi}
-import domain.position.{JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionDetails => CJPOsitionDetails, PositionLinks => CJPositionLinks, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTopUp, Withdraw => CJWithdraw}
+import domain.model.{ MistakePredicate, PlayIdPredicate, TagPredicate, FungibleData => CJFungibleData }
+import domain.market.{ Ohlcv => CJOhlcv }
+import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
+import domain.portfolio.{ AccountBalance, NetReturn, PortfolioKpi => CJPortfolioKpi }
+import domain.position.{
+  JournalEntry => CJJournalEntry,
+  MarketPlay => CJMarketPlay,
+  Position => CJPosition,
+  PositionDetails => CJPOsitionDetails,
+  PositionLinks => CJPositionLinks,
+  PositionEntry => CJPositionEntry,
+  PositionJournalEntry => CJPositionJournalEntry,
+  TopUp => CJTopUp,
+  Withdraw => CJWithdraw
+}
 import domain.position.model.ScamStrategy
-import domain.pricequote.{PriceQuote => CJPriceQuote}
-import domain.wallet.{Wallet => CJWallet}
+import domain.pricequote.{ PriceQuote => CJPriceQuote }
+import domain.wallet.{ Wallet => CJWallet }
 import vo.filter.Count
-import vo.{PeriodDistribution => CJPeriodDistribution}
+import vo.{ PeriodDistribution => CJPeriodDistribution }
 import infrastructure.api.dto.MarketPlay._
 import util.ListEitherOps
 
 import eu.timepit.refined.refineV
 import domain.position
 
-import zio.json.internal.StringMatrix
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 object dto {
   sealed trait MarketPlay
@@ -143,10 +152,10 @@ object dto {
   final case class PositionLinks(previous: List[Position], next: List[Position])
 
   object PositionDetails {
-    implicit val positionLinksCodec: JsonCodec[PositionLinks] = DeriveJsonCodec.gen[PositionLinks]
+    implicit val positionLinksCodec: JsonCodec[PositionLinks]     = DeriveJsonCodec.gen[PositionLinks]
     implicit val positionDetailsCodec: JsonCodec[PositionDetails] = DeriveJsonCodec.gen[PositionDetails]
 
-    def fromPositionDetails(pd: CJPOsitionDetails[CJPosition]): PositionDetails = {
+    def fromPositionDetails(pd: CJPOsitionDetails[CJPosition]): PositionDetails =
       PositionDetails(
         position = fromPosition(pd.position),
         links = PositionLinks(
@@ -154,15 +163,13 @@ object dto {
           next = pd.links.next.map(fromPosition)
         )
       )
-    }
   }
 
   final case class FungibleData(amount: String, currency: String)
 
   object FungibleData {
-    def apply(funData: CJFungibleData): FungibleData = {
+    def apply(funData: CJFungibleData): FungibleData =
       new FungibleData(funData.amount.toString(), funData.currency.value)
-    }
   }
 
   final case class PriceQuote(price: Float, timestamp: Instant)
@@ -337,6 +344,7 @@ object dto {
   }
 
   final case class PortfolioKpi(
+    accountBalance: ValueTrendComparison,
     tradeCount: Int,
     winRate: Float,
     loseRate: Float,
@@ -349,6 +357,7 @@ object dto {
 
     def apply(kpi: CJPortfolioKpi): PortfolioKpi =
       new PortfolioKpi(
+        ValueTrendComparison.fromAccountBalance(kpi.accountBalance, AccountBalance(kpi.referenceMarketPlays)),
         kpi.tradeCount,
         kpi.winRate,
         kpi.loseRate,
@@ -367,6 +376,13 @@ object dto {
         netReturn.value.asJson,
         netReturn.trend.map(_.amount),
         Performance(netReturn.performance(compareWith))
+      )
+
+    def fromAccountBalance(balance: AccountBalance, compareWith: AccountBalance): ValueTrendComparison =
+      new ValueTrendComparison(
+        balance.value.asJson,
+        balance.trend.map(_.amount),
+        Performance(balance.performance(compareWith))
       )
   }
 
