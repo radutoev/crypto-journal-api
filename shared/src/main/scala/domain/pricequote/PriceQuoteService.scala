@@ -37,14 +37,14 @@ final case class LivePriceQuoteService(
   override def updateQuotes(currencies: Set[(Currency, CoinAddress)]): IO[PriceQuoteError, Unit] =
     for {
       _                 <- logger.info(s"Update price quotes for currencies: ${currencies.mkString(",")}")
-      latestQuotes      <- priceQuoteRepo.getLatestQuotes(currencies.map(_._1))
+      latestQuotes      <- priceQuoteRepo.getLatestQuotes()
       today             <- clock.instant.map(_.atBeginningOfDay())
       addressToCurrency = currencies.toMap.map(_.swap)
-      intervals = currencies.map { currency =>
-        if (latestQuotes.contains(currency._1)) {
-          currency._2 -> TimeInterval(latestQuotes(currency._1).timestamp, today)
+      intervals = currencies.map { currencyAndAddress =>
+        if (latestQuotes.contains(currencyAndAddress._1)) {
+          currencyAndAddress._2 -> TimeInterval(latestQuotes(currencyAndAddress._1).timestamp, today)
         } else {
-          currency._2 -> TimeInterval(BeginningOfTime, today)
+          currencyAndAddress._2 -> TimeInterval(BeginningOfTime, today)
         }
       }
       _ <- ZIO.foreachParN_(4)(intervals) {

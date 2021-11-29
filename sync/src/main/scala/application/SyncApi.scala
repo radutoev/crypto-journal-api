@@ -15,6 +15,6 @@ object SyncApi {
         currencies <- currencyRepo.getCurrencies()
         _          <- priceQuoteService.updateQuotes(currencies)
       } yield ()).orElseFail(new RuntimeException("Error updating quotes"))
-    } repeat Schedule.spaced(1.hour)
+    } repeat Schedule.spaced(5.seconds)
   }
 }

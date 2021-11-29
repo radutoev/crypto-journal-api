@@ -10,7 +10,7 @@ import zio.{ Has, IO, Task, ZIO }
 trait PriceQuoteRepo {
   def getQuotes(currencies: Set[Currency], interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]]
 
-  def getLatestQuotes(currency: Set[Currency]): IO[PriceQuoteError, Map[Currency, PriceQuote]]
+  def getLatestQuotes(): IO[PriceQuoteError, Map[Currency, PriceQuote]]
 
   def saveQuotes(quotes: Map[Currency, List[PriceQuote]]): IO[PriceQuoteError, Unit]
 }
