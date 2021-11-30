@@ -7,15 +7,10 @@ import domain.pricequote.LivePriceQuoteService
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.datastore.{
-  DatastoreCurrencyRepo,
-  DatastoreMarketPlayRepo,
-  DatastorePriceQuoteRepo,
-  DatastoreWalletImportRepo
-}
+import infrastructure.google.datastore.{DatastoreCurrencyRepo, DatastoreMarketPlayRepo, DatastorePaginationRepo, DatastorePriceQuoteRepo, DatastoreWalletImportRepo}
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{Config, ConfigFactory}
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zio._
@@ -29,44 +24,51 @@ object Sync extends App {
       .flatMap(rawConfig => program(rawConfig))
       .exitCode
 
-  private def program(config: Config) =
+  private def program(config: Config) = {
+    val (syncLayer, pagContextLayer) = listenerEnvironment(config)
+
     for {
-      quotesSyncFiber <- SyncApi.syncPriceQuotes().provideCustomLayer(listenerEnvironment(config)).forever.fork
-      _               <- quotesSyncFiber.join
-//      bnbStream <- BnbListener
-//                    .positionEntryStream()
-//                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
-//                    .flattenIterables
-//                    .mapM(txObject =>
-//                      knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
-//                    )
-//                    .filter(_._2.nonEmpty)
-//                    .mapM {
-//                      case (txHash, addresses) =>
-//                        BlockchainRepo.fetchTransaction(txHash).map(_ -> addresses)
-//                    }
-//                    //TODO Redo logic for merging
-//                    //                    .mapM {
-//                    //                      case (transaction, addresses) =>
-//                    //                        ZIO.foreach(addresses)(address =>
-//                    //                          MarketPlayRepo
-//                    //                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
-//                    //                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
-//                    //                            .map(marketPlays => address -> marketPlays)
-//                    //                        )
-//                    //                    }
-//                    //                    .foreach { newAddressMarketPlays =>
-//                    //                      ZIO.foreach(newAddressMarketPlays) {
-//                    //                        case (address, marketPlays) =>
-//                    //                          MarketPlayRepo.save(address, marketPlays.positions)
-//                    //                      }
-//                    //                    }
-//                    .foreach(_ => UIO.unit)
-//                    .provideCustomLayer(listenerEnvironment(config))
-//                    .forever
-//                    .fork
-//      _ <- bnbStream.join
+
+      quotesSyncFiber <- SyncApi.syncPriceQuotes().provideCustomLayer(syncLayer).forever.fork
+      pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).forever.fork
+      _               <- quotesSyncFiber.join <+> pagContextFiber.join
+      //      bnbStream <- BnbListener
+      //                    .positionEntryStream()
+      //                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
+      //                    .flattenIterables
+      //                    .mapM(txObject =>
+      //                      knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
+      //                    )
+      //                    .filter(_._2.nonEmpty)
+      //                    .mapM {
+      //                      case (txHash, addresses) =>
+      //                        BlockchainRepo.fetchTransaction(txHash).map(_ -> addresses)
+      //                    }
+      //                    //TODO Redo logic for merging
+      //                    //                    .mapM {
+      //                    //                      case (transaction, addresses) =>
+      //                    //                        ZIO.foreach(addresses)(address =>
+      //                    //                          MarketPlayRepo
+      //                    //                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
+      //                    //                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
+      //                    //                            .map(marketPlays => address -> marketPlays)
+      //                    //                        )
+      //                    //                    }
+      //                    //                    .foreach { newAddressMarketPlays =>
+      //                    //                      ZIO.foreach(newAddressMarketPlays) {
+      //                    //                        case (address, marketPlays) =>
+      //                    //                          MarketPlayRepo.save(address, marketPlays.positions)
+      //                    //                      }
+      //                    //                    }
+      //                    .foreach(_ => UIO.unit)
+      //                    .provideCustomLayer(listenerEnvironment(config))
+      //                    .forever
+      //                    .fork
+      //      _ <- bnbStream.join
     } yield ()
+  }
+
+
 
   private def knownAddresses(tx: Transaction) = {
     def elementOrNil(address: WalletAddress, addresses: List[WalletAddress]) =
@@ -105,8 +107,12 @@ object Sync extends App {
     lazy val clockLayer = Clock.live
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
-    lazy val positionsRepoLayer =
-      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ clockLayer >>> DatastoreMarketPlayRepo.layer
+
+    lazy val paginationContextRepoLayer = (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer) >>> DatastorePaginationRepo.layer
+
+    lazy val marketPlayRepo =
+      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ paginationContextRepoLayer >>> DatastoreMarketPlayRepo.layer
+
     lazy val walletRepoLayer =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
@@ -118,6 +124,8 @@ object Sync extends App {
     lazy val priceQuoteServiceLayer =
       (loggingLayer ++ priceQuoteRepoLayer ++ exchangeRepoLayer ++ clockLayer) >>> LivePriceQuoteService.layer
 
-    exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ positionsRepoLayer ++ currencyRepoLayer ++ priceQuoteServiceLayer ++ clockLayer
+    lazy val syncLayer = exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ marketPlayRepo ++ currencyRepoLayer ++ priceQuoteServiceLayer ++ clockLayer
+
+    (syncLayer, paginationContextRepoLayer)
   }
 }

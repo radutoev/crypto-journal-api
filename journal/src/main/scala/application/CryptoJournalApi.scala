@@ -4,9 +4,9 @@ package application
 import domain.account.RequestContext
 import domain.market.error.MarketError
 import domain.market.{MarketService, Ohlcv}
-import domain.model.{FungibleData, PlayId, WalletAddress}
+import domain.model.{PlayId, WalletAddress}
 import domain.portfolio.error.PortfolioError
-import domain.portfolio.{AccountBalance, KpiService, PortfolioKpi}
+import domain.portfolio.{KpiService, PortfolioKpi}
 import domain.position._
 import domain.position.error.MarketPlayError
 import domain.wallet.error.WalletError

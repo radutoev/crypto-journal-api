@@ -28,6 +28,7 @@ import scala.jdk.CollectionConverters._
 final case class DatastoreMarketPlayRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
+  paginationRepo: DatastorePaginationRepo,
   logger: Logger[String]
 ) extends MarketPlayRepo {
 
@@ -154,11 +155,11 @@ final case class DatastoreMarketPlayRepo(
     def generatePageAndSavePaginationContext(query: EntityQuery): IO[MarketPlayError, Page[MarketPlays]] =
       for {
         (page, maybeContext) <- generatePage(query)
-        _                    <- maybeContext.fold[IO[MarketPlayError, Unit]](UIO.unit)(ctx => savePaginationContext(ctx).unit)
+        _                    <- maybeContext.fold[IO[MarketPlayError, Unit]](UIO.unit)(ctx => paginationRepo.savePaginationContext(ctx).unit)
       } yield page
 
     logger.info(s"Fetching positions for ${address.value}. Interval: ${filter.interval.start} - ${filter.interval.end}") *>
-    getPaginationContext(contextId).flatMap { positionContext =>
+    paginationRepo.getPaginationContext(contextId).flatMap { positionContext =>
       val query = if (filterHasChanged(positionContext.filterHash)) {
         positionsQuery(address, filter, Descending).build()
       } else {
@@ -188,33 +189,6 @@ final case class DatastoreMarketPlayRepo(
         case filter.Descending => OrderBy.desc("openedAt")
       })
       .setLimit(positionFilter.count)
-
-  private def getPaginationContext(contextId: ContextId): IO[MarketPlayError, PaginationContext] = {
-    val key = datastore.newKeyFactory().setKind(datastoreConfig.paginationContext).newKey(contextId.value)
-    val query = Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.paginationContext)
-      .setFilter(PropertyFilter.eq("__key__", key))
-      .setLimit(1)
-      .build()
-
-    executeQuery(query)
-      .orElseFail(PaginationContextFetchError(contextId))
-      .flatMap { results =>
-        val list = results.asScala.toList
-        if (list.nonEmpty) {
-          ZIO.fromEither(entityAsPaginationContext(list.head))
-        } else {
-          ZIO.fail(PaginationContextNotFoundError(contextId))
-        }
-      }
-  }
-
-  private def savePaginationContext(context: PaginationContext): IO[MarketPlayError, Unit] =
-    Task(datastore.put(paginationContextAsEntity(context)))
-      .tapError(err => logger.warn(err.toString))
-      .orElseFail(PaginationContextSaveError(context))
-      .unit
 
   override def getPositions(address: WalletAddress, state: State): IO[MarketPlayError, List[Position]] = {
     val query = Query
@@ -936,32 +910,6 @@ final case class DatastoreMarketPlayRepo(
       id
     )
 
-  private def paginationContextAsEntity(context: PaginationContext): Entity =
-    Entity
-      .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.paginationContext).newKey(context.contextId.value))
-      .set("cursor", context.cursor.value)
-      .set("positionFilterHash", context.filterHash)
-      .build()
-
-  private def entityAsPaginationContext(entity: Entity): Either[InvalidRepresentation, PaginationContext] =
-    for {
-      ctxId <- tryOrLeft(entity.getKey().getName, InvalidRepresentation("Entry has no key name"))
-                .flatMap(rawIdStr =>
-                  refined
-                    .refineV[ContextIdPredicate](rawIdStr)
-                    .left
-                    .map(_ => InvalidRepresentation(s"Invalid format for id $rawIdStr"))
-                )
-      cursor <- tryOrLeft(entity.getString("cursor"), InvalidRepresentation("Invalid cursor representation"))
-                 .flatMap(rawCursor =>
-                   refineV[CursorPredicate](rawCursor).left.map(_ =>
-                     InvalidRepresentation(s"Invalid format for cursor $rawCursor")
-                   )
-                 )
-      hash <- tryOrLeft(entity.getLong("positionFilterHash"), InvalidRepresentation("Invalid filter hash"))
-               .map(rawHash => rawHash.toInt)
-    } yield PaginationContext(ctxId, cursor, hash)
-
   private def moreRecentThan(entity: Entity, timestamp: Instant): Boolean =
     tryOrLeft(
       Instant.ofEpochSecond(entity.getTimestamp("openedAt").getSeconds),
@@ -970,6 +918,6 @@ final case class DatastoreMarketPlayRepo(
 }
 
 object DatastoreMarketPlayRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging with Clock, Has[MarketPlayRepo]] =
-    (DatastoreMarketPlayRepo(_, _, _)).toLayer
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Has[DatastorePaginationRepo] with Logging, Has[MarketPlayRepo]] =
+    (DatastoreMarketPlayRepo(_, _, _, _)).toLayer
 }

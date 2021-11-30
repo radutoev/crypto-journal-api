@@ -7,7 +7,7 @@ import domain.position.{LiveJournalingService, LiveMarketPlayService}
 import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
-import infrastructure.covalent.{CovalentFacade, CovalentWalletRepo}
+import infrastructure.covalent.CovalentFacade
 import infrastructure.google.datastore._
 
 import com.google.cloud.datastore.DatastoreOptions
@@ -37,7 +37,6 @@ object CryptoJournal extends App {
     val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
     val coinApiConfigLayer   = configLayer.map(c => Has(c.get.coinApi))
     val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
-//    val demoAccountConfigLayer = configLayer.map(c => Has(c.get.demoAccount))
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
 
@@ -64,12 +63,12 @@ object CryptoJournal extends App {
 
     lazy val walletImportLayer = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
+    lazy val paginationContextRepo = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastorePaginationRepo.layer
+
     lazy val marketPlayRepo =
-      datastoreLayer ++ datastoreConfigLayer ++ loggingLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer
+      datastoreLayer ++ datastoreConfigLayer ++ paginationContextRepo ++ loggingLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer
 
     lazy val journalRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreJournalingRepo.layer
-
-    lazy val walletRepoLayer = httpClientLayer ++ covalentConfigLayer ++ loggingLayer >>> CovalentWalletRepo.layer
 
     lazy val marketPlayService =
       marketPlayRepo ++ priceQuoteRepoLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ currencyRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer

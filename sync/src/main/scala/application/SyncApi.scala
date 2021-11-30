@@ -2,7 +2,9 @@ package io.softwarechain.cryptojournal
 package application
 
 import domain.currency.CurrencyRepo
+import domain.position.error.MarketPlayError
 import domain.pricequote.PriceQuoteService
+import infrastructure.google.datastore.DatastorePaginationRepo
 
 import zio.clock.Clock
 import zio.duration.durationInt
@@ -15,6 +17,10 @@ object SyncApi {
         currencies <- currencyRepo.getCurrencies()
         _          <- priceQuoteService.updateQuotes(currencies)
       } yield ()).orElseFail(new RuntimeException("Error updating quotes"))
-    } repeat Schedule.spaced(5.seconds)
+    } repeat Schedule.spaced(1.hour)
+  }
+
+  def clearPaginationContext(): ZIO[Has[DatastorePaginationRepo] with Clock, MarketPlayError, Unit] = {
+    (ZIO.serviceWith[DatastorePaginationRepo](_.cleanup()) repeat Schedule.spaced(1.day)).unit
   }
 }
