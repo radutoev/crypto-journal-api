@@ -4,20 +4,24 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.model.{ContextId, ContextIdPredicate}
 import domain.position.error._
-import util.tryOrLeft
+import util.{InstantOps, tryOrLeft}
 import vo.pagination.{CursorPredicate, PaginationContext}
 
+import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
+import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, URLayer, ZIO}
 
-import scala.jdk.CollectionConverters.IteratorHasAsScala
+import java.time.Instant
+import scala.jdk.CollectionConverters.{IteratorHasAsScala, SeqHasAsJava}
 
 final case class DatastorePaginationRepo(datastore: Datastore,
                                          datastoreConfig: DatastoreConfig,
+                                         clock: Clock.Service,
                                          logger: Logger[String])  {
   def getPaginationContext(contextId: ContextId): IO[MarketPlayError, PaginationContext] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.paginationContext).newKey(contextId.value)
@@ -47,8 +51,22 @@ final case class DatastorePaginationRepo(datastore: Datastore,
       .unit
 
   def cleanup(): IO[MarketPlayError, Unit] = {
+    def query(threshold: Instant) = {
+      Query.newEntityQueryBuilder()
+        .setKind(datastoreConfig.paginationContext)
+        .setFilter(PropertyFilter.le("timestamp", TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(threshold.getEpochSecond, threshold.getNano))))
+        .build()
+    }
+
+    lazy val cleanupEffect = (for {
+      threshold <- clock.instant.map(_.atBeginningOfDay())
+      keys      <- executeQuery(query(threshold)).map(_.asScala.toList.map(_.getKey("__key__")))
+      _         <- (Task(datastore.delete(keys: _*)).tapError(throwable => logger.warn(throwable.getMessage)) *> logger.info("Pagination context cursors removed")).when(keys.nonEmpty)
+      _         <- logger.info("No cursors found").when(keys.isEmpty)
+    } yield ()).ignore
+
     logger.info("Cleaning pagination context cursors...") *>
-      logger.info("Pagination context cursors removed")
+      cleanupEffect
   }
 
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
@@ -83,8 +101,8 @@ final case class DatastorePaginationRepo(datastore: Datastore,
 }
 
 object DatastorePaginationRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging, Has[DatastorePaginationRepo]] =
-    (DatastorePaginationRepo(_, _, _)).toLayer
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Clock with Logging, Has[DatastorePaginationRepo]] =
+    (DatastorePaginationRepo(_, _, _, _)).toLayer
 }
 
 

@@ -2,13 +2,12 @@ package io.softwarechain.cryptojournal
 package application
 
 import domain.currency.CurrencyRepo
-import domain.position.error.MarketPlayError
 import domain.pricequote.PriceQuoteService
 import infrastructure.google.datastore.DatastorePaginationRepo
 
 import zio.clock.Clock
 import zio.duration.durationInt
-import zio.{Has, Schedule, ZIO}
+import zio.{Has, Schedule, URIO, ZIO}
 
 object SyncApi {
   def syncPriceQuotes(): ZIO[Has[CurrencyRepo] with Has[PriceQuoteService] with Clock, RuntimeException, Long] = {
@@ -20,7 +19,7 @@ object SyncApi {
     } repeat Schedule.spaced(1.hour)
   }
 
-  def clearPaginationContext(): ZIO[Has[DatastorePaginationRepo] with Clock, MarketPlayError, Unit] = {
-    (ZIO.serviceWith[DatastorePaginationRepo](_.cleanup()) repeat Schedule.spaced(1.day)).unit
+  def clearPaginationContext(): URIO[Has[DatastorePaginationRepo] with Clock, Unit] = {
+    (ZIO.serviceWith[DatastorePaginationRepo](_.cleanup()) repeat Schedule.spaced(1.day)).unit.ignore
   }
 }

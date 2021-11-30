@@ -108,7 +108,7 @@ object Sync extends App {
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
 
-    lazy val paginationContextRepoLayer = (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer) >>> DatastorePaginationRepo.layer
+    lazy val paginationContextRepoLayer = (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ clockLayer) >>> DatastorePaginationRepo.layer
 
     lazy val marketPlayRepo =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ paginationContextRepoLayer >>> DatastoreMarketPlayRepo.layer
