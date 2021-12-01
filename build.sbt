@@ -10,6 +10,7 @@ val spotifyFuturesVersion = "4.3.0"
 val sttpClientVersion     = "3.3.15"
 val web3jVersion          = "5.0.0"
 val zioVersion            = "1.0.12"
+val zioCalibanVersion     = "1.3.0"
 val zioConfigVersion      = "1.0.10"
 val zioInteropVersion     = "1.3.7"
 val zioHttpVersion        = "1.0.0.0-RC17+12-2f7aa146-SNAPSHOT"
@@ -92,26 +93,35 @@ lazy val sync = project
   .settings(
     commonSettings ++ packageSettings ++ Seq(name := "sync"),
     libraryDependencies ++= Seq(
-      "ch.qos.logback" % "logback-classic"              % logbackVersion,
-      "com.spotify"    % "futures-extra"                % spotifyFuturesVersion,
-      "dev.zio"        %% "zio-config-magnolia"         % zioConfigVersion,
-      "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
-      "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
-      "dev.zio"        %% "zio-interop-reactivestreams" % zioInteropVersion,
-      "org.web3j"      % "core"                         % web3jVersion
+      "ch.qos.logback"        % "logback-classic"              % logbackVersion,
+      "com.spotify"           % "futures-extra"                % spotifyFuturesVersion,
+      "com.github.ghostdogpr" %% "caliban-client"              % zioCalibanVersion,
+      "dev.zio"               %% "zio-config-magnolia"         % zioConfigVersion,
+      "dev.zio"               %% "zio-config-refined"          % zioConfigVersion,
+      "dev.zio"               %% "zio-config-typesafe"         % zioConfigVersion,
+      "dev.zio"               %% "zio-interop-reactivestreams" % zioInteropVersion,
+      "org.web3j"             % "core"                         % web3jVersion
+    ),
+    Compile / caliban / calibanSettings += calibanSetting(url("https://graphql.bitquery.io/"))(cs =>
+      cs.headers("X-API-KEY" -> "BQYVTE222H3jH2ZnySdrpYGtBsUsGC8N")
+        .clientName("BitQueryClient")
+        .packageName("io.softwarechain.cryptojournal.infrastrucutre.bitquery.graphql.client")
+        .splitFiles(true)
+        .genView(true)
+        .enableFmt(false)
     )
   )
   .dependsOn(shared)
-  .enablePlugins(JavaAppPackaging, DockerPlugin)
+  .enablePlugins(JavaAppPackaging, DockerPlugin, CalibanPlugin)
 
 lazy val reports = project
   .settings(
     commonSettings ++ Seq(name := "reports"),
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio-config-magnolia"         % zioConfigVersion,
-      "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
-      "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
-      "ch.qos.logback" % "logback-classic" % logbackVersion
+      "dev.zio"        %% "zio-config-magnolia" % zioConfigVersion,
+      "dev.zio"        %% "zio-config-refined"  % zioConfigVersion,
+      "dev.zio"        %% "zio-config-typesafe" % zioConfigVersion,
+      "ch.qos.logback" % "logback-classic"      % logbackVersion
     )
   )
   .dependsOn(shared)

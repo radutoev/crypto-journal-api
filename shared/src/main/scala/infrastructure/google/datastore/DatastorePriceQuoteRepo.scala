@@ -46,9 +46,11 @@ final case class DatastorePriceQuoteRepo(
         .setFilter(filter)
         .addOrderBy(OrderBy.asc("timestamp"))
         .build()
+
       results <- Task(datastore.run(query, Seq.empty[ReadOption]: _*))
                   .tapError(err => logger.warn(err.getMessage))
                   .orElseFail(PriceQuoteFetchError("Unable to fetch quotes"))
+
       quotes = results.asScala.toList
         .map(entityToPriceQuote)
         .filter(t => t._2.timestamp.isBefore(interval.end) || t._2.timestamp == interval.end)

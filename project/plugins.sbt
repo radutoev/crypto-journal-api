@@ -10,3 +10,6 @@ addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "1.0.0")
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.8.1")
 
 addSbtPlugin("au.com.onegeek" % "sbt-dotenv" % "2.1.204")
+
+/** Code generation based on gql schemas. **/
+addSbtPlugin("com.github.ghostdogpr" % "caliban-codegen-sbt" % "1.3.0")
