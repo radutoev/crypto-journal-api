@@ -107,7 +107,7 @@ lazy val sync = project
         .clientName("BitQueryClient")
         .packageName("io.softwarechain.cryptojournal.infrastrucutre.bitquery.graphql.client")
         .splitFiles(true)
-        .genView(true)
+        .genView(false)
         .enableFmt(false)
     )
   )

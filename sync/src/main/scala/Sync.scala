@@ -6,8 +6,9 @@ import domain.model.WalletAddress
 import domain.pricequote.LivePriceQuoteService
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
+import infrastructure.bitquery.BitQueryFacade
 import infrastructure.covalent.CovalentFacade
-import infrastructure.google.datastore.{DatastoreCurrencyRepo, DatastoreMarketPlayRepo, DatastorePaginationRepo, DatastorePriceQuoteRepo, DatastoreWalletImportRepo}
+import infrastructure.google.datastore._
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
@@ -29,7 +30,7 @@ object Sync extends App {
 
     for {
 
-      quotesSyncFiber <- SyncApi.syncPriceQuotes().provideCustomLayer(syncLayer).forever.fork
+      quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(syncLayer).forever.fork
       pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).forever.fork
       _               <- quotesSyncFiber.join <+> pagContextFiber.join
       //      bnbStream <- BnbListener
@@ -68,8 +69,6 @@ object Sync extends App {
     } yield ()
   }
 
-
-
   private def knownAddresses(tx: Transaction) = {
     def elementOrNil(address: WalletAddress, addresses: List[WalletAddress]) =
       if (addresses.contains(address)) {
@@ -94,6 +93,7 @@ object Sync extends App {
     val configLayer          = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
     val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
     val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
+    val bitQueryConfigLayer  = configLayer.map(c => Has(c.get.bitquery))
 
     val datastoreLayer = ZIO(DatastoreOptions.getDefaultInstance.toBuilder.build().getService).toLayer
 
@@ -108,7 +108,8 @@ object Sync extends App {
 
     lazy val exchangeRepoLayer = (httpClientLayer ++ loggingLayer ++ covalentConfigLayer) >>> CovalentFacade.layer
 
-    lazy val paginationContextRepoLayer = (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ clockLayer) >>> DatastorePaginationRepo.layer
+    lazy val paginationContextRepoLayer =
+      (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ clockLayer) >>> DatastorePaginationRepo.layer
 
     lazy val marketPlayRepo =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ paginationContextRepoLayer >>> DatastoreMarketPlayRepo.layer
@@ -121,11 +122,16 @@ object Sync extends App {
     lazy val priceQuoteRepoLayer =
       datastoreLayer ++ datastoreConfigLayer ++ clockLayer ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
+    lazy val bitQueryFacadeLayer = loggingLayer ++ bitQueryConfigLayer >>> BitQueryFacade.layer
+
     lazy val priceQuoteServiceLayer =
-      (loggingLayer ++ priceQuoteRepoLayer ++ exchangeRepoLayer ++ clockLayer) >>> LivePriceQuoteService.layer
+      (loggingLayer ++ priceQuoteRepoLayer ++ currencyRepoLayer ++ bitQueryFacadeLayer ++ clockLayer) >>> LivePriceQuoteService.layer
 
-    lazy val syncLayer = exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ marketPlayRepo ++ currencyRepoLayer ++ priceQuoteServiceLayer ++ clockLayer
+//    lazy val syncLayer =
+//      exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ marketPlayRepo ++ currencyRepoLayer ++ priceQuoteServiceLayer ++ clockLayer ++ bitQueryFacadeLayer
 
-    (syncLayer, paginationContextRepoLayer)
+    lazy val priceQuotesSyncLayer = priceQuoteServiceLayer
+
+    (priceQuotesSyncLayer, paginationContextRepoLayer)
   }
 }

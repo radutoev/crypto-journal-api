@@ -1,52 +1,32 @@
 package io.softwarechain.cryptojournal
 package infrastructure.bitquery
 
-import domain.model.WalletAddress
+import config.BitQueryConfig
+import domain.model.CoinAddress
+import domain.pricequote.PriceQuote
 import infrastrucutre.bitquery.graphql.client.Ethereum.dexTrades
-import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{ quotePrice, timeInterval }
+import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{quotePrice, timeInterval}
 import infrastrucutre.bitquery.graphql.client.PriceAggregateFunction.average
 import infrastrucutre.bitquery.graphql.client.Query.ethereum
 import infrastrucutre.bitquery.graphql.client.TimeInterval.minute
-import infrastrucutre.bitquery.graphql.client.{
-  DateSelector,
-  EthereumCurrencySelector,
-  EthereumNetwork,
-  StringSelector
-}
+import infrastrucutre.bitquery.graphql.client.{DateSelector, EthereumCurrencySelector, EthereumNetwork, StringSelector}
 
 import sttp.client3._
 import sttp.client3.httpclient.zio.HttpClientZioBackend
-import zio.UIO
+import zio.logging.{Logger, Logging}
+import zio.{Has, Task, URLayer}
 
-//final case class BitQueryFacade () {
-//  def getPrices(base: WalletAddress, quote: WalletAddress) = {
-//    HttpClientZioBackend().flatMap { backend =>
-//      Query.ethereum(network = Some(EthereumNetwork.bsc))(
-//        dexTrades(
-//          date = Some(DateSelector(since = Some("2021-08-01"))),
-//          exchangeName = Some(List(StringSelector(is = Some("Pancake")), StringSelector(is = Some("Pancake v2")))),
-//          baseCurrency = Some(List(EthereumCurrencySelector(is = Some(base.value)))),
-//          quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(quote.value))))
-//        ) {
-//          timeInterval {
-//            minute(count = Some(1), format = Some("%FT%TZ"))
-//          } ~
-//            quotePrice(calculate = Some(average))
-//        }).toRequest(uri"https://graphql.bitquery.io/")
-//        .headers(Map("X-API-KEY" -> "BQYVTE222H3jH2ZnySdrpYGtBsUsGC8N"))
-//        .send(backend)
-//        .map(_.body)
-//    }
-//  }
-//}
+import java.time.{Instant, LocalDate}
 
-object BitQueryFacade {
-  def getPrices(base: WalletAddress, quote: WalletAddress) = {
+final case class BitQueryFacade (config: BitQueryConfig,
+                                 logger: Logger[String]) {
+  private lazy val zioHttpBackend = HttpClientZioBackend()
+
+  def getPrices(base: CoinAddress, quote: CoinAddress, since: LocalDate): Task[List[PriceQuote]] = {
     val query = ethereum(network = Some(EthereumNetwork.bsc))(
       dexTrades(
-        date = Some(DateSelector(since = Some("2021-08-01"))),
-//          exchangeName = Some(List(StringSelector(is = Some("Pancake")), StringSelector(is = Some("Pancake v2")))),
-        exchangeName = Some(List(StringSelector(is = Some("Pancake V2")))),
+        date = Some(DateSelector(since = Some(since.toString))),
+        exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
         baseCurrency = Some(List(EthereumCurrencySelector(is = Some(base.value)))),
         quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(quote.value))))
       ) {
@@ -57,14 +37,23 @@ object BitQueryFacade {
       }
     )
 
-    HttpClientZioBackend().flatMap { backend =>
+    zioHttpBackend.flatMap { backend =>
       query
-        .toRequest(uri"https://graphql.bitquery.io/", dropNullInputValues = true, useVariables = true)
-        .headers(Map("X-API-KEY" -> "BQYVTE222H3jH2ZnySdrpYGtBsUsGC8N"))
+        .toRequest(uri"${config.url}", dropNullInputValues = true)
+        .headers(Map("X-API-KEY" -> config.url))
         .send(backend)
+        .tapError(err => logger.warn(err.getMessage))
         .map(_.body)
+        .map(_.map(result => {
+          result.flatten.getOrElse(List.empty).collect {
+            case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
+          }
+        }))
         .absolve
-        .tap(res => UIO(println(res)))
     }
   }
+}
+
+object BitQueryFacade {
+  lazy val layer: URLayer[Has[BitQueryConfig] with Logging, Has[BitQueryFacade]] = (BitQueryFacade(_, _)).toLayer
 }

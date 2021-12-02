@@ -1,18 +1,18 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import domain.model.{ CoinAddress, Currency }
+import domain.model.Currency
 import domain.pricequote.error.PriceQuoteError
-import vo.TimeInterval
+import vo.{PriceQuotesChunk, TimeInterval}
 
-import zio.{ Has, IO, Task, ZIO }
+import zio.{Has, IO, ZIO}
 
 trait PriceQuoteRepo {
   def getQuotes(currencies: Set[Currency], interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]]
 
   def getLatestQuotes(): IO[PriceQuoteError, Map[Currency, PriceQuote]]
 
-  def saveQuotes(quotes: Map[Currency, List[PriceQuote]]): IO[PriceQuoteError, Unit]
+  def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit]
 }
 
 object PriceQuoteRepo {

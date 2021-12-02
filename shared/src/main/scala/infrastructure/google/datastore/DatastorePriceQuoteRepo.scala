@@ -1,19 +1,19 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
-import config.{ CovalentConfig, DatastoreConfig }
+import config.DatastoreConfig
 import domain.model.Currency
-import domain.pricequote.error.{ PriceQuoteError, PriceQuoteFetchError }
-import domain.pricequote.{ PriceQuote, PriceQuoteRepo }
+import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError}
+import domain.pricequote.{PriceQuote, PriceQuoteRepo}
 import util.InstantOps
-import vo.TimeInterval
+import vo.{PriceQuotesChunk, TimeInterval}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -53,10 +53,10 @@ final case class DatastorePriceQuoteRepo(
 
       quotes = results.asScala.toList
         .map(entityToPriceQuote)
-        .filter(t => t._2.timestamp.isBefore(interval.end) || t._2.timestamp == interval.end)
+        .filter(t => t._3.timestamp.isBefore(interval.end) || t._3.timestamp == interval.end)
         .groupBy(_._1)
         .view
-        .mapValues(_.map(_._2))
+        .mapValues(_.map(_._3))
         .toMap
     } yield quotes
 
@@ -85,7 +85,7 @@ final case class DatastorePriceQuoteRepo(
       .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
   }
 
-  override def saveQuotes(quotes: Map[Currency, List[PriceQuote]]): IO[PriceQuoteError, Unit] = {
+  override def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit] = {
     @inline
     def saveEntities(list: List[Entity]) =
       Task(datastore.newTransaction())
@@ -101,36 +101,39 @@ final case class DatastorePriceQuoteRepo(
         .ignore //TODO handle transactions response when doing error handling.
 
     {
-      val entities = quotes.flatMap {
-        case (currency, quotes) =>
-          quotes.map(quote => priceQuoteWithCurrencyToEntity(currency -> quote))
-      }.grouped(25).toList
+      val entities = quotesChunk.quotes
+        .map(quote => priceQuoteWithCurrencyToEntity((quotesChunk.baseCurrency, quotesChunk.quoteCurrency, quote)))
+        .grouped(25)
+        .toList
+
       for {
         _ <- ZIO.foreach_(entities)(items => saveEntities(items.toList))
         _ <- logger.info(s"Finished upsert of quotes")
       } yield ()
-    }.when(quotes.nonEmpty)
+    }.when(quotesChunk.quotes.nonEmpty)
   }
 
-  private val entityToPriceQuote: Entity => (Currency, PriceQuote) = entity => {
+  private val entityToPriceQuote: Entity => (Currency, Currency, PriceQuote) = entity => {
     (
-      Currency.unsafeFrom(entity.getString("currency")),
+      Currency.unsafeFrom(entity.getString("baseCurrency")),
+      Currency.unsafeFrom(entity.getString("quoteCurrency")),
       PriceQuote(
-        Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
+        Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble),
         Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
       )
     )
   }
 
-  private def priceQuoteWithCurrencyToEntity(data: (Currency, PriceQuote)) =
+  private def priceQuoteWithCurrencyToEntity(data: (Currency, Currency, PriceQuote)) =
     Entity
       .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.priceQuote).newKey(UUID.randomUUID().toString))
-      .set("currency", data._1.value)
+      .set("baseCurrency", data._1.value)
+      .set("quoteCurrency", data._2.value)
       .set(
         "timestamp",
-        TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(data._2.timestamp.getEpochSecond, data._2.timestamp.getNano))
+        TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(data._3.timestamp.getEpochSecond, data._3.timestamp.getNano))
       )
-      .set("price", data._2.price)
+      .set("price", data._3.price)
       .build()
 }
 
