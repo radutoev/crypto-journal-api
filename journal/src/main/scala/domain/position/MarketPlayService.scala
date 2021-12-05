@@ -10,7 +10,7 @@ import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import domain.wallet.Wallet
-import util.ListOptionOps
+import util.{ListOptionOps, MarketPlaysListOps}
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
@@ -82,21 +82,19 @@ final case class LiveMarketPlayService(
     } yield MarketPlays(withJournalEntries(marketPlays, journalEntries)))
       .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
 
-  //TODO I don't think I need to return Page from the repo, I could just return the plays.
   override def getPlays(
     userWallet: Wallet,
     filter: PlayFilter,
     contextId: ContextId
-  ): IO[MarketPlayError, MarketPlays] = ???
-//    for {
-//      page        <- positionRepo.getPlays(userWallet.address, filter, contextId)
-//      quotes      <- getQuotesForMarketPlays(page.data)
-//      enrichedPlays = marketPlays.map(play => addQuotes(play, quotes))
-//      journalEntries <- journalingRepo.getEntries(
-//                         userWallet.userId,
-//                         marketPlays.map(_.id).values
-//                       )
-//    } yield MarketPlays(withJournalEntries(enrichedPlays, journalEntries).mostRecentFirst())
+  ): IO[MarketPlayError, MarketPlays] =
+    for {
+      page  <- positionRepo.getPlays(userWallet.address, filter, contextId)
+      plays <- enrichPlays(page.data.plays)
+      journalEntries <- journalingRepo.getEntries(
+                         userWallet.userId,
+                         plays.map(_.id).values
+                       )
+    } yield MarketPlays(withJournalEntries(plays, journalEntries).mostRecentFirst())
 
   private def withJournalEntries(plays: List[MarketPlay], entries: List[JournalEntry]): List[MarketPlay] = {
     val positionToEntryMap = entries.map(e => e.positionId.get -> e).toMap
@@ -111,11 +109,11 @@ final case class LiveMarketPlayService(
     // We lose the error type here.
     for {
       positionWithLinkIds <- positionRepo.getPosition(positionId)
-      linkedPositions   <- positionRepo.getPositions(positionWithLinkIds.links.next ++ positionWithLinkIds.links.previous)
-      (next, previous) = linkedPositions.partition(p => positionWithLinkIds.links.next.contains(p.id.get))
-      nextEnriched     <- enrichPlays(next).map(_.asInstanceOf[List[Position]])
-      previousEnriched <- enrichPlays(previous).map(_.asInstanceOf[List[Position]])
-      position         <- enrichPlay(positionWithLinkIds.position).mapBoth(_.get, _.asInstanceOf[Position])
+      linkedPositions     <- positionRepo.getPositions(positionWithLinkIds.links.next ++ positionWithLinkIds.links.previous)
+      (next, previous)    = linkedPositions.partition(p => positionWithLinkIds.links.next.contains(p.id.get))
+      nextEnriched        <- enrichPlays(next).map(_.asInstanceOf[List[Position]])
+      previousEnriched    <- enrichPlays(previous).map(_.asInstanceOf[List[Position]])
+      position            <- enrichPlay(positionWithLinkIds.position).mapBoth(_.get, _.asInstanceOf[Position])
       journalEntry <- journalingRepo.getEntry(userId, position.id.get).map(Some(_)).catchSome {
                        case _: JournalNotFound => UIO.none
                      }
@@ -123,16 +121,19 @@ final case class LiveMarketPlayService(
 
   override def getNextPositions(playId: PlayId): IO[MarketPlayError, List[Position]] =
     for {
-      _                         <- logger.info(s"Fetch next positions for position ${playId.value}")
-      nextIds                   <- positionRepo.getNextPositionIds(playId)
-      positions: List[Position] <- positionRepo.getPositions(nextIds).flatMap(enrichPlays).map(_.asInstanceOf[List[Position]])
+      _       <- logger.info(s"Fetch next positions for position ${playId.value}")
+      nextIds <- positionRepo.getNextPositionIds(playId)
+      positions: List[Position] <- positionRepo
+                                    .getPositions(nextIds)
+                                    .flatMap(enrichPlays)
+                                    .map(_.asInstanceOf[List[Position]])
     } yield positions
 
   override def getPreviousPositions(playId: PlayId): IO[MarketPlayError, List[Position]] =
     for {
-      _          <- logger.info(s"Fetch previous positions for position ${playId.value}")
-      prevIds    <- positionRepo.getPreviousPositionIds(playId)
-      positions  <- positionRepo.getPositions(prevIds).flatMap(enrichPlays).map(_.asInstanceOf[List[Position]])
+      _         <- logger.info(s"Fetch previous positions for position ${playId.value}")
+      prevIds   <- positionRepo.getPreviousPositionIds(playId)
+      positions <- positionRepo.getPositions(prevIds).flatMap(enrichPlays).map(_.asInstanceOf[List[Position]])
     } yield positions
 
   private def enrichPlays(plays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] =
@@ -229,7 +230,7 @@ object LiveMarketPlayService {
               pos.balance,
               pos.closedAt
             )
-          case t: TopUp    =>
+          case t: TopUp =>
             val topUp = t.copy(topUpDataGenerator = Some(PriceQuoteTopUpData(quotes)))
             TopUpDataValues(fees = topUp.fees, balance = topUp.balance)
           case w: Withdraw =>
@@ -240,7 +241,8 @@ object LiveMarketPlayService {
     }
   }
 
-  lazy val cacheLayer: ZLayer[Has[PriceQuoteRepo], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] = Cache.make(1000, 1.day, lookup = Lookup(playData)).toLayer
+  lazy val cacheLayer: ZLayer[Has[PriceQuoteRepo], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
+    Cache.make(1000, 1.day, lookup = Lookup(playData)).toLayer
 
   lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteRepo] with Has[BlockchainRepo] with Has[
     JournalingRepo
