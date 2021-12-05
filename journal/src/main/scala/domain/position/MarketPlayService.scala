@@ -226,11 +226,15 @@ object LiveMarketPlayService {
               pos.entryPrice,
               pos.exitPrice,
               pos.fiatSellValue,
-              pos.balance(),
+              pos.balance,
               pos.closedAt
             )
-          case t: TopUp    => ???
-          case w: Withdraw => ???
+          case t: TopUp    =>
+            val topUp = t.copy(topUpDataGenerator = Some(PriceQuoteTopUpData(quotes)))
+            TopUpDataValues(fees = topUp.fees, balance = topUp.balance)
+          case w: Withdraw =>
+            val withdraw = w.copy(withdrawDataGenerator = Some(PriceQuoteWithdrawData(quotes)))
+            WithdrawDataValues(fees = withdraw.fees, balance = withdraw.balance)
         }
       } yield data).orElseFail(MarketPlayNotFound(play.id.get))
     }

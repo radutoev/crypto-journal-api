@@ -20,7 +20,7 @@ final case class TopUp(
 
   lazy val fees: Map[Currency, Fee] = topUpDataGenerator.map(_.fees(fee, timestamp)).getOrElse(Map.empty)
 
-  def balance(): Option[FungibleData] = topUpDataGenerator.flatMap(_.balance(fee, value, timestamp))
+  lazy val balance: Option[FungibleData] = topUpDataGenerator.flatMap(_.balance(fee, value, timestamp))
 }
 
 object TopUp {

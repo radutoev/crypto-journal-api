@@ -111,9 +111,9 @@ final case class MarketPlays(plays: List[MarketPlay]) {
         .map { day =>
           val filterInterval = TimeInterval(start, day)
           day -> plays.collect {
-            case p: Position => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance()
-            case t: TopUp if filterInterval.contains(t.timestamp) => t.balance()
-            case w: Withdraw if filterInterval.contains(w.timestamp) => w.balance()
+            case p: Position => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance
+            case t: TopUp if filterInterval.contains(t.timestamp) => t.balance
+            case w: Withdraw if filterInterval.contains(w.timestamp) => w.balance
           }.values.foldLeft(FungibleData.zero(USD))((acc, balance) => acc.add(balance.amount))
         }
         .sortBy(_._1)(Ordering[Instant])

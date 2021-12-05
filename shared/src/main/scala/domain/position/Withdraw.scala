@@ -20,7 +20,7 @@ final case class Withdraw(
   lazy val fees: Map[Currency, Fee] = withdrawDataGenerator.map(_.fees(fee, timestamp)).getOrElse(Map.empty)
 
   //hardcoded to USD for now
-  def balance(): Option[FungibleData] = withdrawDataGenerator.flatMap(_.balance(fee, value, timestamp))
+  lazy val balance: Option[FungibleData] = withdrawDataGenerator.flatMap(_.balance(fee, value, timestamp))
 }
 
 object Withdraw {

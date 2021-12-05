@@ -188,7 +188,7 @@ final case class Position(
   }
 
   //hardcoded to USD for now
-  def balance(): Option[FungibleData] = dataSource.flatMap(_.balance(entries))
+  lazy val balance: Option[FungibleData] = dataSource.flatMap(_.balance(entries))
 }
 
 object Position {
