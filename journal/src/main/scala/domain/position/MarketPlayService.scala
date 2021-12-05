@@ -10,7 +10,7 @@ import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
 import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
 import domain.wallet.Wallet
-import util.{ListOptionOps, MarketPlaysListOps}
+import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
@@ -209,8 +209,8 @@ object LiveMarketPlayService {
     ZIO.serviceWith[PriceQuoteRepo] { repo =>
       val (interval, currency) = play match {
         case p: Position => (p.timeInterval, p.currency)
-        case t: TopUp    => (TimeInterval(t.timestamp, t.timestamp), Some(WBNB))
-        case w: Withdraw => (TimeInterval(w.timestamp, w.timestamp), Some(WBNB))
+        case t: TopUp    => (TimeInterval(t.timestamp.atBeginningOfMinute(), t.timestamp.nextMinute()), Some(WBNB))
+        case w: Withdraw => (TimeInterval(w.timestamp.atBeginningOfMinute(), w.timestamp.nextMinute()), Some(WBNB))
       }
 
       (for {
