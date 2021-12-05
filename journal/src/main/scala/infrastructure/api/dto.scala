@@ -172,7 +172,7 @@ object dto {
       new FungibleData(funData.amount.toString(), funData.currency.value)
   }
 
-  final case class PriceQuote(price: Float, timestamp: Instant)
+  final case class PriceQuote(price: Double, timestamp: Instant)
 
   object MarketPlay {
     implicit val priceQuoteCodec: JsonCodec[PriceQuote]     = DeriveJsonCodec.gen[PriceQuote]

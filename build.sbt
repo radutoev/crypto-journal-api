@@ -10,6 +10,7 @@ val spotifyFuturesVersion = "4.3.0"
 val sttpClientVersion     = "3.3.15"
 val web3jVersion          = "5.0.0"
 val zioVersion            = "1.0.12"
+val zioCacheVersion       = "0.1.0"
 val zioCalibanVersion     = "1.3.0"
 val zioConfigVersion      = "1.0.10"
 val zioInteropVersion     = "1.3.7"
@@ -75,6 +76,7 @@ lazy val journal = project
       "com.auth0"            % "jwks-rsa"             % auth0Version,
       "com.github.jwt-scala" %% "jwt-core"            % jwtVersion,
       "com.spotify"          % "futures-extra"        % spotifyFuturesVersion,
+      "dev.zio"              %% "zio-cache"           % zioCacheVersion,
       "dev.zio"              %% "zio-config"          % zioConfigVersion,
       "dev.zio"              %% "zio-config-magnolia" % zioConfigVersion,
       "dev.zio"              %% "zio-config-refined"  % zioConfigVersion,

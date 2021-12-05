@@ -5,17 +5,15 @@ import domain.model._
 import domain.model.fungible.{FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps}
 import domain.position.error.InvalidPosition
 import domain.position.model.CoinName
-import domain.pricequote.{PriceQuote, PriceQuotes}
-import util.ListOps.cond
+import domain.pricequote.PriceQuote
 import util.ListOptionOps
 import vo.TimeInterval
 
 import java.time.{Duration, Instant}
-import scala.collection.mutable
 
 final case class Position(
   entries: List[PositionEntry],
-  priceQuotes: PriceQuotes,
+  dataSource: Option[PositionData] = None,
   journal: Option[JournalEntry] = None,
   id: Option[PlayId] = None
 ) extends MarketPlay {
@@ -26,24 +24,7 @@ final case class Position(
    */
   lazy val numberOfExecutions: Int = entries.map(_.hash).distinct.size
 
-  lazy val currency: Option[Currency] = {
-    val currencies = entries.map {
-      case a: AirDrop                               => Some(a.received.currency)
-      case _: Approval                              => None
-      case Buy(_, _, received, _, _, _, _, _, _, _) => Some(received.currency)
-      case Claim(_, received, _, _, _, _, _, _)     => Some(received.currency)
-      case c: Contribute                            => Some(c.spent.currency)
-      case Sell(sold, _, _, _, _, _)                => Some(sold.currency)
-      case TransferIn(amount, _, _, _, _, _, _, _)  => Some(amount.currency)
-      case TransferOut(amount, _, _, _, _, _)       => Some(amount.currency)
-    }.values.distinct
-
-    if (currencies.size > 1) {
-      currencies.find(_ != WBNB)
-    } else {
-      currencies.headOption
-    }
-  }
+  lazy val currency: Option[Currency] = dataSource.flatMap(_.currency(entries))
 
   //TODO I think I need to see if I can add the coin address to all transaction types.
   lazy val coinAddress: Option[CoinAddress] = {
@@ -74,55 +55,9 @@ final case class Position(
     case Some(coinName) => coinName
   }
 
-  lazy val cost: Map[Currency, FungibleData] = {
-    entries.flatMap {
-      case _: AirDrop  => List.empty
-      case _: Approval => List.empty
-      case Buy(_, spent, _, _, _, _, _, timestamp, spentOriginal, _) =>
-        List(spent) ++
-          cond(
-            priceQuotes.nonEmpty(),
-            () =>
-              priceQuotes
-                .findPrice(spent.currency, timestamp)
-                .map(quote => spent.amount * quote.price)
-                .map(FungibleData(_, USD))
-                .getOrElse(FungibleData.zero(USD))
-          ) ++
-          cond(spentOriginal.isDefined, () => spentOriginal.get)
-      case _: Claim => List.empty
-      case Contribute(spent, _, _, _, timestamp, _) =>
-        List(spent) ++
-          cond(
-            priceQuotes.nonEmpty(),
-            () =>
-              priceQuotes
-                .findPrice(spent.currency, timestamp)
-                .map(quote => spent.amount * quote.price)
-                .map(FungibleData(_, USD))
-                .getOrElse(FungibleData.zero(USD))
-          )
-      case _: Sell        => List.empty
-      case _: TransferIn  => List.empty
-      case _: TransferOut => List.empty
-    }.sumByCurrency
-  }
+  lazy val cost: Map[Currency, FungibleData] = dataSource.map(_.cost(entries)).getOrElse(Map.empty)
 
-  lazy val fees: Map[Currency, FungibleData] = {
-    (for {
-      currency    <- entries.headOption.map(_.fee.currency)
-      currencyFee = entries.map(_.fee).sumByCurrency.getOrElse(currency, FungibleData.zero(currency))
-      quotedFee = entries
-        .map(e =>
-          priceQuotes
-            .findPrice(WBNB, e.timestamp)
-            .map(quote => e.fee.amount * quote.price)
-            .map(FungibleData(_, USD))
-            .getOrElse(FungibleData.zero(USD))
-        )
-        .sumOfCurrency(USD)
-    } yield Map(currency -> currencyFee, USD -> quotedFee)) getOrElse Map.empty
-  }
+  lazy val fees: Map[Currency, FungibleData] = dataSource.map(_.fees(entries)).getOrElse(Map.empty)
 
   lazy val totalCost: Map[Currency, FungibleData] = {
     List(cost, fees).sumByCurrency
@@ -195,26 +130,12 @@ final case class Position(
   /**
    * @return Entry coin fiat price
    */
-  lazy val entryPrice: Option[PriceQuote] = {
-    for {
-      c      <- currency
-      quote  <- priceQuotes.findPrice(c, entries.head.timestamp)
-    } yield quote
-  }
+  lazy val entryPrice: Option[PriceQuote] = dataSource.flatMap(_.entryPrice(entries))
 
   /**
    * @return Exit coin fiat price
    */
-  lazy val exitPrice: Option[PriceQuote] = {
-    if (closedAt.isDefined) {
-      for {
-        c      <- currency
-        quote  <- priceQuotes.findPrice(c, entries.last.timestamp)
-      } yield quote
-    } else {
-      None
-    }
-  }
+  lazy val exitPrice: Option[PriceQuote] = dataSource.flatMap(_.exitPrice(entries))
 
   /**
    * Number of coins that are part of this Position
@@ -255,24 +176,11 @@ final case class Position(
 
   lazy val openedAt: Instant = entries.head.timestamp
 
-  lazy val closedAt: Option[Instant] = entries.lastOption.collect {
-    case entry: Sell => entry.timestamp
-  }
+  lazy val closedAt: Option[Instant] = dataSource.flatMap(_.closedAt(entries))
 
   lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
-  private lazy val fiatSellValue: FungibleData = {
-    entries.map {
-      case Sell(_, received, _, _, timestamp, _) =>
-        priceQuotes.findPrice(received.currency, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
-//          if (received.currency == WBNB) {
-//            quotes.findPrice(WBNB, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
-//          } else {
-//            None
-//          }
-      case _ => None
-    }.sumByCurrency.getOrElse(USD, FungibleData.zero(USD))
-  }
+  lazy val fiatSellValue: FungibleData = dataSource.map(_.fiatSellValue(entries)).getOrElse(FungibleData.zero(USD))
 
   override def inInterval(interval: TimeInterval): Boolean = {
     val moreRecentThanStart = interval.start.isBefore(openedAt) || interval.start == openedAt
@@ -280,33 +188,20 @@ final case class Position(
   }
 
   //hardcoded to USD for now
-  def balance(): Option[FungibleData] = {
-    var acc: BigDecimal = BigDecimal(0)
-
-    entries.foreach { entry =>
-      entry.balance().foreach { case (currency, amount) =>
-        acc = acc + priceQuotes.findPrice(currency, entry.timestamp)
-          .map(quote => quote.price * amount)
-          .getOrElse(BigDecimal(0))
-      }
-    }
-
-    Some(FungibleData(acc, USD))
-  }
+  def balance(): Option[FungibleData] = dataSource.flatMap(_.balance(entries))
 }
 
 object Position {
   def apply(entries: List[PositionEntry]): Either[InvalidPosition, Position] =
     if (isSorted(entries.map(_.timestamp))(Ordering[Instant])) {
-      Right(new Position(entries, PriceQuotes.empty()))
+      Right(new Position(entries))
     } else {
       Left(InvalidPosition("Entries not in chronological order"))
     }
 
-  def apply(entries: List[PositionEntry], id: PlayId): Position = new Position(entries, PriceQuotes.empty(), id = Some(id))
+  def apply(entries: List[PositionEntry], id: PlayId): Position = new Position(entries, id = Some(id))
 
-  def unsafeApply(entries: List[PositionEntry]): Position =
-    new Position(entries, PriceQuotes.empty())
+  def unsafeApply(entries: List[PositionEntry]): Position = new Position(entries)
 
   def isSorted[T](seq: Seq[T])(implicit ord: Ordering[T]): Boolean = seq match {
     case Seq()  => true

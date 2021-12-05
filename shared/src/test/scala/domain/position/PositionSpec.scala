@@ -2,10 +2,10 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.pricequote.{ PriceQuote, PriceQuotes }
+import domain.position.model.CoinName
+import domain.pricequote.{PriceQuote, PriceQuotes}
 import vo.TimeInterval
 
-import io.softwarechain.cryptojournal.domain.position.model.CoinName
 import zio.test.Assertion._
 import zio.test._
 
@@ -62,48 +62,54 @@ object PositionSpec extends DefaultRunnableSpec {
     }
   )
 
-  val PositionUnderTest = new Position(
-    entries = List(
-      Buy(
-        fee = FungibleData(BigDecimal(0.00397604), WBNB),
-        spent = FungibleData(BigDecimal(0.2500000000000000000), WBNB),
-        received = FungibleData(BigDecimal(225081408.5576493470), Currency.unsafeFrom("FOOFIGHT")),
-        receivedFrom = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
-        coinAddress = CoinAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
-        hash = TransactionHash.unsafeApply("0x6ee328f30cc70dee6beaab4466f0ba3d9fbacbe14f5408bd2efdf1ef18d70c25"),
-        timestamp = Instant.parse("2021-10-18T11:38:19Z"),
-        name = CoinName.unsafeApply("Fruit Fighters")
-      ),
-      Approval(
-        fee = FungibleData(0.000222145, WBNB),
-        forContract = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
-        hash = TransactionHash.unsafeApply("0xdd69a8eafff819014295a007af3ca923c14afc6a673ed42923243a7cc04579d9"),
-        timestamp = Instant.parse("2021-10-18T11:38:55Z")
-      ),
-      Buy(
-        fee = FungibleData(BigDecimal(0.00377384), WBNB),
-        spent = FungibleData(BigDecimal(0.3875408729003106190), WBNB),
-        received = FungibleData(BigDecimal(207074895.8730373970), Currency.unsafeFrom("FOOFIGHT")),
-        receivedFrom = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
-        coinAddress = CoinAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
-        hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
-        timestamp = Instant.parse("2021-10-18T12:27:24Z"),
-        name = CoinName.unsafeApply("Fruit Fighters")
-      ),
-      Sell(
-        sold = FungibleData(BigDecimal(432156304.430686744), Currency.unsafeFrom("FOOFIGHT")),
-        received = FungibleData(BigDecimal(0.4175743142140909320), WBNB),
-        fee = FungibleData(BigDecimal(0.00496212), WBNB),
-        hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
-        timestamp = Instant.parse("2021-10-18T14:04:18Z")
-      )
+  val entries = List(
+    Buy(
+      fee = FungibleData(BigDecimal(0.00397604), WBNB),
+      spent = FungibleData(BigDecimal(0.2500000000000000000), WBNB),
+      received = FungibleData(BigDecimal(225081408.5576493470), Currency.unsafeFrom("FOOFIGHT")),
+      receivedFrom = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
+      coinAddress = CoinAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
+      hash = TransactionHash.unsafeApply("0x6ee328f30cc70dee6beaab4466f0ba3d9fbacbe14f5408bd2efdf1ef18d70c25"),
+      timestamp = Instant.parse("2021-10-18T11:38:19Z"),
+      name = CoinName.unsafeApply("Fruit Fighters")
     ),
-    priceQuotes = PriceQuotes(
-      Map(
-        WBNB -> List(
-          PriceQuote(price = 473.00000000f, timestamp = Instant.parse("2021-10-18T11:00:00Z")),
-          PriceQuote(price = 470.10000000f, timestamp = Instant.parse("2021-10-18T12:00:00Z")),
-          PriceQuote(price = 486.80000000f, timestamp = Instant.parse("2021-10-18T14:00:00Z"))
+    Approval(
+      fee = FungibleData(0.000222145, WBNB),
+      forContract = WalletAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
+      hash = TransactionHash.unsafeApply("0xdd69a8eafff819014295a007af3ca923c14afc6a673ed42923243a7cc04579d9"),
+      timestamp = Instant.parse("2021-10-18T11:38:55Z")
+    ),
+    Buy(
+      fee = FungibleData(BigDecimal(0.00377384), WBNB),
+      spent = FungibleData(BigDecimal(0.3875408729003106190), WBNB),
+      received = FungibleData(BigDecimal(207074895.8730373970), Currency.unsafeFrom("FOOFIGHT")),
+      receivedFrom = WalletAddress.unsafeFrom("0x845130e515f682fbb497c7d01c658dc344265c15"),
+      coinAddress = CoinAddress.unsafeFrom("0x8c473a401e7ebde6dab178ea0bb5b35cde542c0e"),
+      hash = TransactionHash.unsafeApply("0x6ab1f8414ccd57df5230e05dbda9e739f8d5369d26c77b8f6861949ef87dd212"),
+      timestamp = Instant.parse("2021-10-18T12:27:24Z"),
+      name = CoinName.unsafeApply("Fruit Fighters")
+    ),
+    Sell(
+      sold = FungibleData(BigDecimal(432156304.430686744), Currency.unsafeFrom("FOOFIGHT")),
+      received = FungibleData(BigDecimal(0.4175743142140909320), WBNB),
+      fee = FungibleData(BigDecimal(0.00496212), WBNB),
+      hash = TransactionHash.unsafeApply("0xe4adede1d150868f53aee2bf0973477f39a8531cdc34800ea4ad4fe6aacf8414"),
+      timestamp = Instant.parse("2021-10-18T14:04:18Z")
+    )
+  )
+
+  val PositionUnderTest = new Position(
+    entries = entries,
+    dataSource = Some(
+      PriceQuotePositionData(
+        priceQuotes = PriceQuotes(
+          Map(
+            WBNB -> List(
+              PriceQuote(price = 473.00000000f, timestamp = Instant.parse("2021-10-18T11:00:00Z")),
+              PriceQuote(price = 470.10000000f, timestamp = Instant.parse("2021-10-18T12:00:00Z")),
+              PriceQuote(price = 486.80000000f, timestamp = Instant.parse("2021-10-18T14:00:00Z"))
+            )
+          )
         )
       )
     )

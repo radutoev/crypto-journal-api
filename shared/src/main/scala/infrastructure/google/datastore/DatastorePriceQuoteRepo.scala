@@ -5,11 +5,10 @@ import config.DatastoreConfig
 import domain.model.Currency
 import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError}
 import domain.pricequote.{PriceQuote, PriceQuoteRepo}
-import util.InstantOps
 import vo.{PriceQuotesChunk, TimeInterval}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
@@ -27,24 +26,33 @@ final case class DatastorePriceQuoteRepo(
   logger: Logger[String]
 ) extends PriceQuoteRepo {
 
+  /**
+   * TODO the max approach only works for a single currency, but that means i have a larger number of calls everytime i want the price_quotes for a position.
+   * We have BUSD as the only reference currency for now
+   */
   override def getQuotes(
     currencies: Set[Currency],
     interval: TimeInterval
   ): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] =
     for {
       _     <- logger.info(s"Fetch quotes in $interval for currencies ${currencies.mkString(",")}")
-      start = interval.start.atBeginningOfDay()
       //TODO composition equality filter doesn't seem to work.
-      eqFilters = currencies.map(c => PropertyFilter.eq("currency", c.value)).toList
-      filter = CompositeFilter.and(
-        PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano))
-//        eqFilters: _*
-      )
+//      eqFilters = currencies.map(c => PropertyFilter.eq("currency", c.value)).toList
+//      filter = CompositeFilter.and(
+//        PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(start.getEpochSecond, start.getNano))
+////        eqFilters: _*
+//      )
+      filter = PropertyFilter.ge("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano))
+      //given that datastore doesn't support range queries, i rely on the fact that we have an at most minute recurrence in the price quotes.
+      //based on this, i create the max number of results that can be returned.
+      max = interval.days().size * 24 * 60
+
       query = Query
         .newEntityQueryBuilder()
         .setKind(datastoreConfig.priceQuote)
         .setFilter(filter)
         .addOrderBy(OrderBy.asc("timestamp"))
+        .setLimit(max)
         .build()
 
       results <- Task(datastore.run(query, Seq.empty[ReadOption]: _*))
@@ -61,20 +69,21 @@ final case class DatastorePriceQuoteRepo(
     } yield quotes
 
   /**
+   * We have BUSD as the only reference currency for now
    * @return Latest quotes for all currencies that have quotes in the system.
    */
   override def getLatestQuotes(): IO[PriceQuoteError, Map[Currency, PriceQuote]] = {
     val query = Query.newProjectionEntityQueryBuilder()
       .setKind(datastoreConfig.priceQuote)
-      .setProjection("currency", "timestamp", "price")
+      .setProjection("baseCurrency", "timestamp", "price")
       .setDistinctOn("currency")
-      .setOrderBy(OrderBy.asc("currency"), OrderBy.desc("timestamp"), OrderBy.asc("price"))
+      .setOrderBy(OrderBy.asc("baseCurrency"), OrderBy.desc("timestamp"), OrderBy.asc("price"))
       .build()
 
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
       .map(results => results.asScala.toList.map { entity =>
         (
-          Currency.unsafeFrom(entity.getString("currency")),
+          Currency.unsafeFrom(entity.getString("baseCurrency")),
           PriceQuote(
             Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
             Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)

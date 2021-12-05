@@ -12,38 +12,21 @@ final case class Withdraw(
   value: FungibleData,
   fee: Fee,
   timestamp: Instant,
+  withdrawDataGenerator: Option[WithdrawData],
   id: Option[PlayId] = None,
-  priceQuotes: PriceQuotes
 ) extends MarketPlay {
   override def openedAt: Instant = timestamp
 
-  lazy val fees: Map[Currency, Fee] = {
-    (List(fee.currency -> fee) ++
-      cond(
-        priceQuotes.nonEmpty(),
-        () =>
-          USD -> priceQuotes
-            .findPrice(WBNB, timestamp)
-            .map(quote => quote.price * fee.amount)
-            .map(FungibleData(_, USD))
-            .getOrElse(FungibleData.zero(USD))
-      )).toMap
-  }
+  lazy val fees: Map[Currency, Fee] = withdrawDataGenerator.map(_.fees(fee, timestamp)).getOrElse(Map.empty)
 
   //hardcoded to USD for now
-  def balance(): Option[FungibleData] =
-    for {
-      feeQuote   <- priceQuotes.findPrice(fee.currency, timestamp)
-      valueQuote <- priceQuotes.findPrice(value.currency, timestamp)
-      usdFee     = feeQuote.price * fee.amount
-      usdValue   = valueQuote.price * value.amount
-    } yield FungibleData(-usdValue - usdFee, USD)
+  def balance(): Option[FungibleData] = withdrawDataGenerator.flatMap(_.balance(fee, value, timestamp))
 }
 
 object Withdraw {
   def apply(txHash: TransactionHash, value: FungibleData, fee: Fee, timestamp: Instant): Withdraw =
-    new Withdraw(txHash, value, fee, timestamp, None, PriceQuotes.empty())
+    new Withdraw(txHash, value, fee, timestamp, None)
 
   def apply(txHash: TransactionHash, value: FungibleData, fee: Fee, timestamp: Instant, id: PlayId): Withdraw =
-    new Withdraw(txHash, value, fee, timestamp, Some(id), PriceQuotes.empty())
+    new Withdraw(txHash, value, fee, timestamp, None, Some(id))
 }
