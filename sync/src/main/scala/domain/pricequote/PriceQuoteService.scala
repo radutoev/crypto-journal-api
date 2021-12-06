@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.pricequote
 
 import domain.currency.CurrencyRepo
-import domain.model.{CoinAddress, Currency}
+import domain.model.{CoinAddress, Currency, WBNB}
 import domain.pricequote.LivePriceQuoteService.BeginningOfTime
 import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError}
 import infrastructure.bitquery.BitQueryFacade
@@ -40,8 +40,8 @@ final case class LivePriceQuoteService(
       }
       _ <- ZIO.foreachParN_(4)(startTimes) { case (coinAddress, start) =>
         bitQueryFacade
-          .getPrices(coinAddress, CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56"), start)
-          .flatMap(quotes => priceQuoteRepo.saveQuotes(PriceQuotesChunk(addressToCurrency(coinAddress), Currency.unsafeFrom("BUSD"), quotes)))
+          .getPrices(coinAddress, CoinAddress.unsafeFrom("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"), start)
+          .flatMap(quotes => priceQuoteRepo.saveQuotes(PriceQuotesChunk(addressToCurrency(coinAddress), WBNB, quotes)))
           .ignore
       }
     } yield ()).orElseFail(PriceQuoteFetchError("Quote update failure"))

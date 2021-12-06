@@ -102,7 +102,7 @@ final case class DatastorePriceQuoteRepo(
           Task {
             txn.put(list: _*)
             txn.commit()
-          } *> logger.info(s"Imported ${list.size} quotes")
+          } *> logger.info(s"Imported ${list.size} of ${quotesChunk.baseCurrency} to ${quotesChunk.quoteCurrency}")
         }
         .tapError(throwable =>
           logger.error(s"Error saving quotes: ${list.mkString(",")}") *> logger.error(throwable.getMessage)
