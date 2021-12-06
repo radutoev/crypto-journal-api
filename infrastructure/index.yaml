@@ -14,3 +14,9 @@ indexes:
       - name: address
       - name: openedAt
         direction: desc
+  - kind: PriceQuotesTest
+    ancestor: no
+    properties:
+      - name: baseCurrency
+      - name: timestamp
+      - name: price

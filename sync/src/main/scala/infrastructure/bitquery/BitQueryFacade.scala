@@ -40,10 +40,10 @@ final case class BitQueryFacade (config: BitQueryConfig,
     zioHttpBackend.flatMap { backend =>
       query
         .toRequest(uri"${config.url}", dropNullInputValues = true)
-        .headers(Map("X-API-KEY" -> config.url))
+        .headers(Map("X-API-KEY" -> config.apiKey))
         .send(backend)
-        .tapError(err => logger.warn(err.getMessage))
         .map(_.body)
+        .tapError(err => logger.warn(err.getMessage))
         .map(_.map(result => {
           result.flatten.getOrElse(List.empty).collect {
             case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))

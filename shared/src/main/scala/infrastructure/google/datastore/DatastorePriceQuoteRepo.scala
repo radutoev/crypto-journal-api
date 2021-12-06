@@ -76,7 +76,7 @@ final case class DatastorePriceQuoteRepo(
     val query = Query.newProjectionEntityQueryBuilder()
       .setKind(datastoreConfig.priceQuote)
       .setProjection("baseCurrency", "timestamp", "price")
-      .setDistinctOn("currency")
+      .setDistinctOn("baseCurrency")
       .setOrderBy(OrderBy.asc("baseCurrency"), OrderBy.desc("timestamp"), OrderBy.asc("price"))
       .build()
 
@@ -116,7 +116,7 @@ final case class DatastorePriceQuoteRepo(
         .toList
 
       for {
-        _ <- ZIO.foreach_(entities)(items => saveEntities(items.toList))
+        _ <- ZIO.foreach_(entities)(items => saveEntities(items))
         _ <- logger.info(s"Finished upsert of quotes")
       } yield ()
     }.when(quotesChunk.quotes.nonEmpty)
