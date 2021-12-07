@@ -2,23 +2,23 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.currency.CurrencyRepo
 import domain.model._
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
-import domain.pricequote.{PriceQuoteRepo, PriceQuotes}
+import domain.pricequote.{ PriceQuote, PriceQuoteRepo, PriceQuotes }
 import domain.wallet.Wallet
-import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
+import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
 import vo.TimeInterval
 import vo.filter.PlayFilter
 
-import zio.cache.{Cache, Lookup}
+import zio.cache.{ Cache, Lookup }
 import zio.duration.durationInt
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, UIO, URLayer, ZIO, ZLayer}
+import zio.{ Has, IO, UIO, URLayer, ZIO, ZLayer }
 
 import java.time.Instant
 
@@ -215,7 +215,13 @@ object LiveMarketPlayService {
 
       (for {
         quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty()))(c =>
-                   repo.getQuotes(Set(c), interval).map(PriceQuotes(_))
+                   repo
+                     .getQuotes(c, interval)
+                     .flatMap(listOfQuotes =>
+                       repo
+                         .getQuotes(USDT, interval)
+                         .map(bnbQuotes => PriceQuotes(Map(c -> listOfQuotes, USDT -> bnbQuotes)))
+                     )
                  )
         data = play match {
           case p: Position =>

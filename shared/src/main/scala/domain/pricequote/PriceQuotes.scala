@@ -24,4 +24,6 @@ object PriceQuotes {
   def empty(): PriceQuotes = new PriceQuotes(Map.empty)
 
   def apply(quotes: Map[Currency, List[PriceQuote]]) = new PriceQuotes(quotes)
+
+  def apply(currency: Currency, priceQuotes: List[PriceQuote]) = new PriceQuotes(Map(currency -> priceQuotes))
 }

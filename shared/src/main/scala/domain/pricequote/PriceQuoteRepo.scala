@@ -8,7 +8,9 @@ import vo.{PriceQuotesChunk, TimeInterval}
 import zio.{Has, IO, ZIO}
 
 trait PriceQuoteRepo {
-  def getQuotes(currencies: Set[Currency], interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]]
+  def getQuotes(interval: TimeInterval): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]]
+
+  def getQuotes(currency: Currency, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]]
 
   def getLatestQuotes(): IO[PriceQuoteError, Map[Currency, PriceQuote]]
 
@@ -17,8 +19,7 @@ trait PriceQuoteRepo {
 
 object PriceQuoteRepo {
   def getQuotes(
-    currencies: Set[Currency],
     interval: TimeInterval
   ): ZIO[Has[PriceQuoteRepo], PriceQuoteError, Map[Currency, List[PriceQuote]]] =
-    ZIO.serviceWith(_.getQuotes(currencies, interval))
+    ZIO.serviceWith(_.getQuotes(interval))
 }

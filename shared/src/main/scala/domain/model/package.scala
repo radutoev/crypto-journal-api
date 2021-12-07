@@ -14,6 +14,7 @@ import java.util.UUID
 package object model {
   val USD: Currency  = Currency.unsafeFrom("USD")
   val WBNB: Currency = Currency.unsafeFrom("WBNB")
+  val USDT: Currency = Currency.unsafeFrom("USDT")
 
   type CoinAddressPredicate = NonEmpty
   type CoinAddress          = String Refined CoinAddressPredicate
