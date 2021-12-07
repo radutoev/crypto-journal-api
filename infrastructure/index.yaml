@@ -18,5 +18,7 @@ indexes:
     ancestor: no
     properties:
       - name: baseCurrency
+      - name: quoteCurrency
       - name: timestamp
+      - name: timestampDup
       - name: price

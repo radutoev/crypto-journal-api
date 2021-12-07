@@ -4,7 +4,7 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.model.Currency
 import domain.pricequote.error.{ PriceQuoteError, PriceQuoteFetchError }
-import domain.pricequote.{ PriceQuote, PriceQuoteRepo }
+import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuoteRepo }
 import vo.{ PriceQuotesChunk, TimeInterval }
 
 import com.google.cloud.Timestamp
@@ -26,59 +26,55 @@ final case class DatastorePriceQuoteRepo(
   logger: Logger[String]
 ) extends PriceQuoteRepo {
 
-  /**
-   * TODO the max approach only works for a single currency, but that means i have a larger number of calls everytime i want the price_quotes for a position.
-   * We have BUSD as the only reference currency for now
-   */
   override def getQuotes(
+    quote: Currency,
     interval: TimeInterval
-  ): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] = {
-    val filter = PropertyFilter.ge(
-      "timestamp",
-      Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano)
-    )
-    val max = interval.days().size * 24 * 60
-
-    logger.info(s"Fetch quotes in $interval") *>
-      getQuotes(filter, max)
-  }
-
-  override def getQuotes(currency: Currency, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
+  ): IO[PriceQuoteError, Map[CurrencyPair, List[PriceQuote]]] = {
     val filter = CompositeFilter.and(
-      PropertyFilter.ge(
-        "timestamp",
-        Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano)
-      ),
-      PropertyFilter.eq("baseCurrency", currency.value)
+      PropertyFilter
+        .ge("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano)),
+      PropertyFilter
+        .le("timestampDup", Timestamp.ofTimeSecondsAndNanos(interval.end.getEpochSecond, interval.end.getNano)),
+      PropertyFilter.eq("quoteCurrency", quote.value)
     )
-    val max = interval.days().size * 24 * 60
-
-    logger.info(s"Fetch quotes in $interval for ${currency.value}") *>
-      getQuotes(filter, max).map(_.getOrElse(currency, List.empty))
+    logger.info(s"Fetch quotes in $interval") *> getQuotes(filter)
   }
 
-  private def getQuotes(filter: StructuredQuery.Filter,
-                        max: Int): IO[PriceQuoteError, Map[Currency, List[PriceQuote]]] = {
+  override def getQuotes(pair: CurrencyPair,
+                         interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
+    val (base, quote) = CurrencyPair.unapply(pair).get
+    val filter = CompositeFilter.and(
+      PropertyFilter
+        .ge("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano)),
+      PropertyFilter
+        .le("timestampDup", Timestamp.ofTimeSecondsAndNanos(interval.end.getEpochSecond, interval.end.getNano)),
+      PropertyFilter.eq("quoteCurrency", quote.value),
+      PropertyFilter.eq("baseCurrency", base.value)
+    )
+    logger.info(s"Fetch quotes in $interval for ${base.value}") *>
+      getQuotes(filter).map(_.getOrElse(pair, List.empty))
+  }
+
+  private def getQuotes(filter: StructuredQuery.Filter): IO[PriceQuoteError, Map[CurrencyPair, List[PriceQuote]]] = {
     val query = Query
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.priceQuote)
       .setFilter(filter)
       .addOrderBy(OrderBy.asc("timestamp"))
-      .setLimit(max)
       .build()
 
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
       .tapError(err => logger.warn(err.getMessage))
       .mapBoth(
-        _ => PriceQuoteFetchError("Unable to fetch quotes"), {
+        _ => PriceQuoteFetchError("Unable to fetch quotes"),
         results =>
           results.asScala.toList
             .map(entityToPriceQuote)
             .groupBy(_._1)
             .view
-            .mapValues(_.map(_._3))
+            .mapValues(_.map(_._2))
             .toMap
-      })
+      )
   }
 
   /**
@@ -139,10 +135,12 @@ final case class DatastorePriceQuoteRepo(
     }.when(quotesChunk.quotes.nonEmpty)
   }
 
-  private val entityToPriceQuote: Entity => (Currency, Currency, PriceQuote) = entity => {
+  private val entityToPriceQuote: Entity => (CurrencyPair, PriceQuote) = entity => {
     (
-      Currency.unsafeFrom(entity.getString("baseCurrency")),
-      Currency.unsafeFrom(entity.getString("quoteCurrency")),
+      CurrencyPair(
+        Currency.unsafeFrom(entity.getString("baseCurrency")),
+        Currency.unsafeFrom(entity.getString("quoteCurrency"))
+      ),
       PriceQuote(
         Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble),
         Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
@@ -150,17 +148,18 @@ final case class DatastorePriceQuoteRepo(
     )
   }
 
-  private def priceQuoteWithCurrencyToEntity(data: (Currency, Currency, PriceQuote)) =
+  private def priceQuoteWithCurrencyToEntity(data: (Currency, Currency, PriceQuote)) = {
+    val timestamp =
+      TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(data._3.timestamp.getEpochSecond, data._3.timestamp.getNano))
     Entity
       .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.priceQuote).newKey(UUID.randomUUID().toString))
       .set("baseCurrency", data._1.value)
       .set("quoteCurrency", data._2.value)
-      .set(
-        "timestamp",
-        TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(data._3.timestamp.getEpochSecond, data._3.timestamp.getNano))
-      )
+      .set("timestamp", timestamp)
+      .set("timestampDup", timestamp)
       .set("price", data._3.price)
       .build()
+  }
 }
 
 object DatastorePriceQuoteRepo {

@@ -34,7 +34,7 @@ final case class PriceQuoteTopUpData(priceQuotes: PriceQuotes) extends TopUpData
       )).toMap
   }
 
-  override def balance(fee: Fee, value: Fee, timestamp: Instant): Option[Fee] = {
+  override def balance(fee: Fee, value: FungibleData, timestamp: Instant): Option[FungibleData] = {
     for {
       feeQuote   <- priceQuotes.findPrice(fee.currency, timestamp)
       valueQuote <- priceQuotes.findPrice(value.currency, timestamp)
