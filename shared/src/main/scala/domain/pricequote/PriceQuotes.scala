@@ -5,28 +5,13 @@ import java.time.Instant
 
 final case class PriceQuotes(private val source: Map[CurrencyPair, List[PriceQuote]]) extends AnyVal {
 
-  /* 4 RPL - mapped to WBNB at t0 for p0
-  *  3 RPL - mapped to WBNB at t1 for p1
-  *  1 WBNB - mapped to USDT at t0 for p3
-  *
-  * return should be something like: [ (RPL - WBNB | price), ( WBNB - USDT | price ) ]
-  * */
   def findPrice(pair: CurrencyPair, timestamp: Instant): Option[PriceQuote] = {
-    None
-//    if(source.contains(pair)) {
-//
-//    } else {
-//
-//    }
-
-    //
-
-
-//    quotes
-//      .get(currency)
-//      .flatMap(currencyQuotes =>
-//        currencyQuotes.filter(q => q.timestamp.isBefore(timestamp) || q.timestamp == timestamp).lastOption
-//      )
+    if(source.contains(pair)) {
+      source.get(pair)
+        .flatMap(quotes => quotes.filter(q => q.timestamp.isBefore(timestamp) || q.timestamp == timestamp).lastOption)
+    } else {
+      None
+    }
   }
 
   def isEmpty(): Boolean = {
@@ -45,5 +30,5 @@ object PriceQuotes {
     new PriceQuotes(quotes)
   }
 
-  def apply(pair: CurrencyPair, priceQuotes: List[PriceQuote]) = new PriceQuotes(Map(pair -> priceQuotes))
+  def apply(pair: CurrencyPair, priceQuotes: List[PriceQuote]) = new PriceQuotes(Seq(pair -> priceQuotes).toMap)
 }
