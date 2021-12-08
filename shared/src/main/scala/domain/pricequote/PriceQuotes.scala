@@ -1,23 +1,39 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import domain.model.Currency
-
 import java.time.Instant
 
-final case class PriceQuotes(quotes: Map[Currency, List[PriceQuote]]) extends AnyVal {
-  def findPrice(currency: Currency, timestamp: Instant): Option[PriceQuote] =
-    quotes
-      .get(currency)
-      .flatMap(currencyQuotes =>
-        currencyQuotes.filter(q => q.timestamp.isBefore(timestamp) || q.timestamp == timestamp).lastOption
-      )
+final case class PriceQuotes(private val source: Map[CurrencyPair, List[PriceQuote]]) extends AnyVal {
 
-  def isEmpty(): Boolean =
-    quotes.map {
-      case (_, quotes) =>
-        quotes.isEmpty
+  /* 4 RPL - mapped to WBNB at t0 for p0
+  *  3 RPL - mapped to WBNB at t1 for p1
+  *  1 WBNB - mapped to USDT at t0 for p3
+  *
+  * return should be something like: [ (RPL - WBNB | price), ( WBNB - USDT | price ) ]
+  * */
+  def findPrice(pair: CurrencyPair, timestamp: Instant): Option[PriceQuote] = {
+    None
+//    if(source.contains(pair)) {
+//
+//    } else {
+//
+//    }
+
+    //
+
+
+//    quotes
+//      .get(currency)
+//      .flatMap(currencyQuotes =>
+//        currencyQuotes.filter(q => q.timestamp.isBefore(timestamp) || q.timestamp == timestamp).lastOption
+//      )
+  }
+
+  def isEmpty(): Boolean = {
+    source.isEmpty || source.map {
+      case (_, quotes) => quotes.isEmpty
     }.forall(x => x)
+  }
 
   def nonEmpty(): Boolean = !isEmpty()
 }
@@ -25,8 +41,9 @@ final case class PriceQuotes(quotes: Map[Currency, List[PriceQuote]]) extends An
 object PriceQuotes {
   def empty(): PriceQuotes = new PriceQuotes(Map.empty)
 
-  def apply(quotes: Map[Currency, List[PriceQuote]]) =
-    new PriceQuotes(quotes.filter { case (_, quotes) => quotes.nonEmpty })
+  def apply(quotes: Map[CurrencyPair, List[PriceQuote]]) = {
+    new PriceQuotes(quotes)
+  }
 
-  def apply(currency: Currency, priceQuotes: List[PriceQuote]) = new PriceQuotes(Map(currency -> priceQuotes))
+  def apply(pair: CurrencyPair, priceQuotes: List[PriceQuote]) = new PriceQuotes(Map(pair -> priceQuotes))
 }

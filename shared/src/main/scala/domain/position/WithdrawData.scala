@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.pricequote.PriceQuotes
+import domain.pricequote.{CurrencyPair, PriceQuotes}
 import util.ListOps.cond
 
 import java.time.Instant
@@ -26,20 +26,20 @@ final case class PriceQuoteWithdrawData(priceQuotes: PriceQuotes) extends Withdr
       cond(
         priceQuotes.nonEmpty(),
         () =>
-          USD -> priceQuotes
-            .findPrice(WBNB, timestamp)
+          USDT -> priceQuotes
+            .findPrice(CurrencyPair(WBNB, USDT), timestamp)
             .map(quote => quote.price * fee.amount)
-            .map(FungibleData(_, USD))
-            .getOrElse(FungibleData.zero(USD))
+            .map(FungibleData(_, USDT))
+            .getOrElse(FungibleData.zero(USDT))
       )).toMap
   }
 
   override def balance(fee: Fee, value: Fee, timestamp: Instant): Option[Fee] = {
     for {
-      feeQuote   <- priceQuotes.findPrice(fee.currency, timestamp)
-      valueQuote <- priceQuotes.findPrice(value.currency, timestamp)
+      feeQuote   <- priceQuotes.findPrice(CurrencyPair(fee.currency, USDT), timestamp)
+      valueQuote <- priceQuotes.findPrice(CurrencyPair(value.currency, USDT), timestamp)
       usdFee     = feeQuote.price * fee.amount
       usdValue   = valueQuote.price * value.amount
-    } yield FungibleData(usdValue - usdFee, USD)
+    } yield FungibleData(usdValue - usdFee, USDT)
   }
 }

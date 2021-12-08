@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.pricequote.PriceQuotes
+import domain.pricequote.{CurrencyPair, PriceQuotes}
 import util.ListOps.cond
 
 import java.time.Instant
@@ -27,7 +27,7 @@ final case class PriceQuoteTopUpData(priceQuotes: PriceQuotes) extends TopUpData
         priceQuotes.nonEmpty(),
         () =>
           USD -> priceQuotes
-            .findPrice(WBNB, timestamp)
+            .findPrice(CurrencyPair(WBNB, USDT), timestamp)
             .map(quote => quote.price * fee.amount)
             .map(FungibleData(_, USD))
             .getOrElse(FungibleData.zero(USD))
@@ -36,8 +36,8 @@ final case class PriceQuoteTopUpData(priceQuotes: PriceQuotes) extends TopUpData
 
   override def balance(fee: Fee, value: FungibleData, timestamp: Instant): Option[FungibleData] = {
     for {
-      feeQuote   <- priceQuotes.findPrice(fee.currency, timestamp)
-      valueQuote <- priceQuotes.findPrice(value.currency, timestamp)
+      feeQuote   <- priceQuotes.findPrice(CurrencyPair(fee.currency, USDT), timestamp)
+      valueQuote <- priceQuotes.findPrice(CurrencyPair(value.currency, USDT), timestamp)
       usdFee     = feeQuote.price * fee.amount
       usdValue   = valueQuote.price * value.amount
     } yield FungibleData(usdValue - usdFee, USD)
