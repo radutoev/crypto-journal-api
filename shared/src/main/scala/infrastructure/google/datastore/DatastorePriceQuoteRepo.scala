@@ -40,8 +40,7 @@ final case class DatastorePriceQuoteRepo(
     logger.info(s"Fetch quotes in $interval") *> getQuotes(filter)
   }
 
-  override def getQuotes(pair: CurrencyPair,
-                         interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
+  override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
     val (base, quote) = CurrencyPair.unapply(pair).get
     val filter = CompositeFilter.and(
       PropertyFilter
@@ -52,7 +51,7 @@ final case class DatastorePriceQuoteRepo(
       PropertyFilter.eq("baseCurrency", base.value)
     )
     logger.info(s"Fetch quotes in $interval for ${base.value}") *>
-      getQuotes(filter).map(_.getOrElse(pair, List.empty))
+    getQuotes(filter).map(_.getOrElse(pair, List.empty))
   }
 
   private def getQuotes(filter: StructuredQuery.Filter): IO[PriceQuoteError, Map[CurrencyPair, List[PriceQuote]]] = {

@@ -3,7 +3,7 @@ package domain.pricequote
 
 import domain.model.Currency
 import domain.pricequote.error.PriceQuoteError
-import vo.{PriceQuotesChunk, TimeInterval}
+import vo.{ PriceQuotesChunk, TimeInterval }
 
 import zio.IO
 

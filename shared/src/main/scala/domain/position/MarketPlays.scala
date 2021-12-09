@@ -4,7 +4,7 @@ package domain.position
 import domain.blockchain.Transaction
 import domain.model.fungible.OptionalFungibleDataOps
 import domain.model._
-import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
+import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
 import vo.TimeInterval
 
 import java.time.Instant
@@ -100,8 +100,8 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     }
 
   //hardcoded to USD for now
-  def balanceTrend(): List[(Instant, FungibleData)] = {
-    if(interval.isDefined) {
+  def balanceTrend(): List[(Instant, FungibleData)] =
+    if (interval.isDefined) {
       val start         = interval.get.start.atBeginningOfDay()
       val trendInterval = TimeInterval(start, Instant.now().atEndOfDay())
       trendInterval
@@ -111,8 +111,8 @@ final case class MarketPlays(plays: List[MarketPlay]) {
         .map { day =>
           val filterInterval = TimeInterval(start, day)
           day -> plays.collect {
-            case p: Position => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance
-            case t: TopUp if filterInterval.contains(t.timestamp) => t.balance
+            case p: Position                                         => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance
+            case t: TopUp if filterInterval.contains(t.timestamp)    => t.balance
             case w: Withdraw if filterInterval.contains(w.timestamp) => w.balance
           }.values.foldLeft(FungibleData.zero(USD))((acc, balance) => acc.add(balance.amount))
         }
@@ -120,7 +120,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     } else {
       List.empty
     }
-  }
 
   def distributionByCurrency(): Map[Currency, List[FungibleDataTimePoint]] = {
     val currencyBalance: CurrencyBalance = new CurrencyBalance(mutable.Map.empty)

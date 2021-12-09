@@ -7,19 +7,19 @@ import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
 import domain.position.model.CoinName
-import util.{InstantOps, ListEitherOps, ListOptionOps, tryOrLeft}
+import util.{ tryOrLeft, InstantOps, ListEitherOps, ListOptionOps }
 import vo.filter
-import vo.filter.{Descending, PlayFilter, SortOrder}
-import vo.pagination.{CursorPredicate, Page, PaginationContext}
+import vo.filter.{ Descending, PlayFilter, SortOrder }
+import vo.pagination.{ CursorPredicate, Page, PaginationContext }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
-import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
 
 import java.time.Instant
 import java.util.UUID
@@ -51,32 +51,34 @@ final case class DatastoreMarketPlayRepo(
         .ignore //TODO handle transactions response when doing error handling.
 
     @inline
-    def previousPositions(source: List[MarketPlay], count: Int): List[MarketPlay] = {
-      if(count >= source.length) {
+    def previousPositions(source: List[MarketPlay], count: Int): List[MarketPlay] =
+      if (count >= source.length) {
         source.takeRight(source.length)
       } else {
         source.takeRight(count)
       }
-    }
 
     @inline
-    def nextPositions(source: List[MarketPlay], count: Int): List[MarketPlay] = {
-      if(count >= source.length) {
+    def nextPositions(source: List[MarketPlay], count: Int): List[MarketPlay] =
+      if (count >= source.length) {
         source.take(source.length)
       } else {
         source.take(count)
       }
-    }
 
     val identifiablePlays: List[MarketPlay] = marketPlays.sortBy(_.openedAt)(Ordering[Instant].reverse).map(withIds)
-    val playsWithLinks = identifiablePlays.zipWithIndex.map { case (play, idx) =>
-      play match {
-        case p: Position => p -> (
-          if(idx != 0) nextPositions(identifiablePlays.slice(0, idx), 10).map(_.id).values else List.empty,
-          if(idx < identifiablePlays.length) previousPositions(identifiablePlays.slice(idx, identifiablePlays.length), 10).map(_.id).values else List.empty
-        )
-        case _           => play -> (List.empty, List.empty)
-      }
+    val playsWithLinks = identifiablePlays.zipWithIndex.map {
+      case (play, idx) =>
+        play match {
+          case p: Position =>
+            p -> (
+              if (idx != 0) nextPositions(identifiablePlays.slice(0, idx), 10).map(_.id).values else List.empty,
+              if (idx < identifiablePlays.length)
+                previousPositions(identifiablePlays.slice(idx, identifiablePlays.length), 10).map(_.id).values
+              else List.empty
+            )
+          case _ => play -> (List.empty, List.empty)
+        }
     }
 
     val entities = playsWithLinks
@@ -96,7 +98,7 @@ final case class DatastoreMarketPlayRepo(
 
   private def withIds(play: MarketPlay): MarketPlay = play match {
     case p: Position => p.copy(id = Some(PlayId.newId))
-    case t: TopUp => t.copy(id = Some(PlayId.newId))
+    case t: TopUp    => t.copy(id = Some(PlayId.newId))
     case w: Withdraw => w.copy(id = Some(PlayId.newId))
   }
 
@@ -155,23 +157,28 @@ final case class DatastoreMarketPlayRepo(
     def generatePageAndSavePaginationContext(query: EntityQuery): IO[MarketPlayError, Page[MarketPlays]] =
       for {
         (page, maybeContext) <- generatePage(query)
-        _                    <- maybeContext.fold[IO[MarketPlayError, Unit]](UIO.unit)(ctx => paginationRepo.savePaginationContext(ctx).unit)
+        _ <- maybeContext.fold[IO[MarketPlayError, Unit]](UIO.unit)(ctx =>
+              paginationRepo.savePaginationContext(ctx).unit
+            )
       } yield page
 
     logger.info(s"Fetching positions for ${address.value}. Interval: ${filter.interval.start} - ${filter.interval.end}") *>
-    paginationRepo.getPaginationContext(contextId).flatMap { positionContext =>
-      val query = if (filterHasChanged(positionContext.filterHash)) {
-        positionsQuery(address, filter, Descending).build()
-      } else {
-        positionsQuery(address, filter, Descending)
-          .setStartCursor(PaginationCursor.fromUrlSafe(positionContext.cursor.value))
-          .build()
+    paginationRepo
+      .getPaginationContext(contextId)
+      .flatMap { positionContext =>
+        val query = if (filterHasChanged(positionContext.filterHash)) {
+          positionsQuery(address, filter, Descending).build()
+        } else {
+          positionsQuery(address, filter, Descending)
+            .setStartCursor(PaginationCursor.fromUrlSafe(positionContext.cursor.value))
+            .build()
+        }
+        generatePageAndSavePaginationContext(query)
       }
-      generatePageAndSavePaginationContext(query)
-    }.catchSome {
-      case PaginationContextNotFoundError(_) =>
-        generatePageAndSavePaginationContext(positionsQuery(address, filter, Descending).build())
-    }
+      .catchSome {
+        case PaginationContextNotFoundError(_) =>
+          generatePageAndSavePaginationContext(positionsQuery(address, filter, Descending).build())
+      }
   }
 
   private def positionsQuery(address: WalletAddress, positionFilter: PlayFilter, sortOrder: SortOrder) =
@@ -208,7 +215,7 @@ final case class DatastoreMarketPlayRepo(
 
   override def getPositions(playIds: List[PlayId]): IO[MarketPlayError, List[Position]] = {
     val factory = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay)
-    val keys = playIds.map(playId => factory.newKey(playId.value))
+    val keys    = playIds.map(playId => factory.newKey(playId.value))
     Task(datastore.get(keys.asJava, Seq.empty[ReadOption]: _*))
       .tapError(err => logger.warn(err.getMessage))
       .mapBoth(
@@ -274,22 +281,26 @@ final case class DatastoreMarketPlayRepo(
           ZIO.fromEither {
             for {
               position <- entityToPosition(datastoreEntry)
-              next     <- tryOrLeft(datastoreEntry.getString("nextPlayIds"), InvalidRepresentation("Entity has no nextPlayIds"))
-                .map(rawPlayIds => {
-                  if(rawPlayIds.nonEmpty) {
-                    rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
-                  } else {
-                    List.empty
-                  }
-                })
-              previous <- tryOrLeft(datastoreEntry.getString("previousPlayIds"), InvalidRepresentation("Entity has no previousPlayIds"))
-                .map(rawPlayIds => {
-                  if(rawPlayIds.nonEmpty) {
-                    rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
-                  } else {
-                    List.empty
-                  }
-                })
+              next <- tryOrLeft(
+                       datastoreEntry.getString("nextPlayIds"),
+                       InvalidRepresentation("Entity has no nextPlayIds")
+                     ).map { rawPlayIds =>
+                       if (rawPlayIds.nonEmpty) {
+                         rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+                       } else {
+                         List.empty
+                       }
+                     }
+              previous <- tryOrLeft(
+                           datastoreEntry.getString("previousPlayIds"),
+                           InvalidRepresentation("Entity has no previousPlayIds")
+                         ).map { rawPlayIds =>
+                           if (rawPlayIds.nonEmpty) {
+                             rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+                           } else {
+                             List.empty
+                           }
+                         }
             } yield PositionDetails(position, PositionLinks(previous, next))
           }
         } else {
@@ -309,24 +320,24 @@ final case class DatastoreMarketPlayRepo(
 
     executeQuery(query)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
-      .flatMap(result => {
+      .flatMap { result =>
         val results = result.asScala
         if (results.nonEmpty) {
           val entity = results.next()
           ZIO.fromEither {
-            tryOrLeft(entity.getString("nextPlayIds"), InvalidRepresentation("Entity has no nextPlayIds"))
-              .map(rawPlayIds => {
+            tryOrLeft(entity.getString("nextPlayIds"), InvalidRepresentation("Entity has no nextPlayIds")).map {
+              rawPlayIds =>
                 if (rawPlayIds.nonEmpty) {
                   rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
                 } else {
                   List.empty
                 }
-              })
+            }
           }
         } else {
           ZIO.fail(MarketPlayNotFound(playId))
         }
-      })
+      }
   }
 
   override def getPreviousPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]] = {
@@ -340,24 +351,24 @@ final case class DatastoreMarketPlayRepo(
 
     executeQuery(query)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
-      .flatMap(result => {
+      .flatMap { result =>
         val results = result.asScala
         if (results.nonEmpty) {
           val entity = results.next()
           ZIO.fromEither {
-            tryOrLeft(entity.getString("previousPlayIds"), InvalidRepresentation("Entity has no nextPlayIds"))
-              .map(rawPlayIds => {
+            tryOrLeft(entity.getString("previousPlayIds"), InvalidRepresentation("Entity has no nextPlayIds")).map {
+              rawPlayIds =>
                 if (rawPlayIds.nonEmpty) {
                   rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
                 } else {
                   List.empty
                 }
-              })
+            }
           }
         } else {
           ZIO.fail(MarketPlayNotFound(playId))
         }
-      })
+      }
   }
 
   override def getLatestPosition(address: WalletAddress, currency: Currency): IO[MarketPlayError, Option[Position]] = {
@@ -918,6 +929,8 @@ final case class DatastoreMarketPlayRepo(
 }
 
 object DatastoreMarketPlayRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Has[DatastorePaginationRepo] with Logging, Has[MarketPlayRepo]] =
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Has[DatastorePaginationRepo] with Logging, Has[
+    MarketPlayRepo
+  ]] =
     (DatastoreMarketPlayRepo(_, _, _, _)).toLayer
 }

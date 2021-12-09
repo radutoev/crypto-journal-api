@@ -1,15 +1,15 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.blockchain.{LogEvent, Transaction}
+import domain.blockchain.{ LogEvent, Transaction }
 import domain.model._
 import domain.position.PositionEntry.PositionEntryId
-import util.{ListEitherOps, ListOptionOps}
+import util.{ ListEitherOps, ListOptionOps }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.domain.position.model.{CoinName, CoinNamePredicate}
+import io.softwarechain.cryptojournal.domain.position.model.{ CoinName, CoinNamePredicate }
 
 import java.time.Instant
 import scala.collection.mutable
@@ -627,16 +627,15 @@ final case class AirDrop(
   timestamp: Instant,
   override val id: Option[PositionEntryId] = None
 ) extends PositionEntry {
-  override def balance(): Map[Currency, BigDecimal] = {
-    if(fee.currency == received.currency) {
+  override def balance(): Map[Currency, BigDecimal] =
+    if (fee.currency == received.currency) {
       Map(fee.currency -> (received.amount - fee.amount))
     } else {
       Map(
-        fee.currency -> -fee.amount,
+        fee.currency      -> -fee.amount,
         received.currency -> received.amount
       )
     }
-  }
 }
 
 final case class Approval(
@@ -664,8 +663,11 @@ final case class Buy(
   override def balance(): Map[Currency, BigDecimal] = {
     val balance: mutable.Map[Currency, BigDecimal] = mutable.Map(fee.currency -> -fee.amount)
     balance.put(received.currency, balance.getOrElse(received.currency, BigDecimal(0)) + received.amount)
-    if(spentOriginal.isDefined) {
-      balance.put(spentOriginal.get.currency, balance.getOrElse(spentOriginal.get.currency, BigDecimal(0)) - spentOriginal.get.amount)
+    if (spentOriginal.isDefined) {
+      balance.put(
+        spentOriginal.get.currency,
+        balance.getOrElse(spentOriginal.get.currency, BigDecimal(0)) - spentOriginal.get.amount
+      )
     } else {
       balance.put(spent.currency, balance.getOrElse(spent.currency, BigDecimal(0)) - spent.amount)
     }

@@ -13,7 +13,7 @@ final case class Withdraw(
   fee: Fee,
   timestamp: Instant,
   withdrawDataGenerator: Option[WithdrawData],
-  id: Option[PlayId] = None,
+  id: Option[PlayId] = None
 ) extends MarketPlay {
   override def openedAt: Instant = timestamp
 

@@ -2,14 +2,14 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model._
-import domain.model.fungible.{FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps}
+import domain.model.fungible.{ FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps }
 import domain.position.error.InvalidPosition
 import domain.position.model.CoinName
 import domain.pricequote.PriceQuote
 import util.ListOptionOps
 import vo.TimeInterval
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 final case class Position(
   entries: List[PositionEntry],

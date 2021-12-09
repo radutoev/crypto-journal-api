@@ -3,7 +3,7 @@ package domain.position
 
 import domain.model._
 import domain.position.model.CoinName
-import domain.pricequote.{CurrencyPair, PriceQuote, PriceQuotes}
+import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuotes }
 import vo.TimeInterval
 
 import zio.test.Assertion._

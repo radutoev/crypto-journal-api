@@ -11,9 +11,8 @@ object filter {
   final case class PlayFilter(count: Count, interval: TimeInterval)
 
   object PlayFilter {
-    def apply(count: Int, interval: TimeInterval): Validation[String, PlayFilter] = {
+    def apply(count: Int, interval: TimeInterval): Validation[String, PlayFilter] =
       Count.make(count).map(posCount => new PlayFilter(posCount, interval))
-    }
   }
 
   final case class KpiFilter(count: Option[Count], interval: Option[TimeInterval])

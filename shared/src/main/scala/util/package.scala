@@ -27,21 +27,20 @@ package object util {
         .withSecond(59)
         .toInstant(ZoneOffset.UTC)
 
-    def atBeginningOfMinute(): Instant = {
+    def atBeginningOfMinute(): Instant =
       instant
         .atZone(ZoneId.of(ZoneOffset.UTC.getId))
         .toLocalDateTime
         .withSecond(0)
         .toInstant(ZoneOffset.UTC)
-    }
 
-    def nextMinute(): Instant = {
-      instant.plusSeconds(60)
+    def nextMinute(): Instant =
+      instant
+        .plusSeconds(60)
         .atZone(ZoneId.of(ZoneOffset.UTC.getId))
         .toLocalDateTime
         .withSecond(0)
         .toInstant(ZoneOffset.UTC)
-    }
 
     def toLocalDate(): LocalDate =
       LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))

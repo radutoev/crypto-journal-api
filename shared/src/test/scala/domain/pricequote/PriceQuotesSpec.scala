@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import domain.model.{Currency, USDT, WBNB}
+import domain.model.{ Currency, FungibleData, USDT, WBNB }
 
 import zio.test._
 import zio.test.Assertion._
@@ -11,26 +11,46 @@ import java.time.Instant
 object PriceQuotesSpec extends DefaultRunnableSpec {
   override def spec = suite("PriceQuotes")(
     suite("Find price")(
-      test("No price if no quotes") {
-        assert(PriceQuotes.empty().findPrice(CurrencyPair(WBNB, USDT), Instant.now()))(isNone)
-      },
-      test("No price if pair not found") {
+      test("Matching currency pair") {
         val timestamp = Instant.now()
-        val lookup = CurrencyPair(Currency.unsafeFrom("XLM"), Currency.unsafeFrom("STR"))
+        val priceQuotes = PriceQuotes(
+          CurrencyPair(WBNB, USDT),
+          List(PriceQuote(2d, timestamp.minusSeconds(2)), PriceQuote(3d, timestamp))
+        )
+        assert(priceQuotes.quotedValue(FungibleData(BigDecimal(3), WBNB), USDT, timestamp))(
+          isSome(equalTo(BigDecimal(9)))
+        )
+      },
+      test("Multi pair lookup") {
+        val timestamp = Instant.now()
+        val xlm       = Currency.unsafeFrom("XLM")
+        val priceQuotes = PriceQuotes(
+          Map(
+            CurrencyPair(xlm, WBNB)  -> List(PriceQuote(5d, timestamp)),
+            CurrencyPair(WBNB, USDT) -> List(PriceQuote(2d, timestamp))
+          )
+        )
+        //xlm -> bnb -> usdt = (0.09 * 5) * 2
+        assert(priceQuotes.quotedValue(FungibleData(BigDecimal(0.09), xlm), USDT, timestamp))(
+          isSome(equalTo(BigDecimal(0.9)))
+        )
+      },
+      test("No value if no quotes") {
+        assert(PriceQuotes.empty().quotedValue(FungibleData(BigDecimal(3), WBNB), USDT, Instant.now()))(isNone)
+      },
+      test("No value if pair not found") {
+        val timestamp   = Instant.now()
         val priceQuotes = PriceQuotes(CurrencyPair(WBNB, USDT), List(PriceQuote(2d, timestamp)))
-        assert(priceQuotes.findPrice(lookup, timestamp))(isNone)
+        assert(
+          priceQuotes
+            .quotedValue(FungibleData(BigDecimal(2), Currency.unsafeFrom("XLM")), Currency.unsafeFrom("STR"), timestamp)
+        )(isNone)
       },
-      test("No price for missing quotes") {
-        val timestamp = Instant.now()
-        val lookup = CurrencyPair(WBNB, USDT)
+      test("No value for missing quotes") {
+        val timestamp   = Instant.now()
+        val lookup      = CurrencyPair(WBNB, USDT)
         val priceQuotes = PriceQuotes(CurrencyPair(WBNB, USDT), List.empty)
-        assert(priceQuotes.findPrice(lookup, timestamp))(isNone)
-      },
-      test("Price for matching currency pair") {
-        val timestamp = Instant.now()
-        val lookup = CurrencyPair(WBNB, USDT)
-        val priceQuotes = PriceQuotes(CurrencyPair(WBNB, USDT), List(PriceQuote(3d, timestamp)))
-        assert(priceQuotes.findPrice(lookup, timestamp))(isSome(equalTo(PriceQuote(3d, timestamp))))
+        assert(priceQuotes.quotedValue(FungibleData(BigDecimal(2), WBNB), USDT, timestamp))(isNone)
       }
     )
   )
