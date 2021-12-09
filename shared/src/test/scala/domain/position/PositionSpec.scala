@@ -7,7 +7,6 @@ import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuotes }
 import vo.TimeInterval
 
 import zio.test.Assertion._
-import zio.test.TestAspect.ignore
 import zio.test._
 
 import java.time.Instant
@@ -25,7 +24,7 @@ object PositionSpec extends DefaultRunnableSpec {
         equalTo(
           Map(
             WBNB -> FungibleData(BigDecimal("0.63754087290031064"), WBNB),
-            USD  -> FungibleData(BigDecimal("300.432966715797795248663236085984"), USD)
+            USDT  -> FungibleData(BigDecimal("300.432966715797795248663236085984"), USDT)
           )
         )
       ) &&
@@ -33,7 +32,7 @@ object PositionSpec extends DefaultRunnableSpec {
         equalTo(
           Map(
             WBNB -> FungibleData(BigDecimal("0.012934145"), WBNB),
-            USD  -> FungibleData(BigDecimal("6.1753836674609374056540"), USD)
+            USDT  -> FungibleData(BigDecimal("6.1753836674609374056540"), USDT)
           )
         )
       ) &&
@@ -41,11 +40,11 @@ object PositionSpec extends DefaultRunnableSpec {
         equalTo(
           Map(
             WBNB -> FungibleData(BigDecimal("0.65047501790031064"), WBNB),
-            USD  -> FungibleData(BigDecimal("306.608350383258732654317236085984"), USD)
+            USDT  -> FungibleData(BigDecimal("306.608350383258732654317236085984"), USDT)
           )
         )
       ) &&
-      assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), USD)))) &&
+      assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), USDT)))) &&
       assert(position.fiatReturnPercentage)(isSome(equalTo(BigDecimal("-133.7020107873826938895499253848357")))) &&
       assert(position.totalCoins)(
         equalTo(FungibleData(BigDecimal("432156304.43068674"), Currency.unsafeFrom("FOOFIGHT")))
@@ -60,7 +59,7 @@ object PositionSpec extends DefaultRunnableSpec {
       assert(position.openedAt)(equalTo(Instant.parse("2021-10-18T11:38:19Z"))) &&
       assert(position.closedAt)(isSome(equalTo(Instant.parse("2021-10-18T14:04:18Z")))) &&
       assert(position.holdTime)(isSome(equalTo(8759L)))
-    } @@ ignore
+    }
   )
 
   val entries = List(

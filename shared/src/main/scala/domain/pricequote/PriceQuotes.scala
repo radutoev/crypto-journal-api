@@ -7,25 +7,12 @@ import java.time.Instant
 
 final case class PriceQuotes(private val source: Map[CurrencyPair, List[PriceQuote]]) extends AnyVal {
 
-  def findPrice(pair: CurrencyPair, timestamp: Instant): Option[PriceQuote] =
-    if (source.contains(pair)) {
-      source
-        .get(pair)
-        .flatMap(quotes => quotes.filter(q => q.timestamp.isBefore(timestamp) || q.timestamp == timestamp).lastOption)
-    } else {
-      val targetPairs = source.keySet.collect {
-        case sourcePair if sourcePair.base == pair.base => CurrencyPair(sourcePair.quote, pair.quote)
-      }
-      if (targetPairs.nonEmpty) {
-        targetPairs
-          .find(source.contains)
-          .flatMap(targetPair => findPrice(targetPair, timestamp))
-      } else {
-        None
-      }
-    }
+  def findPrice(pair: CurrencyPair, timestamp: Instant): Option[PriceQuote] = {
+    quotedValue(FungibleData(1, pair.base), pair.quote, timestamp)
+      .map(data => PriceQuote(data.amount.toDouble, timestamp))
+  }
 
-  def quotedValue(value: FungibleData, quote: Currency, timestamp: Instant): Option[BigDecimal] = {
+  def quotedValue(value: FungibleData, quote: Currency, timestamp: Instant): Option[FungibleData] = {
     @inline
     def latestQuote(quotes: List[PriceQuote]): Option[PriceQuote] =
       quotes.filter(q => q.timestamp.isBefore(timestamp) || q.timestamp == timestamp).lastOption
@@ -36,7 +23,9 @@ final case class PriceQuotes(private val source: Map[CurrencyPair, List[PriceQuo
 
     val pair = CurrencyPair(value.currency, quote)
     if (source.contains(pair)) {
-      source.get(pair).flatMap(latestQuote).map(quote => LinkedPriceQuotes(List(pair -> quote)).compute(value.amount))
+      source.get(pair).flatMap(latestQuote)
+        .map(quote => LinkedPriceQuotes(List(pair -> quote)).compute(value.amount))
+        .map(value => FungibleData(value, quote))
     } else {
       val quotesAsBase = source.keySet.filter(p => p.base == pair.base)
       val targetPairs = source.keySet.collect {
@@ -48,10 +37,11 @@ final case class PriceQuotes(private val source: Map[CurrencyPair, List[PriceQuo
 
       if (targetPairs.nonEmpty) {
         val (basePair, quotePair) = targetPairs.head
-        for {
+        (for {
           basePriceQuote  <- source.get(basePair).flatMap(latestQuote)
           quotePriceQuote <- source.get(quotePair).flatMap(latestQuote)
-        } yield LinkedPriceQuotes(List(basePair -> basePriceQuote, quotePair -> quotePriceQuote)).compute(value.amount)
+        } yield LinkedPriceQuotes(List(basePair -> basePriceQuote, quotePair -> quotePriceQuote)).compute(value.amount))
+          .map(value => FungibleData(value, quote))
       } else {
         None
       }

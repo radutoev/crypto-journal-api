@@ -56,12 +56,7 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
         List(spent) ++
           cond(
             priceQuotes.nonEmpty(),
-            () =>
-              priceQuotes
-                .findPrice(CurrencyPair(spent.currency, USDT), timestamp)
-                .map(quote => spent.amount * quote.price)
-                .map(FungibleData(_, USDT))
-                .getOrElse(FungibleData.zero(USDT))
+            () => priceQuotes.quotedValue(spent, USDT, timestamp).getOrElse(FungibleData.zero(USDT))
           ) ++
           cond(spentOriginal.isDefined, () => spentOriginal.get)
       case _: Claim => List.empty
@@ -69,12 +64,7 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
         List(spent) ++
           cond(
             priceQuotes.nonEmpty(),
-            () =>
-              priceQuotes
-                .findPrice(CurrencyPair(spent.currency, USDT), timestamp)
-                .map(quote => spent.amount * quote.price)
-                .map(FungibleData(_, USDT))
-                .getOrElse(FungibleData.zero(USDT))
+            () => priceQuotes.quotedValue(spent, USDT, timestamp).getOrElse(FungibleData.zero(USDT))
           )
       case _: Sell        => List.empty
       case _: TransferIn  => List.empty
@@ -86,13 +76,7 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
       currency    <- entries.headOption.map(_.fee.currency)
       currencyFee = entries.map(_.fee).sumByCurrency.getOrElse(currency, FungibleData.zero(currency))
       quotedFee = entries
-        .map(e =>
-          priceQuotes
-            .findPrice(CurrencyPair(WBNB, USDT), e.timestamp)
-            .map(quote => e.fee.amount * quote.price)
-            .map(FungibleData(_, USDT))
-            .getOrElse(FungibleData.zero(USDT))
-        )
+        .map(e => priceQuotes.quotedValue(e.fee, USDT, e.timestamp).getOrElse(FungibleData.zero(USDT)))
         .sumOfCurrency(USDT)
     } yield Map(currency -> currencyFee, USDT -> quotedFee)) getOrElse Map.empty
 
@@ -115,15 +99,7 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
   override def fiatSellValue(entries: List[PositionEntry]): FungibleData =
     entries.map {
       case Sell(_, received, _, _, timestamp, _) =>
-        priceQuotes
-          .findPrice(CurrencyPair(received.currency, USDT), timestamp)
-          .map(quote => received.amount * quote.price)
-          .map(FungibleData(_, USDT))
-      //          if (received.currency == WBNB) {
-      //            quotes.findPrice(WBNB, timestamp).map(quote => received.amount * quote.price).map(FungibleData(_, USD))
-      //          } else {
-      //            None
-      //          }
+        priceQuotes.quotedValue(received, USDT, timestamp)
       case _ => None
     }.sumByCurrency.getOrElse(USDT, FungibleData.zero(USDT))
 
@@ -133,10 +109,7 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
     entries.foreach { entry =>
       entry.balance().foreach {
         case (currency, amount) =>
-          acc = acc + priceQuotes
-            .findPrice(CurrencyPair(currency, USDT), entry.timestamp)
-            .map(quote => quote.price * amount)
-            .getOrElse(BigDecimal(0))
+          acc = acc + priceQuotes.quotedValue(FungibleData(amount, currency), USDT, entry.timestamp).map(_.amount).getOrElse(BigDecimal(0))
       }
     }
 
