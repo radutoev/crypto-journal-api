@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model.fungible.{ FungibleDataOps, OptionalFungibleDataOps }
-import domain.model.{ Currency, FungibleData, USD, USDT, WBNB }
+import domain.model.{ Currency, FungibleData, USDT, WBNB }
 import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuotes }
 import util.ListOps.cond
 import util.ListOptionOps

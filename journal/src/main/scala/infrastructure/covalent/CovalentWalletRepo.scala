@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
 import config.CovalentConfig
-import domain.model.{Currency, FungibleData, USD, WalletAddress}
+import domain.model.{Currency, FungibleData, USDT, WalletAddress}
 import domain.wallet.WalletRepo
 import domain.wallet.error.{BalanceGetError, WalletError}
 import infrastructure.covalent.dto.AccountBalanceResponse
@@ -22,7 +22,7 @@ final case class CovalentWalletRepo(httpClient: SttpClient.Service,
     for {
       _ <- logger.info(s"Fetching ${coin.value} quote for ${address.value}")
       matchQuery = s"""{contract_ticker_symbol: ${coin.value} }"""
-      url = s"${covalentConfig.baseUrl}/56/address/${address.value}/balances_v2/?key=${covalentConfig.key}&match=$matchQuery&quote-currency=USD"
+      url = s"${covalentConfig.baseUrl}/56/address/${address.value}/balances_v2/?key=${covalentConfig.key}&match=$matchQuery&quote-currency=USDT"
       response <- httpClient
         .send(basicRequest.readTimeout(2.minutes).get(uri"$url").response(asString))
         .tapError(t => logger.warn(s"Covalent address balance request failed: ${t.getMessage}"))
@@ -33,7 +33,7 @@ final case class CovalentWalletRepo(httpClient: SttpClient.Service,
         .mapError(BalanceGetError))
       quote <- ZIO.fromOption(decoded.data.items.headOption)
         .mapBoth(_ => BalanceGetError("Invalid response"), balance => balance.quote)
-    } yield FungibleData(BigDecimal(quote), USD)
+    } yield FungibleData(BigDecimal(quote), USDT)
 }
 
 object CovalentWalletRepo {

@@ -99,7 +99,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
       List.empty
     }
 
-  //hardcoded to USD for now
+  //hardcoded to USDT for now
   def balanceTrend(): List[(Instant, FungibleData)] =
     if (interval.isDefined) {
       val start         = interval.get.start.atBeginningOfDay()
@@ -114,7 +114,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
             case p: Position                                         => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance
             case t: TopUp if filterInterval.contains(t.timestamp)    => t.balance
             case w: Withdraw if filterInterval.contains(w.timestamp) => w.balance
-          }.values.foldLeft(FungibleData.zero(USD))((acc, balance) => acc.add(balance.amount))
+          }.values.foldLeft(FungibleData.zero(USDT))((acc, balance) => acc.add(balance.amount))
         }
         .sortBy(_._1)(Ordering[Instant])
     } else {

@@ -214,15 +214,17 @@ object LiveMarketPlayService {
       }
 
       (for {
-        quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty()))(c =>
-                   repo
-                     .getQuotes(CurrencyPair(c, WBNB), interval)
-                     .flatMap(listOfQuotes =>
-                       repo
-                         .getQuotes(CurrencyPair(WBNB, USDT), interval)
-                         .map(bnbQuotes => PriceQuotes(Map(c -> listOfQuotes, USDT -> bnbQuotes)))
-                     )
-                 )
+        quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty()))(c => {
+          val currencyPair = CurrencyPair(c, WBNB)
+          repo
+            .getQuotes(currencyPair, interval)
+            .flatMap(listOfQuotes => {
+              val bnbUsdtPair = CurrencyPair(WBNB, USDT)
+              repo
+                .getQuotes(bnbUsdtPair, interval)
+                .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbUsdtPair -> bnbQuotes)))
+            })
+        })
         data = play match {
           case p: Position =>
             val pos = p.copy(dataSource = Some(PriceQuotePositionData(quotes)))
