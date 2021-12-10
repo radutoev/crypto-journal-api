@@ -114,7 +114,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
             case p: Position                                         => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance
             case t: TopUp if filterInterval.contains(t.timestamp)    => t.balance
             case w: Withdraw if filterInterval.contains(w.timestamp) => w.balance
-          }.values.foldLeft(FungibleData.zero(USDT))((acc, balance) => acc.add(balance.amount))
+          }.values.foldLeft(FungibleData.zero(BUSD))((acc, balance) => acc.add(balance.amount))
         }
         .sortBy(_._1)(Ordering[Instant])
     } else {

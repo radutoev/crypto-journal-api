@@ -24,12 +24,12 @@ final case class PriceQuoteTopUpData(priceQuotes: PriceQuotes) extends TopUpData
     (List(fee.currency -> fee) ++
       cond(
         priceQuotes.nonEmpty(),
-        () => USDT -> priceQuotes.quotedValue(fee, USDT, timestamp).getOrElse(FungibleData.zero(USDT))
+        () => BUSD -> priceQuotes.quotedValue(fee, BUSD, timestamp).getOrElse(FungibleData.zero(BUSD))
       )).toMap
 
   override def balance(fee: Fee, value: FungibleData, timestamp: Instant): Option[FungibleData] =
     for {
-      feeQuote   <- priceQuotes.quotedValue(fee, USDT, timestamp)
-      valueQuote <- priceQuotes.quotedValue(value, USDT, timestamp)
+      feeQuote   <- priceQuotes.quotedValue(fee, BUSD, timestamp)
+      valueQuote <- priceQuotes.quotedValue(value, BUSD, timestamp)
     } yield valueQuote.subtract(feeQuote.amount)
 }

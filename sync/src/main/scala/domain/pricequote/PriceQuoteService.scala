@@ -2,16 +2,16 @@ package io.softwarechain.cryptojournal
 package domain.pricequote
 
 import domain.currency.CurrencyRepo
-import domain.model.{ CoinAddress, Currency, WBNB }
+import domain.model.{BUSD, CoinAddress, Currency, WBNB}
 import domain.pricequote.LivePriceQuoteService.BeginningOfTime
-import domain.pricequote.error.{ PriceQuoteError, PriceQuoteFetchError }
+import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError}
 import infrastructure.bitquery.BitQueryFacade
 import util.InstantOps
 import vo.PriceQuotesChunk
 
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, URLayer, ZIO}
 
 import java.time.Instant
 
@@ -40,12 +40,7 @@ final case class LivePriceQuoteService(
       }
       _ <- ZIO.foreachParN_(4)(startTimes) {
             case (coinAddress, start) =>
-              val (quoteAddress, quoteCurrency) =
-                if (!(coinAddress.value == "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")) {
-                  (CoinAddress.unsafeFrom("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"), WBNB)
-                } else {
-                  (Currency.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56"), Currency.unsafeFrom("BUSD"))
-                }
+              val (quoteAddress, quoteCurrency) = quotePair(coinAddress)
               bitQueryFacade
                 .getPrices(coinAddress, quoteAddress, start)
                 .flatMap(quotes =>
@@ -54,6 +49,14 @@ final case class LivePriceQuoteService(
                 .ignore
           }
     } yield ()).orElseFail(PriceQuoteFetchError("Quote update failure"))
+
+  private def quotePair(address: CoinAddress): (CoinAddress, Currency) = {
+    if (!(address.value == "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")) {
+      (CoinAddress.unsafeFrom("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"), WBNB)
+    } else {
+      (Currency.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56"), BUSD)
+    }
+  }
 }
 
 object LivePriceQuoteService {

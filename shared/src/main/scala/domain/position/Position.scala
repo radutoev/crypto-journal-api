@@ -72,7 +72,7 @@ final case class Position(
    */
   lazy val fiatReturn: Option[FungibleData] = {
     if (state == Closed) {
-      totalCost.get(USDT).map(cost => fiatSellValue.subtract(cost.amount))
+      totalCost.get(BUSD).map(cost => fiatSellValue.subtract(cost.amount))
     } else {
       None
     }
@@ -87,7 +87,7 @@ final case class Position(
       None
     } else {
       for {
-        totalCost  <- totalCost.get(USDT)
+        totalCost  <- totalCost.get(BUSD)
         fiatReturn <- fiatReturn
       } yield util.math.percentageDiff(totalCost.amount, fiatReturn.amount)
     }
@@ -180,7 +180,7 @@ final case class Position(
 
   lazy val holdTime: Option[Long] = closedAt.map(closeTime => Duration.between(openedAt, closeTime).toSeconds)
 
-  lazy val fiatSellValue: FungibleData = dataSource.map(_.fiatSellValue(entries)).getOrElse(FungibleData.zero(USDT))
+  lazy val fiatSellValue: FungibleData = dataSource.map(_.fiatSellValue(entries)).getOrElse(FungibleData.zero(BUSD))
 
   override def inInterval(interval: TimeInterval): Boolean = {
     val moreRecentThanStart = interval.start.isBefore(openedAt) || interval.start == openedAt

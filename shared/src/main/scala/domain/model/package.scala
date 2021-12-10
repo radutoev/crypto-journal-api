@@ -13,7 +13,7 @@ import java.util.UUID
 
 package object model {
   val WBNB: Currency = Currency.unsafeFrom("WBNB")
-  val USDT: Currency = Currency.unsafeFrom("USDT")
+  val BUSD: Currency = Currency.unsafeFrom("BUSD")
 
   type CoinAddressPredicate = NonEmpty
   type CoinAddress          = String Refined CoinAddressPredicate

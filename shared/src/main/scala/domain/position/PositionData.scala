@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.model.fungible.{ FungibleDataOps, OptionalFungibleDataOps }
-import domain.model.{ Currency, FungibleData, USDT, WBNB }
+import domain.model.{ Currency, FungibleData, BUSD, WBNB }
 import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuotes }
 import util.ListOps.cond
 import util.ListOptionOps
@@ -56,7 +56,7 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
         List(spent) ++
           cond(
             priceQuotes.nonEmpty(),
-            () => priceQuotes.quotedValue(spent, USDT, timestamp).getOrElse(FungibleData.zero(USDT))
+            () => priceQuotes.quotedValue(spent, BUSD, timestamp).getOrElse(FungibleData.zero(BUSD))
           ) ++
           cond(spentOriginal.isDefined, () => spentOriginal.get)
       case _: Claim => List.empty
@@ -64,7 +64,7 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
         List(spent) ++
           cond(
             priceQuotes.nonEmpty(),
-            () => priceQuotes.quotedValue(spent, USDT, timestamp).getOrElse(FungibleData.zero(USDT))
+            () => priceQuotes.quotedValue(spent, BUSD, timestamp).getOrElse(FungibleData.zero(BUSD))
           )
       case _: Sell        => List.empty
       case _: TransferIn  => List.empty
@@ -76,21 +76,21 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
       currency    <- entries.headOption.map(_.fee.currency)
       currencyFee = entries.map(_.fee).sumByCurrency.getOrElse(currency, FungibleData.zero(currency))
       quotedFee = entries
-        .map(e => priceQuotes.quotedValue(e.fee, USDT, e.timestamp).getOrElse(FungibleData.zero(USDT)))
-        .sumOfCurrency(USDT)
-    } yield Map(currency -> currencyFee, USDT -> quotedFee)) getOrElse Map.empty
+        .map(e => priceQuotes.quotedValue(e.fee, BUSD, e.timestamp).getOrElse(FungibleData.zero(BUSD)))
+        .sumOfCurrency(BUSD)
+    } yield Map(currency -> currencyFee, BUSD -> quotedFee)) getOrElse Map.empty
 
   override def entryPrice(entries: List[PositionEntry]): Option[PriceQuote] =
     for {
       c     <- currency(entries)
-      quote <- priceQuotes.findPrice(CurrencyPair(c, USDT), entries.head.timestamp)
+      quote <- priceQuotes.findPrice(CurrencyPair(c, BUSD), entries.head.timestamp)
     } yield quote
 
   override def exitPrice(entries: List[PositionEntry]): Option[PriceQuote] =
     if (closedAt(entries).isDefined) {
       for {
         c     <- currency(entries)
-        quote <- priceQuotes.findPrice(CurrencyPair(c, USDT), entries.last.timestamp)
+        quote <- priceQuotes.findPrice(CurrencyPair(c, BUSD), entries.last.timestamp)
       } yield quote
     } else {
       None
@@ -99,9 +99,9 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
   override def fiatSellValue(entries: List[PositionEntry]): FungibleData =
     entries.map {
       case Sell(_, received, _, _, timestamp, _) =>
-        priceQuotes.quotedValue(received, USDT, timestamp)
+        priceQuotes.quotedValue(received, BUSD, timestamp)
       case _ => None
-    }.sumByCurrency.getOrElse(USDT, FungibleData.zero(USDT))
+    }.sumByCurrency.getOrElse(BUSD, FungibleData.zero(BUSD))
 
   override def balance(entries: List[PositionEntry]): Option[FungibleData] = {
     var acc: BigDecimal = BigDecimal(0)
@@ -109,11 +109,11 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
     entries.foreach { entry =>
       entry.balance().foreach {
         case (currency, amount) =>
-          acc = acc + priceQuotes.quotedValue(FungibleData(amount, currency), USDT, entry.timestamp).map(_.amount).getOrElse(BigDecimal(0))
+          acc = acc + priceQuotes.quotedValue(FungibleData(amount, currency), BUSD, entry.timestamp).map(_.amount).getOrElse(BigDecimal(0))
       }
     }
 
-    Some(FungibleData(acc, USDT))
+    Some(FungibleData(acc, BUSD))
   }
 
   override def currency(entries: List[PositionEntry]): Option[Currency] = {

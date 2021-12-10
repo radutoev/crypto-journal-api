@@ -24,7 +24,7 @@ object PositionSpec extends DefaultRunnableSpec {
         equalTo(
           Map(
             WBNB -> FungibleData(BigDecimal("0.63754087290031064"), WBNB),
-            USDT  -> FungibleData(BigDecimal("300.432966715797795248663236085984"), USDT)
+            BUSD  -> FungibleData(BigDecimal("300.432966715797795248663236085984"), BUSD)
           )
         )
       ) &&
@@ -32,7 +32,7 @@ object PositionSpec extends DefaultRunnableSpec {
         equalTo(
           Map(
             WBNB -> FungibleData(BigDecimal("0.012934145"), WBNB),
-            USDT  -> FungibleData(BigDecimal("6.1753836674609374056540"), USDT)
+            BUSD  -> FungibleData(BigDecimal("6.1753836674609374056540"), BUSD)
           )
         )
       ) &&
@@ -40,11 +40,11 @@ object PositionSpec extends DefaultRunnableSpec {
         equalTo(
           Map(
             WBNB -> FungibleData(BigDecimal("0.65047501790031064"), WBNB),
-            USDT  -> FungibleData(BigDecimal("306.608350383258732654317236085984"), USDT)
+            BUSD  -> FungibleData(BigDecimal("306.608350383258732654317236085984"), BUSD)
           )
         )
       ) &&
-      assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), USDT)))) &&
+      assert(position.fiatReturn)(isSome(equalTo(FungibleData(BigDecimal("-103.333179321181985343044042726609"), BUSD)))) &&
       assert(position.fiatReturnPercentage)(isSome(equalTo(BigDecimal("-133.7020107873826938895499253848357")))) &&
       assert(position.totalCoins)(
         equalTo(FungibleData(BigDecimal("432156304.43068674"), Currency.unsafeFrom("FOOFIGHT")))
@@ -104,7 +104,7 @@ object PositionSpec extends DefaultRunnableSpec {
       PriceQuotePositionData(
         priceQuotes = PriceQuotes(
           Map(
-            CurrencyPair(WBNB, USDT) -> List(
+            CurrencyPair(WBNB, BUSD) -> List(
               PriceQuote(price = 473.00000000f, timestamp = Instant.parse("2021-10-18T11:00:00Z")),
               PriceQuote(price = 470.10000000f, timestamp = Instant.parse("2021-10-18T12:00:00Z")),
               PriceQuote(price = 486.80000000f, timestamp = Instant.parse("2021-10-18T14:00:00Z"))

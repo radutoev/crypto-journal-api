@@ -219,7 +219,7 @@ object LiveMarketPlayService {
           repo
             .getQuotes(currencyPair, interval)
             .flatMap(listOfQuotes => {
-              val bnbUsdtPair = CurrencyPair(WBNB, USDT)
+              val bnbUsdtPair = CurrencyPair(WBNB, BUSD)
               repo
                 .getQuotes(bnbUsdtPair, interval)
                 .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbUsdtPair -> bnbQuotes)))

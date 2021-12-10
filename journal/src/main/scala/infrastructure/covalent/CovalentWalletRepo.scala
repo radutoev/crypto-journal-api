@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
 import config.CovalentConfig
-import domain.model.{Currency, FungibleData, USDT, WalletAddress}
+import domain.model.{Currency, FungibleData, BUSD, WalletAddress}
 import domain.wallet.WalletRepo
 import domain.wallet.error.{BalanceGetError, WalletError}
 import infrastructure.covalent.dto.AccountBalanceResponse
@@ -33,7 +33,7 @@ final case class CovalentWalletRepo(httpClient: SttpClient.Service,
         .mapError(BalanceGetError))
       quote <- ZIO.fromOption(decoded.data.items.headOption)
         .mapBoth(_ => BalanceGetError("Invalid response"), balance => balance.quote)
-    } yield FungibleData(BigDecimal(quote), USDT)
+    } yield FungibleData(BigDecimal(quote), BUSD)
 }
 
 object CovalentWalletRepo {
