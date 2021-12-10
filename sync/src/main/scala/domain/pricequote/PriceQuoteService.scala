@@ -51,8 +51,8 @@ final case class LivePriceQuoteService(
     } yield ()).orElseFail(PriceQuoteFetchError("Quote update failure"))
 
   private def quotePair(address: CoinAddress): (CoinAddress, Currency) = {
-    if (!(address.value == "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")) {
-      (CoinAddress.unsafeFrom("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"), WBNB)
+    if (!(address.value.toLowerCase == "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")) {
+      (CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"), WBNB)
     } else {
       (Currency.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56"), BUSD)
     }
