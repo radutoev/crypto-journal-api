@@ -3,7 +3,7 @@ package io.softwarechain.cryptojournal
 import application.ReportsApi
 import config.CryptoJournalConfig
 import domain.model.{Currency, WalletAddress}
-import infrastructure.google.datastore.DatastoreMarketPlayRepo
+import infrastructure.google.datastore.{DatastoreMarketPlayRepo, DatastorePaginationRepo}
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
@@ -22,7 +22,7 @@ object Reports extends App {
     ReportsApi
       .coinHistoryInWallet(
         WalletAddress.unsafeFrom("0x627909adab1ab107b59a22e7ddd15e5d9029bc41"),
-        Currency.unsafeFrom("WBNB")
+        Currency.unsafeFrom("BUSD")
       )
       .provideCustomLayer(layer(config))
 
@@ -36,8 +36,11 @@ object Reports extends App {
     val datastoreLayer       = ZIO(DatastoreOptions.getDefaultInstance.toBuilder.build().getService).toLayer
     val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
 
+    lazy val paginationContextRepoLayer =
+      (loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live) >>> DatastorePaginationRepo.layer
+
     lazy val marketPlayRepo =
-      datastoreLayer ++ datastoreConfigLayer ++ loggingLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer
+      datastoreLayer ++ datastoreConfigLayer ++ paginationContextRepoLayer ++ loggingLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer
 
     marketPlayRepo ++ loggingLayer
   }
