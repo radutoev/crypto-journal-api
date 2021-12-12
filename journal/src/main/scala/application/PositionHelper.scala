@@ -2,10 +2,10 @@ package io.softwarechain.cryptojournal
 package application
 
 import domain.blockchain.BlockchainRepo
-import domain.model.{ TransactionHash, WalletAddress }
+import domain.model.{TransactionHash, WalletAddress}
 import domain.position.PositionEntry
 
-import zio.{ Has, ZIO }
+import zio.{Has, UIO, ZIO}
 
 object PositionHelper {
   def txToEntries(
@@ -14,6 +14,8 @@ object PositionHelper {
   ): ZIO[Has[BlockchainRepo], Throwable, List[PositionEntry]] =
     ZIO.serviceWith(
       _.fetchTransaction(txHash)
-        .flatMap(tx => ZIO.fromEither(PositionEntry.fromTransaction(tx, address)).mapError(new RuntimeException(_)))
+        .flatMap(tx => ZIO.fromEither(PositionEntry.fromTransaction(tx, address))
+          .tapError(err => UIO(println(err)))
+          .mapError(new RuntimeException(_)))
     )
 }

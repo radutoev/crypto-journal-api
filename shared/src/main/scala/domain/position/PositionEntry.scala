@@ -44,19 +44,30 @@ object PositionEntry {
     } else if (approvalData.isDefined) {
       approvalData.get
     } else if (buyData.isDefined) {
-      buyData.get
+      val buyEither = buyData.get
+      if(buyEither.isLeft) {
+        directTransfers(transferInData, transferOutData)(transaction.hash.value)
+      } else {
+        buyEither
+      }
     } else if (claimData.isDefined) {
       claimData.get
     } else if (contributeData.isDefined) {
       contributeData.get
     } else if (sellData.isDefined) {
       sellData.get
-    } else if (transferInData.isDefined) {
-      transferInData.get
-    } else if (transferOutData.isDefined) {
-      transferOutData.get
     } else {
-      Left(s"Unable to interpret transaction ${transaction.hash.value}")
+      directTransfers(transferInData, transferOutData)(transaction.hash.value)
+    }
+  }
+
+  private def directTransfers(tIn: Option[Either[String, List[PositionEntry]]],
+                              tOut: Option[Either[String, List[PositionEntry]]])(hash: String): Either[String, List[PositionEntry]] = {
+    val entries = tIn.getOrElse(Right(List.empty)).getOrElse(List.empty) ::: tOut.getOrElse(Right(List.empty)).getOrElse(List.empty)
+    if(entries.nonEmpty) {
+      Right(entries)
+    } else {
+      Left(s"Unable to interpret transaction $hash")
     }
   }
 
@@ -295,6 +306,9 @@ object PositionEntry {
           transaction.instant,
           Some(spentOriginal)
         )
+
+//        buyOptional.fold[List[PositionEntry]](List.empty)(List(_)) :::
+//          transferInData(address).fold[List[PositionEntry]](List.empty)(either => either.getOrElse(List.empty))
 
         //TODO I should look for other transferIns.
         Some(buyOptional.map(List(_)).toRight("Unable to decode Buy"))
@@ -582,10 +596,8 @@ object PositionEntry {
         } else {
           None
         }
-
         transferOuts
       }
-
     }
 
     def initiatedByAddress(address: WalletAddress): Boolean = transaction.fromAddress == address.value
