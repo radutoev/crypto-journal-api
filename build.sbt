@@ -55,6 +55,7 @@ lazy val shared = project
     commonSettings ++
       Seq(name := "shared"),
     libraryDependencies ++= Seq(
+      "com.github.ghostdogpr"         %% "caliban-client"         % zioCalibanVersion,
       "com.google.cloud"              % "google-cloud-datastore"  % datastoreVersion,
       "com.softwaremill.sttp.client3" %% "core"                   % sttpClientVersion,
       "com.softwaremill.sttp.client3" %% "httpclient-backend-zio" % sttpClientVersion,
@@ -66,8 +67,17 @@ lazy val shared = project
       "dev.zio"                       %% "zio-test"               % zioVersion % Test,
       "dev.zio"                       %% "zio-test-sbt"           % zioVersion % Test,
       "eu.timepit"                    %% "refined"                % refinedVersion
+    ),
+    Compile / caliban / calibanSettings += calibanSetting(url("https://graphql.bitquery.io/"))(cs =>
+      cs.headers("X-API-KEY" -> "BQYVTE222H3jH2ZnySdrpYGtBsUsGC8N")
+        .clientName("BitQueryClient")
+        .packageName("io.softwarechain.cryptojournal.infrastrucutre.bitquery.graphql.client")
+        .splitFiles(true)
+        .genView(false)
+        .enableFmt(false)
     )
   )
+  .enablePlugins(CalibanPlugin)
 
 lazy val journal = project
   .settings(
@@ -95,26 +105,17 @@ lazy val sync = project
   .settings(
     commonSettings ++ packageSettings ++ Seq(name := "sync"),
     libraryDependencies ++= Seq(
-      "ch.qos.logback"        % "logback-classic"              % logbackVersion,
-      "com.spotify"           % "futures-extra"                % spotifyFuturesVersion,
-      "com.github.ghostdogpr" %% "caliban-client"              % zioCalibanVersion,
-      "dev.zio"               %% "zio-config-magnolia"         % zioConfigVersion,
-      "dev.zio"               %% "zio-config-refined"          % zioConfigVersion,
-      "dev.zio"               %% "zio-config-typesafe"         % zioConfigVersion,
-      "dev.zio"               %% "zio-interop-reactivestreams" % zioInteropVersion,
-      "org.web3j"             % "core"                         % web3jVersion
-    ),
-    Compile / caliban / calibanSettings += calibanSetting(url("https://graphql.bitquery.io/"))(cs =>
-      cs.headers("X-API-KEY" -> "BQYVTE222H3jH2ZnySdrpYGtBsUsGC8N")
-        .clientName("BitQueryClient")
-        .packageName("io.softwarechain.cryptojournal.infrastrucutre.bitquery.graphql.client")
-        .splitFiles(true)
-        .genView(false)
-        .enableFmt(false)
+      "ch.qos.logback" % "logback-classic"              % logbackVersion,
+      "com.spotify"    % "futures-extra"                % spotifyFuturesVersion,
+      "dev.zio"        %% "zio-config-magnolia"         % zioConfigVersion,
+      "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
+      "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
+      "dev.zio"        %% "zio-interop-reactivestreams" % zioInteropVersion,
+      "org.web3j"      % "core"                         % web3jVersion
     )
   )
   .dependsOn(shared)
-  .enablePlugins(JavaAppPackaging, DockerPlugin, CalibanPlugin)
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
 
 lazy val reports = project
   .settings(

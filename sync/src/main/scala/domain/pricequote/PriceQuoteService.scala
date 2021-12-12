@@ -26,10 +26,11 @@ final case class LivePriceQuoteService(
   clock: Clock.Service,
   logger: Logger[String]
 ) extends PriceQuoteService {
+
   override def updateQuotes(): IO[PriceQuoteError, Unit] =
     (for {
-      currencies        <- currencyRepo.getCurrencies()
-      latestQuotes      <- priceQuoteRepo.getLatestQuotes()
+      currencies        <- currencyRepo.getCurrencies() //might not need it actually.
+      latestQuotes      <- priceQuoteRepo.getLatestQuotes() //might not need it
       addressToCurrency = currencies.toMap.map(_.swap)
       startTimes = currencies.map { currencyAndAddress =>
         if (latestQuotes.contains(currencyAndAddress._1)) {
