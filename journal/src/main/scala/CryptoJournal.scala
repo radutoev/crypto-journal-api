@@ -63,7 +63,7 @@ object CryptoJournal extends App {
 
     lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ httpClientLayer ++ covalentConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
-    lazy val priceQuoteServiceLayer = bitQueryFacadeLayer ++ priceQuoteRepoLayer ++ loggingLayer >>> LivePriceQuoteService.layer
+    lazy val priceQuoteServiceLayer = bitQueryFacadeLayer ++ loggingLayer >>> LivePriceQuoteService.layer
 
     lazy val userWalletRepo =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer

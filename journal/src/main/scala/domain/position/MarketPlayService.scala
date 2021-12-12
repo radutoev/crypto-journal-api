@@ -79,8 +79,6 @@ object MarketPlayService {
 final case class LiveMarketPlayService(
   positionRepo: MarketPlayRepo,
   priceQuoteService: PriceQuoteService,
-
-  priceQuoteRepo: PriceQuoteRepo, //TODO Remove this dependency.
   blockchainRepo: BlockchainRepo,
   journalingRepo: JournalingRepo,
   currencyRepo: CurrencyRepo,
@@ -273,10 +271,10 @@ object LiveMarketPlayService {
   lazy val cacheLayer: ZLayer[Has[PriceQuoteRepo], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
     Cache.make(1000, 1.day, lookup = Lookup(playData)).toLayer
 
-  lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteService] with Has[PriceQuoteRepo] with Has[BlockchainRepo] with Has[
+  lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteService] with Has[BlockchainRepo] with Has[
     JournalingRepo
   ] with Has[CurrencyRepo] with Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]] with Logging, Has[
     MarketPlayService
   ]] =
-    (LiveMarketPlayService(_, _, _, _, _, _, _, _)).toLayer
+    (LiveMarketPlayService(_, _, _, _, _, _, _)).toLayer
 }
