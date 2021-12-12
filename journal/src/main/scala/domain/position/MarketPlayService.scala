@@ -5,14 +5,15 @@ import domain.blockchain.error._
 import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.currency.CurrencyRepo
 import domain.model._
+import domain.position.MarketPlayService.MarketPlaysOps
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
-import domain.pricequote.{CurrencyPair, PriceQuoteRepo, PriceQuotes}
+import domain.pricequote.{CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes}
 import domain.wallet.Wallet
 import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
-import vo.TimeInterval
 import vo.filter.PlayFilter
+import vo.{CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval}
 
 import zio.cache.{Cache, Lookup}
 import zio.duration.durationInt
@@ -58,11 +59,28 @@ object MarketPlayService {
     userWallet: Wallet
   )(filter: PlayFilter): ZIO[Has[MarketPlayService], MarketPlayError, MarketPlays] =
     ZIO.serviceWith[MarketPlayService](_.getPlays(userWallet, filter))
+
+  implicit class MarketPlaysOps(marketPlays: MarketPlays) {
+    lazy val quotesTimestamps: List[CurrencyPairTimestamps] = {
+      marketPlays.plays.flatMap {
+        case t: TopUp    => List(CurrencyPairTimestamp(t.value.currency, WBNB, t.timestamp))
+        case w: Withdraw => List(CurrencyPairTimestamp(w.value.currency, WBNB, w.timestamp))
+        case p: Position if p.currency.isDefined =>
+          p.entries.map(entry => CurrencyPairTimestamp(p.currency.get, WBNB, entry.timestamp))
+      }.groupBy(_.pair)
+        .view
+        .mapValues(_.map(_.timestamp))
+        .toList
+        .map(CurrencyPairTimestamps(_))
+    }
+  }
 }
 
 final case class LiveMarketPlayService(
   positionRepo: MarketPlayRepo,
-  priceQuoteRepo: PriceQuoteRepo,
+  priceQuoteService: PriceQuoteService,
+
+  priceQuoteRepo: PriceQuoteRepo, //TODO Remove this dependency.
   blockchainRepo: BlockchainRepo,
   journalingRepo: JournalingRepo,
   currencyRepo: CurrencyRepo,
@@ -170,14 +188,17 @@ final case class LiveMarketPlayService(
     val noPlaysEffect = logger.info(s"No positions to import for ${userWallet.address}")
 
     @inline
-    def handlePlayImport(plays: MarketPlays): IO[MarketPlayError, Unit] =
+    def handlePlayImport(marketPlays: MarketPlays): IO[MarketPlayError, Unit] =
       for {
         //Get open positions that might become closed with the new data coming in
         openPositions <- positionRepo.getPositions(userWallet.address, Open).map(MarketPlays(_))
-        merged        = openPositions.merge(plays)
+        merged        = openPositions.merge(marketPlays)
         _ <- positionRepo
               .save(userWallet.address, merged.plays)
               .mapError(throwable => MarketPlayImportError(userWallet.address, throwable))
+        _ <- ZIO.foreachParN_(4)(marketPlays.quotesTimestamps) {
+          case CurrencyPairTimestamps(pair, timestamps) => priceQuoteService.addQuotes(pair, timestamps)
+        }.ignore //TODO Handle failure of price_quotes fetching&saving.
         _ <- logger.info(s"Data import complete for ${userWallet.address.value}")
       } yield ()
 
@@ -214,17 +235,17 @@ object LiveMarketPlayService {
       }
 
       (for {
-        quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty()))(c => {
-          val currencyPair = CurrencyPair(c, WBNB)
-          repo
-            .getQuotes(currencyPair, interval)
-            .flatMap(listOfQuotes => {
-              val bnbUsdtPair = CurrencyPair(WBNB, BUSD)
-              repo
-                .getQuotes(bnbUsdtPair, interval)
-                .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbUsdtPair -> bnbQuotes)))
-            })
-        })
+        quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty())) { c =>
+                   val currencyPair = CurrencyPair(c, WBNB)
+                   repo
+                     .getQuotes(currencyPair, interval)
+                     .flatMap { listOfQuotes =>
+                       val bnbUsdtPair = CurrencyPair(WBNB, BUSD)
+                       repo
+                         .getQuotes(bnbUsdtPair, interval)
+                         .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbUsdtPair -> bnbQuotes)))
+                     }
+                 }
         data = play match {
           case p: Position =>
             val pos = p.copy(dataSource = Some(PriceQuotePositionData(quotes)))
@@ -252,10 +273,10 @@ object LiveMarketPlayService {
   lazy val cacheLayer: ZLayer[Has[PriceQuoteRepo], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
     Cache.make(1000, 1.day, lookup = Lookup(playData)).toLayer
 
-  lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteRepo] with Has[BlockchainRepo] with Has[
+  lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteService] with Has[PriceQuoteRepo] with Has[BlockchainRepo] with Has[
     JournalingRepo
   ] with Has[CurrencyRepo] with Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]] with Logging, Has[
     MarketPlayService
   ]] =
-    (LiveMarketPlayService(_, _, _, _, _, _, _)).toLayer
+    (LiveMarketPlayService(_, _, _, _, _, _, _, _)).toLayer
 }

@@ -11,6 +11,7 @@ object CryptoJournalConfig {
 }
 
 final case class CryptoJournalConfig(
+  bitquery: BitQueryConfig,
   coinApi: CoinApiConfig,
   covalent: CovalentConfig,
   demoAccount: DemoAccountConfig,

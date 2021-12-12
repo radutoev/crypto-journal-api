@@ -114,7 +114,7 @@ final case class DatastorePriceQuoteRepo(
           Task {
             txn.put(list: _*)
             txn.commit()
-          } *> logger.info(s"Imported ${list.size} of ${quotesChunk.baseCurrency} to ${quotesChunk.quoteCurrency}")
+          } *> logger.info(s"Imported ${list.size} of ${quotesChunk.pair.base} to ${quotesChunk.pair.quote}")
         }
         .tapError(throwable =>
           logger.error(s"Error saving quotes: ${list.mkString(",")}") *> logger.error(throwable.getMessage)
@@ -123,7 +123,7 @@ final case class DatastorePriceQuoteRepo(
 
     {
       val entities = quotesChunk.quotes
-        .map(quote => priceQuoteWithCurrencyToEntity((quotesChunk.baseCurrency, quotesChunk.quoteCurrency, quote)))
+        .map(quote => priceQuoteWithCurrencyToEntity((quotesChunk.pair.base, quotesChunk.pair.quote, quote)))
         .grouped(25)
         .toList
 

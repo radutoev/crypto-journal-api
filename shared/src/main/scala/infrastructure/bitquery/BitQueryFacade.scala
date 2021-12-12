@@ -3,7 +3,7 @@ package infrastructure.bitquery
 
 import config.BitQueryConfig
 import domain.model.CoinAddress
-import domain.pricequote.PriceQuote
+import domain.pricequote.{CurrencyPair, PriceQuote}
 import infrastrucutre.bitquery.graphql.client.Ethereum.dexTrades
 import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{quotePrice, timeInterval}
 import infrastrucutre.bitquery.graphql.client.PriceAggregateFunction.average
@@ -34,6 +34,37 @@ final case class BitQueryFacade (config: BitQueryConfig,
           minute(count = Some(1), format = Some("%FT%TZ"))
         } ~
         quotePrice(calculate = Some(average))
+      }
+    )
+
+    zioHttpBackend.flatMap { backend =>
+      query
+        .toRequest(uri"${config.url}", dropNullInputValues = true)
+        .headers(Map("X-API-KEY" -> config.apiKey))
+        .send(backend)
+        .map(_.body)
+        .tapError(err => logger.warn(err.getMessage))
+        .map(_.map(result => {
+          result.flatten.getOrElse(List.empty).collect {
+            case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
+          }
+        }))
+        .absolve
+    }
+  }
+
+  def getPrices(pair: CurrencyPair, timestamps: List[Instant]): Task[List[PriceQuote]] = {
+    val query = ethereum(network = Some(EthereumNetwork.bsc))(
+      dexTrades(
+        date = Some(DateSelector(in = Some(timestamps.map(_.toString)))),
+        exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
+        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.value)))),
+        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.value))))
+      ) {
+        timeInterval {
+          minute(count = Some(1), format = Some("%FT%TZ"))
+        } ~
+          quotePrice(calculate = Some(average))
       }
     )
 

@@ -6,8 +6,10 @@ import vo.TimeInterval
 
 import zio.IO
 
+import java.time.Instant
+
 trait PriceQuoteService {
-  def addQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, Unit]
+  def addQuotes(pair: CurrencyPair, timestamps: List[Instant]): IO[PriceQuoteError, Unit]
 
   def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, Unit]
 }

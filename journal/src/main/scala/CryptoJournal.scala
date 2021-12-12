@@ -12,6 +12,8 @@ import infrastructure.google.datastore._
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
+import io.softwarechain.cryptojournal.infrastructure.bitquery.BitQueryFacade
+import io.softwarechain.cryptojournal.infrastructure.pricequote.LivePriceQuoteService
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
@@ -37,6 +39,7 @@ object CryptoJournal extends App {
     val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
     val coinApiConfigLayer   = configLayer.map(c => Has(c.get.coinApi))
     val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
+    val bitQueryConfigLayer  = configLayer.map(c => Has(c.get.bitquery))
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
 
@@ -56,7 +59,11 @@ object CryptoJournal extends App {
 
     lazy val currencyRepoLayer = (datastoreLayer ++ datastoreConfigLayer ++ loggingLayer) >>> DatastoreCurrencyRepo.layer
 
+    lazy val bitQueryFacadeLayer = loggingLayer ++ bitQueryConfigLayer >>> BitQueryFacade.layer
+
     lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ httpClientLayer ++ covalentConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
+
+    lazy val priceQuoteServiceLayer = bitQueryFacadeLayer ++ priceQuoteRepoLayer ++ loggingLayer >>> LivePriceQuoteService.layer
 
     lazy val userWalletRepo =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer
@@ -73,7 +80,7 @@ object CryptoJournal extends App {
     lazy val marketPlayCacheLayer = priceQuoteRepoLayer >+> LiveMarketPlayService.cacheLayer
 
     lazy val marketPlayService =
-      marketPlayRepo ++ marketPlayCacheLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ currencyRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
+      marketPlayRepo ++ marketPlayCacheLayer ++ priceQuoteServiceLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ currencyRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
 
     lazy val walletServiceLayer =
       userWalletRepo ++ walletImportLayer ++ marketPlayService ++ loggingLayer >>> LiveWalletService.layer
