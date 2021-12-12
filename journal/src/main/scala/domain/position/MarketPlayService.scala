@@ -3,7 +3,6 @@ package domain.position
 
 import domain.blockchain.error._
 import domain.blockchain.{BlockchainRepo, Transaction}
-import domain.currency.CurrencyRepo
 import domain.model._
 import domain.position.MarketPlayService.MarketPlaysOps
 import domain.position.MarketPlays.findMarketPlays
@@ -81,7 +80,6 @@ final case class LiveMarketPlayService(
   priceQuoteService: PriceQuoteService,
   blockchainRepo: BlockchainRepo,
   journalingRepo: JournalingRepo,
-  currencyRepo: CurrencyRepo,
   playsCache: Cache[MarketPlay, MarketPlayError, MarketPlayData],
   logger: Logger[String]
 ) extends MarketPlayService {
@@ -213,11 +211,6 @@ final case class LiveMarketPlayService(
             noPlaysEffect
           } else {
             handlePlayImport(plays)
-              .zipRight(
-                currencyRepo
-                  .upsert(plays.currencies)
-                  .orElseFail(MarketPlayImportError(walletAddress, new RuntimeException("Currency upsert failed")))
-              )
           }
     } yield ()
   }
@@ -273,8 +266,8 @@ object LiveMarketPlayService {
 
   lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteService] with Has[BlockchainRepo] with Has[
     JournalingRepo
-  ] with Has[CurrencyRepo] with Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]] with Logging, Has[
+  ] with Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]] with Logging, Has[
     MarketPlayService
   ]] =
-    (LiveMarketPlayService(_, _, _, _, _, _, _)).toLayer
+    (LiveMarketPlayService(_, _, _, _, _, _)).toLayer
 }
