@@ -99,8 +99,9 @@ final case class CovalentFacade(httpClient: SttpClient.Service, config: Covalent
             .get(uri"${url.value}")
             .response(asString)
         )
-        .tapError(err => logger.warn(s"Transactions fetch failed for ${url.value}. Error: ${err.getMessage}"))
         .mapError(err => TransactionsGetError(err.getMessage))
+        .retryN(2)
+        .tapError(err => logger.warn(s"Transactions fetch failed for ${url.value}. Error: ${err}"))
         .flatMap(response =>
           ZIO
             .fromEither(response.body.map(_.fromJson[TransactionQueryResponse]))
