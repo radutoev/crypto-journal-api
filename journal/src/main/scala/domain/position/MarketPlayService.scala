@@ -62,8 +62,8 @@ object MarketPlayService {
   implicit class MarketPlaysOps(marketPlays: MarketPlays) {
     lazy val quotesTimestamps: List[CurrencyPairTimestamps] = {
       marketPlays.plays.flatMap {
-        case t: TopUp    => List(CurrencyPairTimestamp(t.value.currency, WBNB, t.timestamp))
-        case w: Withdraw => List(CurrencyPairTimestamp(w.value.currency, WBNB, w.timestamp))
+//        case t: TopUp    => List(CurrencyPairTimestamp(t.value.currency, WBNB, t.timestamp))
+//        case w: Withdraw => List(CurrencyPairTimestamp(w.value.currency, WBNB, w.timestamp))
         case p: Position if p.currency.isDefined =>
           p.entries.map(entry => CurrencyPairTimestamp(p.currency.get, WBNB, entry.timestamp))
         case _ => List.empty
@@ -242,7 +242,6 @@ object LiveMarketPlayService {
           case p: Position =>
             val pos = p.copy(dataSource = Some(PriceQuotePositionData(quotes)))
             PositionDataValues(
-              pos.currency,
               pos.cost,
               pos.fees,
               pos.entryPrice,

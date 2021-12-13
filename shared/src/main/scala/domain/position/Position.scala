@@ -24,7 +24,24 @@ final case class Position(
    */
   lazy val numberOfExecutions: Int = entries.map(_.hash).distinct.size
 
-  lazy val currency: Option[Currency] = dataSource.flatMap(_.currency(entries))
+  lazy val currency: Option[Currency] = {
+    val currencies = entries.map {
+      case a: AirDrop                               => Some(a.received.currency)
+      case _: Approval                              => None
+      case Buy(_, _, received, _, _, _, _, _, _, _) => Some(received.currency)
+      case Claim(_, received, _, _, _, _, _, _)     => Some(received.currency)
+      case c: Contribute                            => Some(c.spent.currency)
+      case Sell(sold, _, _, _, _, _)                => Some(sold.currency)
+      case TransferIn(amount, _, _, _, _, _, _, _)  => Some(amount.currency)
+      case TransferOut(amount, _, _, _, _, _)       => Some(amount.currency)
+    }.values.distinct
+
+    if (currencies.size > 1) {
+      currencies.find(_ != WBNB)
+    } else {
+      currencies.headOption
+    }
+  }
 
   //TODO I think I need to see if I can add the coin address to all transaction types.
   lazy val coinAddress: Option[CoinAddress] = {
@@ -130,12 +147,12 @@ final case class Position(
   /**
    * @return Entry coin fiat price
    */
-  lazy val entryPrice: Option[PriceQuote] = dataSource.flatMap(_.entryPrice(entries))
+  lazy val entryPrice: Option[PriceQuote] = currency.flatMap(c => dataSource.flatMap(_.entryPrice(c, entries)))
 
   /**
    * @return Exit coin fiat price
    */
-  lazy val exitPrice: Option[PriceQuote] = dataSource.flatMap(_.exitPrice(entries))
+  lazy val exitPrice: Option[PriceQuote] = currency.flatMap(c => dataSource.flatMap(_.exitPrice(c, entries)))
 
   /**
    * Number of coins that are part of this Position

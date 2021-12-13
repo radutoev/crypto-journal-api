@@ -5,23 +5,20 @@ import domain.model.fungible.{ FungibleDataOps, OptionalFungibleDataOps }
 import domain.model.{ Currency, FungibleData, BUSD, WBNB }
 import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuotes }
 import util.ListOps.cond
-import util.ListOptionOps
 
 import java.time.Instant
 
 sealed trait PositionData extends MarketPlayData {
-  def currency(entries: List[PositionEntry]): Option[Currency]
   def cost(entries: List[PositionEntry]): Map[Currency, FungibleData]
   def fees(entries: List[PositionEntry]): Map[Currency, FungibleData]
-  def entryPrice(entries: List[PositionEntry]): Option[PriceQuote]
-  def exitPrice(entries: List[PositionEntry]): Option[PriceQuote]
+  def entryPrice(currency: Currency, entries: List[PositionEntry]): Option[PriceQuote]
+  def exitPrice(currency: Currency, entries: List[PositionEntry]): Option[PriceQuote]
   def fiatSellValue(entries: List[PositionEntry]): FungibleData
-  def balance(entries: List[PositionEntry]): Option[FungibleData] //hardcoded to USD
+  def balance(entries: List[PositionEntry]): Option[FungibleData]
   def closedAt(entries: List[PositionEntry]): Option[Instant]
 }
 
 final case class PositionDataValues(
-  currency: Option[Currency],
   cost: Map[Currency, FungibleData],
   fees: Map[Currency, FungibleData],
   entryPrice: Option[PriceQuote],
@@ -30,15 +27,13 @@ final case class PositionDataValues(
   balance: Option[FungibleData],
   closedAt: Option[Instant]
 ) extends PositionData {
-  override def currency(entries: List[PositionEntry]): Option[Currency] = currency
-
   override def cost(entries: List[PositionEntry]): Map[Currency, FungibleData] = cost
 
   override def fees(entries: List[PositionEntry]): Map[Currency, FungibleData] = fees
 
-  override def entryPrice(entries: List[PositionEntry]): Option[PriceQuote] = entryPrice
+  override def entryPrice(currency: Currency, entries: List[PositionEntry]): Option[PriceQuote] = entryPrice
 
-  override def exitPrice(entries: List[PositionEntry]): Option[PriceQuote] = exitPrice
+  override def exitPrice(currency: Currency, entries: List[PositionEntry]): Option[PriceQuote] = exitPrice
 
   override def fiatSellValue(entries: List[PositionEntry]): FungibleData = fiatSellValue
 
@@ -80,18 +75,12 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
         .sumOfCurrency(BUSD)
     } yield Map(currency -> currencyFee, BUSD -> quotedFee)) getOrElse Map.empty
 
-  override def entryPrice(entries: List[PositionEntry]): Option[PriceQuote] =
-    for {
-      c     <- currency(entries)
-      quote <- priceQuotes.findPrice(CurrencyPair(c, BUSD), entries.head.timestamp)
-    } yield quote
+  override def entryPrice(currency: Currency, entries: List[PositionEntry]): Option[PriceQuote] =
+    priceQuotes.findPrice(CurrencyPair(currency, BUSD), entries.head.timestamp)
 
-  override def exitPrice(entries: List[PositionEntry]): Option[PriceQuote] =
+  override def exitPrice(currency: Currency, entries: List[PositionEntry]): Option[PriceQuote] =
     if (closedAt(entries).isDefined) {
-      for {
-        c     <- currency(entries)
-        quote <- priceQuotes.findPrice(CurrencyPair(c, BUSD), entries.last.timestamp)
-      } yield quote
+      priceQuotes.findPrice(CurrencyPair(currency, BUSD), entries.last.timestamp)
     } else {
       None
     }
@@ -114,25 +103,6 @@ final case class PriceQuotePositionData(priceQuotes: PriceQuotes) extends Positi
     }
 
     Some(FungibleData(acc, BUSD))
-  }
-
-  override def currency(entries: List[PositionEntry]): Option[Currency] = {
-    val currencies = entries.map {
-      case a: AirDrop                               => Some(a.received.currency)
-      case _: Approval                              => None
-      case Buy(_, _, received, _, _, _, _, _, _, _) => Some(received.currency)
-      case Claim(_, received, _, _, _, _, _, _)     => Some(received.currency)
-      case c: Contribute                            => Some(c.spent.currency)
-      case Sell(sold, _, _, _, _, _)                => Some(sold.currency)
-      case TransferIn(amount, _, _, _, _, _, _, _)  => Some(amount.currency)
-      case TransferOut(amount, _, _, _, _, _)       => Some(amount.currency)
-    }.values.distinct
-
-    if (currencies.size > 1) {
-      currencies.find(_ != WBNB)
-    } else {
-      currencies.headOption
-    }
   }
 
   override def closedAt(entries: List[PositionEntry]): Option[Instant] = entries.lastOption.collect {
