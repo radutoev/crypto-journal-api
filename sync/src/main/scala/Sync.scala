@@ -3,7 +3,7 @@ package io.softwarechain.cryptojournal
 import application.SyncApi
 import config.CryptoJournalConfig
 import domain.model.WalletAddress
-import domain.pricequote.LivePriceQuoteService
+import domain.pricequote.LivePriceQuotesJobService
 import domain.wallet.WalletImportRepo
 import domain.wallet.model.ImportDone
 import infrastructure.bitquery.BitQueryFacade
@@ -117,15 +117,13 @@ object Sync extends App {
     lazy val walletRepoLayer =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
-    lazy val currencyRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreCurrencyRepo.layer
-
     lazy val priceQuoteRepoLayer =
       datastoreLayer ++ datastoreConfigLayer ++ clockLayer ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
     lazy val bitQueryFacadeLayer = loggingLayer ++ bitQueryConfigLayer >>> BitQueryFacade.layer
 
     lazy val priceQuoteServiceLayer =
-      (loggingLayer ++ priceQuoteRepoLayer ++ currencyRepoLayer ++ bitQueryFacadeLayer ++ clockLayer) >>> LivePriceQuoteService.layer
+      (loggingLayer ++ priceQuoteRepoLayer ++ bitQueryFacadeLayer ++ clockLayer) >>> LivePriceQuotesJobService.layer
 
 //    lazy val syncLayer =
 //      exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ marketPlayRepo ++ currencyRepoLayer ++ priceQuoteServiceLayer ++ clockLayer ++ bitQueryFacadeLayer

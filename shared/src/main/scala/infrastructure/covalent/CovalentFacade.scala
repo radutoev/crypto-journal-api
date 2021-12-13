@@ -2,27 +2,26 @@ package io.softwarechain.cryptojournal
 package infrastructure.covalent
 
 import config.CovalentConfig
-import domain.blockchain.error.{ BlockchainError, HistoricalPriceGetError, TransactionsGetError }
-import domain.blockchain.{ BlockchainRepo, Transaction }
-import domain.model.{ Currency, TransactionHash, WalletAddress }
-import infrastructure.covalent.dto.{ PriceQuoteResponse, TransactionQueryResponse }
+import domain.blockchain.error.{BlockchainError, HistoricalPriceGetError, TransactionsGetError}
+import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.model.{Currency, TransactionHash, WalletAddress}
+import domain.pricequote.PriceQuote
+import infrastructure.covalent.CovalentFacade.CovalentQParamDateFormat
+import infrastructure.covalent.dto.{PriceQuoteResponse, TransactionQueryResponse}
+import vo.TimeInterval
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.refineV
 import eu.timepit.refined.string.Url
-import io.softwarechain.cryptojournal.domain.pricequote.PriceQuote
-import io.softwarechain.cryptojournal.domain.pricequote.error.{ PriceQuoteFetchError, PriceQuoteNotFound }
-import io.softwarechain.cryptojournal.infrastructure.covalent.CovalentFacade.CovalentQParamDateFormat
-import io.softwarechain.cryptojournal.vo.TimeInterval
 import sttp.client3._
 import sttp.client3.httpclient.zio.SttpClient
 import zio.json._
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO }
+import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
 
 import java.time.format.DateTimeFormatter
-import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
     extends BlockchainRepo {

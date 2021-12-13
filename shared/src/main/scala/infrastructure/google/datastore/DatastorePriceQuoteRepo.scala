@@ -3,16 +3,16 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model.Currency
-import domain.pricequote.error.{ PriceQuoteError, PriceQuoteFetchError }
-import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuoteRepo }
-import vo.{ PriceQuotesChunk, TimeInterval }
+import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound}
+import domain.pricequote.{CurrencyPair, PriceQuote, PriceQuoteRepo}
+import vo.{PriceQuotesChunk, TimeInterval}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -81,29 +81,26 @@ final case class DatastorePriceQuoteRepo(
    *
    * @return Latest quotes for all currencies that have quotes in the system.
    */
-  override def getLatestQuotes(): IO[PriceQuoteError, Map[Currency, PriceQuote]] = {
+  override def getLatestQuote(currency: Currency): IO[PriceQuoteError, PriceQuote] = {
     val query = Query
       .newProjectionEntityQueryBuilder()
       .setKind(datastoreConfig.priceQuote)
-      .setProjection("baseCurrency", "timestamp", "price")
-      .setDistinctOn("baseCurrency")
-      .setOrderBy(OrderBy.asc("baseCurrency"), OrderBy.desc("timestamp"), OrderBy.asc("price"))
+      .setFilter(PropertyFilter.eq("baseCurrency", currency.value))
+      .setOrderBy(OrderBy.desc("timestamp"))
+      .setLimit(1)
       .build()
 
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-      .map(results =>
-        results.asScala.toList.map { entity =>
-          (
-            Currency.unsafeFrom(entity.getString("baseCurrency")),
-            PriceQuote(
-              Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
-              Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
-            )
-          )
-        }.toMap
-      )
       .tapError(err => logger.warn(err.getMessage))
-      .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
+      .flatMap(results => ZIO.fromOption(results.asScala.toList.headOption).orElseFail(PriceQuoteNotFound(currency)))
+      .mapBoth(
+        _ => PriceQuoteFetchError("Unable to fetch latest quotes"), {
+        entity =>
+          PriceQuote(
+            Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
+            Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
+          )
+      })
   }
 
   override def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit] = {

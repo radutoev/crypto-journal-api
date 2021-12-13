@@ -8,7 +8,7 @@ import infrastrucutre.bitquery.graphql.client.Ethereum.dexTrades
 import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{quotePrice, timeInterval}
 import infrastrucutre.bitquery.graphql.client.PriceAggregateFunction.average
 import infrastrucutre.bitquery.graphql.client.Query.ethereum
-import infrastrucutre.bitquery.graphql.client.TimeInterval.minute
+import infrastrucutre.bitquery.graphql.client.TimeInterval.{hour, minute}
 import infrastrucutre.bitquery.graphql.client.{DateSelector, EthereumCurrencySelector, EthereumNetwork, StringSelector}
 
 import sttp.client3._
@@ -22,16 +22,16 @@ final case class BitQueryFacade (config: BitQueryConfig,
                                  logger: Logger[String]) {
   private lazy val zioHttpBackend = HttpClientZioBackend()
 
-  def getPrices(base: CoinAddress, quote: CoinAddress, since: LocalDate): Task[List[PriceQuote]] = {
+  def getPrices(pair: CurrencyPair, since: LocalDate): Task[List[PriceQuote]] = {
     val query = ethereum(network = Some(EthereumNetwork.bsc))(
       dexTrades(
         date = Some(DateSelector(since = Some(since.toString))),
         exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
-        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(base.value)))),
-        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(quote.value))))
+        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.value)))),
+        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.value))))
       ) {
         timeInterval {
-          minute(count = Some(1), format = Some("%FT%TZ"))
+          hour(count = Some(1), format = Some("%FT%TZ"))
         } ~
         quotePrice(calculate = Some(average))
       }

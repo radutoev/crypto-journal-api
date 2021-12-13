@@ -12,7 +12,7 @@ trait PriceQuoteRepo {
 
   def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]]
 
-  def getLatestQuotes(): IO[PriceQuoteError, Map[Currency, PriceQuote]]
+  def getLatestQuote(currency: Currency): IO[PriceQuoteError, PriceQuote]
 
   def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit]
 }
