@@ -29,10 +29,9 @@ object Sync extends App {
     val (syncLayer, pagContextLayer) = listenerEnvironment(config)
 
     for {
-
-      quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(syncLayer).forever.fork
-      pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).forever.fork
-      _               <- quotesSyncFiber.join <+> pagContextFiber.join
+      quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(syncLayer).fork
+      pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).fork
+      _               <- (quotesSyncFiber <*> pagContextFiber).join
       //      bnbStream <- BnbListener
       //                    .positionEntryStream()
       //                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))

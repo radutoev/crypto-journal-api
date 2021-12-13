@@ -34,6 +34,14 @@ package object util {
         .withSecond(0)
         .toInstant(ZoneOffset.UTC)
 
+    def atBeginningOfHour(): Instant =
+      instant
+        .atZone(ZoneId.of(ZoneOffset.UTC.getId))
+        .toLocalDateTime
+        .withSecond(0)
+        .withMinute(0)
+        .toInstant(ZoneOffset.UTC)
+
     def nextMinute(): Instant =
       instant
         .plusSeconds(60)

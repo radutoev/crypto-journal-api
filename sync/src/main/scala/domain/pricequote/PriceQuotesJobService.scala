@@ -33,13 +33,15 @@ final case class LivePriceQuotesJobService(
                     .catchSome {
                       case PriceQuoteNotFound(_) => UIO(BeginningOfTime)
                     }
+                   .map(_.atBeginningOfHour().toLocalDate())
+      _ <- logger.info(s"Update WBNB quotes from $startTime")
       _ <- bitQueryFacade
             .getPrices(
               CurrencyPair(
                 CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"),
                 CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
               ),
-              startTime.toLocalDate()
+              startTime
             )
             .flatMap(quotes => priceQuoteRepo.saveQuotes(PriceQuotesChunk(CurrencyPair(WBNB, BUSD), quotes)))
     } yield ()).orElseFail(PriceQuoteFetchError("Quote update failure"))

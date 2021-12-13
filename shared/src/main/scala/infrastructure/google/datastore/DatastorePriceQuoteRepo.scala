@@ -92,15 +92,14 @@ final case class DatastorePriceQuoteRepo(
 
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
       .tapError(err => logger.warn(err.getMessage))
+      .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
       .flatMap(results => ZIO.fromOption(results.asScala.toList.headOption).orElseFail(PriceQuoteNotFound(currency)))
-      .mapBoth(
-        _ => PriceQuoteFetchError("Unable to fetch latest quotes"), {
-        entity =>
-          PriceQuote(
-            Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
-            Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
-          )
-      })
+      .map(entity =>
+        PriceQuote(
+          Try(entity.getDouble("price")).getOrElse(entity.getLong("price").toDouble).toFloat,
+          Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
+        )
+      )
   }
 
   override def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit] = {
