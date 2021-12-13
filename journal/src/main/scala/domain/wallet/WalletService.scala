@@ -1,12 +1,11 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
+import domain.model.{UserId, WalletAddress}
 import domain.position.MarketPlayService
 import domain.wallet.error.WalletError
 import domain.wallet.model.{ImportDone, WalletImportStatus}
 
-import io.softwarechain.cryptojournal.domain.currency.CurrencyRepo
-import io.softwarechain.cryptojournal.domain.model.{UserId, WalletAddress}
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, URLayer}
 

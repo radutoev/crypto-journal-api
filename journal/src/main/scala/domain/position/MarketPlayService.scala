@@ -66,6 +66,7 @@ object MarketPlayService {
         case w: Withdraw => List(CurrencyPairTimestamp(w.value.currency, WBNB, w.timestamp))
         case p: Position if p.currency.isDefined =>
           p.entries.map(entry => CurrencyPairTimestamp(p.currency.get, WBNB, entry.timestamp))
+        case _ => List.empty
       }.groupBy(_.pair)
         .view
         .mapValues(_.map(_.timestamp))
