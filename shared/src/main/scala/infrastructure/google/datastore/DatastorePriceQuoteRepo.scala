@@ -26,31 +26,16 @@ final case class DatastorePriceQuoteRepo(
   logger: Logger[String]
 ) extends PriceQuoteRepo {
 
-  override def getQuotes(
-    quote: Currency,
-    interval: TimeInterval
-  ): IO[PriceQuoteError, Map[CurrencyPair, List[PriceQuote]]] = {
-    val filter = CompositeFilter.and(
-      PropertyFilter
-        .ge("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano)),
-      PropertyFilter
-        .le("timestampDup", Timestamp.ofTimeSecondsAndNanos(interval.end.getEpochSecond, interval.end.getNano)),
-      PropertyFilter.eq("quoteCurrency", quote.value)
-    )
-    logger.info(s"Fetch quotes in $interval") *> getQuotes(filter)
-  }
-
   override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
-    val (base, quote) = CurrencyPair.unapply(pair).get
     val filter = CompositeFilter.and(
       PropertyFilter
         .ge("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano)),
       PropertyFilter
-        .le("timestampDup", Timestamp.ofTimeSecondsAndNanos(interval.end.getEpochSecond, interval.end.getNano)),
-      PropertyFilter.eq("quoteCurrency", quote.value),
-      PropertyFilter.eq("baseCurrency", base.value)
+        .le("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.end.getEpochSecond, interval.end.getNano)),
+      PropertyFilter.eq("quoteCurrency", pair.quote.value),
+      PropertyFilter.eq("baseCurrency", pair.base.value)
     )
-    logger.info(s"Fetch quotes in $interval for ${base.value}") *>
+    logger.info(s"Fetch quotes in $interval for ${pair.base.value}") *>
     getQuotes(filter).map(_.getOrElse(pair, List.empty))
   }
 
@@ -151,7 +136,6 @@ final case class DatastorePriceQuoteRepo(
       .set("baseCurrency", data._1.value)
       .set("quoteCurrency", data._2.value)
       .set("timestamp", timestamp)
-      .set("timestampDup", timestamp)
       .set("price", data._3.price)
       .build()
   }
