@@ -262,7 +262,7 @@ object LiveMarketPlayService {
   }
 
   lazy val cacheLayer: ZLayer[Has[PriceQuoteRepo], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
-    Cache.make(1000, 1.day, lookup = Lookup(playData)).toLayer
+    Cache.make(10000, 1.day, lookup = Lookup(playData)).toLayer
 
   lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteService] with Has[BlockchainRepo] with Has[
     JournalingRepo
