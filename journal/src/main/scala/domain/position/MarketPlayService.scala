@@ -219,9 +219,9 @@ object LiveMarketPlayService {
   val playData: MarketPlay => ZIO[Has[PriceQuoteRepo], MarketPlayError, MarketPlayData] = play => {
     ZIO.serviceWith[PriceQuoteRepo] { repo =>
       val (interval, currency) = play match {
-        case p: Position => (p.timeInterval, p.currency)
-        case t: TopUp    => (TimeInterval(t.timestamp.atBeginningOfMinute(), t.timestamp.nextMinute()), Some(WBNB))
-        case w: Withdraw => (TimeInterval(w.timestamp.atBeginningOfMinute(), w.timestamp.nextMinute()), Some(WBNB))
+        case p: Position => (TimeInterval(p.timeInterval.start.atBeginningOfHour(), p.timeInterval.end), p.currency)
+        case t: TopUp    => (TimeInterval(t.timestamp.atBeginningOfHour(), t.timestamp.nextMinute()), Some(WBNB))
+        case w: Withdraw => (TimeInterval(w.timestamp.atBeginningOfHour(), w.timestamp.nextMinute()), Some(WBNB))
       }
 
       (for {
