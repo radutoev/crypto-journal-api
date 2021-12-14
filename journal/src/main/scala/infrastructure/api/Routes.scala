@@ -6,6 +6,7 @@ import domain.model._
 import domain.portfolio.{AccountBalance, KpiService}
 import domain.position.error._
 import domain.position.{JournalingService, MarketPlayService, MarketPlays}
+import domain.pricequote.CurrencyPair
 import domain.wallet.WalletService
 import domain.wallet.error._
 import infrastructure.api.dto.DailyTradeData._
@@ -15,10 +16,11 @@ import infrastructure.api.dto.Ohlcv._
 import infrastructure.api.dto.PortfolioKpi._
 import infrastructure.api.dto.PortfolioStats._
 import infrastructure.api.dto.PositionJournalEntry._
+import infrastructure.api.dto.PriceQuote._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{DailyTradeData, FungibleData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionDetails, PositionJournalEntry, TagDistribution, TradeSummary}
+import infrastructure.api.dto.{DailyTradeData, FungibleData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionDetails, PositionJournalEntry, PriceQuote, TagDistribution, TradeSummary}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
 import vo.filter.{Count, KpiFilter, PlayFilter}
@@ -33,7 +35,7 @@ import zio._
 import zio.json._
 import zio.prelude._
 
-import java.time.{LocalDate, ZoneId, ZoneOffset}
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 import java.util.UUID
 import scala.util.Try
 
@@ -386,6 +388,27 @@ object Routes {
                        }
                      )
       } yield response
+
+    case req@Method.GET -> Root / "test" / "quotes" =>
+      val params = req.url.queryParams
+      (for {
+        base     <- ZIO.fromOption(params.get("base").flatMap(_.headOption).map(Currency.unsafeFrom))
+        quote    <- ZIO.fromOption(params.get("quote").flatMap(_.headOption).map(Currency.unsafeFrom))
+        start    <- ZIO.fromOption(params.get("start").flatMap(_.headOption).map(Instant.parse(_)))
+        end      <- ZIO.fromOption(params.get("end").flatMap(_.headOption).map(Instant.parse(_)))
+        response <- PositionHelper.quotes(CurrencyPair(base, quote), TimeInterval(start, end))
+          .fold(_ => Response.status(Status.INTERNAL_SERVER_ERROR), {
+            case Nil => Response.http(status = Status.NO_CONTENT)
+            case list =>
+              Response.http(
+                status = Status.OK,
+                headers = Header("Content-Type", "application/json") :: Nil,
+                content = HttpData.CompleteData(
+                  Chunk.fromArray(list.map(PriceQuote.fromPriceQuote).toJson.getBytes(HTTP_CHARSET))
+                )
+              )
+          })
+      } yield response).orElseFail(BadRequest("Invalid data"))
   }
 
   private def corsSupport() = HttpApp.collect {

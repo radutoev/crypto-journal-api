@@ -62,10 +62,8 @@ object MarketPlayService {
   implicit class MarketPlaysOps(marketPlays: MarketPlays) {
     lazy val quotesTimestamps: List[CurrencyPairTimestamps] = {
       marketPlays.plays.flatMap {
-//        case t: TopUp    => List(CurrencyPairTimestamp(t.value.currency, WBNB, t.timestamp))
-//        case w: Withdraw => List(CurrencyPairTimestamp(w.value.currency, WBNB, w.timestamp))
-        case p: Position if p.currency.isDefined =>
-          p.entries.map(entry => CurrencyPairTimestamp(p.currency.get, WBNB, entry.timestamp))
+        case p: Position if p.currency.isDefined && p.coinAddress.isDefined  =>
+          p.entries.map(entry => CurrencyPairTimestamp(p.currency.get, WBNB, p.coinAddress.get, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"), entry.timestamp))
         case _ => List.empty
       }.groupBy(_.pair)
         .view
@@ -232,10 +230,10 @@ object LiveMarketPlayService {
                    repo
                      .getQuotes(currencyPair, interval)
                      .flatMap { listOfQuotes =>
-                       val bnbUsdtPair = CurrencyPair(WBNB, BUSD)
+                       val bnbBusdPair = CurrencyPair(WBNB, BUSD)
                        repo
-                         .getQuotes(bnbUsdtPair, interval)
-                         .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbUsdtPair -> bnbQuotes)))
+                         .getQuotes(bnbBusdPair, interval)
+                         .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes)))
                      }
                  }
         data = play match {

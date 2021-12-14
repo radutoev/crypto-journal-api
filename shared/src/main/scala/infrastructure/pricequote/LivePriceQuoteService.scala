@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.pricequote
 
 import domain.pricequote.error.{PriceQuoteError, PriceQuotesSaveError}
-import domain.pricequote.{CurrencyPair, PriceQuoteRepo, PriceQuoteService}
+import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuoteRepo, PriceQuoteService}
 import infrastructure.bitquery.BitQueryFacade
 import vo.{PriceQuotesChunk, TimeInterval}
 
@@ -16,13 +16,13 @@ final case class LivePriceQuoteService(
   priceQuoteRepo: PriceQuoteRepo,
   logger: Logger[String]
 ) extends PriceQuoteService {
-  override def addQuotes(pair: CurrencyPair, timestamps: List[Instant]): IO[PriceQuoteError, Unit] =
+  override def addQuotes(pair: CurrencyAddressPair, timestamps: List[Instant]): IO[PriceQuoteError, Unit] =
     (for {
-      _      <- logger.info(s"Save price quotes for $pair")
+      _      <- logger.info(s"Save price quotes for ${pair.base.currency} -> ${pair.quote.currency}")
       quotes <- bitQueryFacade.getPrices(pair, timestamps)
-      _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(pair, quotes))
+      _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(CurrencyPair(pair.base.currency, pair.quote.currency), quotes))
     } yield ())
-      .orElseFail(PriceQuotesSaveError(pair, "Unable to save price quotes"))
+      .orElseFail(PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes"))
 
   override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, Unit] = ???
 }

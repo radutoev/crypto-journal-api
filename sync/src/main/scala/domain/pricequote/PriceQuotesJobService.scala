@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.pricequote
 
-import domain.model.{BUSD, CoinAddress, WBNB}
+import domain.model.{BUSD, CoinAddress, CurrencyAddress, WBNB}
 import domain.pricequote.LivePriceQuotesJobService.BeginningOfTime
 import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound}
 import infrastructure.bitquery.BitQueryFacade
@@ -37,9 +37,14 @@ final case class LivePriceQuotesJobService(
       _ <- logger.info(s"Update WBNB quotes from $startTime")
       _ <- bitQueryFacade
             .getPrices(
-              CurrencyPair(
-                CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"),
-                CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
+              CurrencyAddressPair(
+                CurrencyAddress(
+                  WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")
+                ),
+                CurrencyAddress(
+                  BUSD,
+                  CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
+                )
               ),
               startTime
             )

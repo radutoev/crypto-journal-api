@@ -2,8 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.bitquery
 
 import config.BitQueryConfig
-import domain.model.CoinAddress
-import domain.pricequote.{CurrencyPair, PriceQuote}
+import domain.pricequote.{CurrencyAddressPair, PriceQuote}
 import infrastrucutre.bitquery.graphql.client.Ethereum.dexTrades
 import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{quotePrice, timeInterval}
 import infrastrucutre.bitquery.graphql.client.PriceAggregateFunction.average
@@ -22,13 +21,13 @@ final case class BitQueryFacade (config: BitQueryConfig,
                                  logger: Logger[String]) {
   private lazy val zioHttpBackend = HttpClientZioBackend()
 
-  def getPrices(pair: CurrencyPair, since: LocalDate): Task[List[PriceQuote]] = {
+  def getPrices(pair: CurrencyAddressPair, since: LocalDate): Task[List[PriceQuote]] = {
     val query = ethereum(network = Some(EthereumNetwork.bsc))(
       dexTrades(
         date = Some(DateSelector(since = Some(since.toString))),
         exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
-        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.value)))),
-        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.value))))
+        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.address.value)))),
+        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value))))
       ) {
         timeInterval {
           hour(count = Some(1), format = Some("%FT%TZ"))
@@ -53,13 +52,13 @@ final case class BitQueryFacade (config: BitQueryConfig,
     }
   }
 
-  def getPrices(pair: CurrencyPair, timestamps: List[Instant]): Task[List[PriceQuote]] = {
+  def getPrices(pair: CurrencyAddressPair, timestamps: List[Instant]): Task[List[PriceQuote]] = {
     val query = ethereum(network = Some(EthereumNetwork.bsc))(
       dexTrades(
         date = Some(DateSelector(in = Some(timestamps.map(_.toString)))),
         exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
-        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.value)))),
-        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.value))))
+        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.address.value)))),
+        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value))))
       ) {
         timeInterval {
           minute(count = Some(1), format = Some("%FT%TZ"))
@@ -68,7 +67,7 @@ final case class BitQueryFacade (config: BitQueryConfig,
       }
     )
 
-    zioHttpBackend.flatMap { backend =>
+      zioHttpBackend.flatMap { backend =>
       query
         .toRequest(uri"${config.url}", dropNullInputValues = true)
         .headers(Map("X-API-KEY" -> config.apiKey))

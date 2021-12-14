@@ -10,6 +10,8 @@ object Currency {
   def unsafeFrom(str: String): Refined[String, CurrencyPredicate] = refineV[CurrencyPredicate].unsafeFrom(str)
 }
 
+final case class CurrencyAddress(currency: Currency, address: CoinAddress)
+
 object currencyops {
   implicit class CurrencyOps(currency: Currency) {
     def sameCurrency(other: Currency): Boolean = currency.value == other.value

@@ -17,7 +17,10 @@ final case class Position(
   journal: Option[JournalEntry] = None,
   id: Option[PlayId] = None
 ) extends MarketPlay {
-  lazy val timeInterval: TimeInterval = closedAt.fold(TimeInterval(openedAt))(closed => TimeInterval(openedAt, closed))
+  lazy val timeInterval: TimeInterval = entries match {
+    case ::(head, next) => TimeInterval(head.timestamp,next.lastOption.fold(head.timestamp)(e => e.timestamp))
+    case single :: Nil => TimeInterval(single.timestamp, single.timestamp)
+  }
 
   /**
    * Number of transactions that are part of this position.
@@ -43,13 +46,12 @@ final case class Position(
     }
   }
 
-  //TODO I think I need to see if I can add the coin address to all transaction types.
   lazy val coinAddress: Option[CoinAddress] = {
     entries.map {
-      case _: AirDrop                                   => None
+      case a: AirDrop                                   => Some(a.coinAddress)
       case _: Approval                                  => None
-      case Buy(_, _, _, _, coinAddress, _, _, _, _, _)  => Some(coinAddress)
-      case Claim(_, _, _, _, _, _, _, _)                => None
+      case Buy(_, _, _, _, _, coinAddress, _, _, _, _)  => Some(coinAddress)
+      case Claim(_, _, _, _, coinAddress, _, _, _)      => Some(coinAddress)
       case _: Contribute                                => None
       case Sell(_, _, _, _, _, _)                       => None
       case TransferIn(_, _, _, _, _, _, _, coinAddress) => coinAddress

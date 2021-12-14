@@ -174,8 +174,15 @@ object dto {
 
   final case class PriceQuote(price: Double, timestamp: Instant)
 
-  object MarketPlay {
+  object PriceQuote {
     implicit val priceQuoteCodec: JsonCodec[PriceQuote]     = DeriveJsonCodec.gen[PriceQuote]
+
+    def fromPriceQuote(q: CJPriceQuote): PriceQuote ={
+      PriceQuote(q.price, q.timestamp)
+    }
+  }
+
+  object MarketPlay {
     implicit val fungibleDataCodec: JsonCodec[FungibleData] = DeriveJsonCodec.gen[FungibleData]
 
     implicit val positionEntryCodec: JsonCodec[PositionEntry] = DeriveJsonCodec.gen[PositionEntry]
@@ -184,12 +191,13 @@ object dto {
     implicit val transferInPlayCodec: JsonCodec[TopUp]  = DeriveJsonCodec.gen[TopUp]
     implicit val marketPlayCodec: JsonCodec[MarketPlay] = DeriveJsonCodec.gen[MarketPlay]
 
-    def fromMarketPlay(m: CJMarketPlay): MarketPlay =
+    def fromMarketPlay(m: CJMarketPlay): MarketPlay = {
       m match {
         case pos: CJPosition  => fromPosition(pos)
         case t: CJTopUp       => fromTopUp(t)
         case tOut: CJWithdraw => fromWithdrawal(tOut)
       }
+    }
 
     def fromPosition(position: CJPosition): Position =
       Position(
