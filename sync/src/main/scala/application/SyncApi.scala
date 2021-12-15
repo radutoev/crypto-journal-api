@@ -2,7 +2,6 @@ package io.softwarechain.cryptojournal
 package application
 
 import domain.pricequote.PriceQuotesJobService
-import domain.pricequote.error.PriceQuoteError
 import infrastructure.google.datastore.DatastorePaginationRepo
 
 import zio.clock.Clock

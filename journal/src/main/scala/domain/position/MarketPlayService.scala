@@ -83,6 +83,7 @@ final case class LiveMarketPlayService(
   logger: Logger[String]
 ) extends MarketPlayService {
 
+  //TODO Is this used?
   override def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays] =
     (for {
       marketPlays <- positionRepo.getPlays(userWallet.address).flatMap(enrichPlays)
@@ -90,7 +91,7 @@ final case class LiveMarketPlayService(
 
   override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
     (for {
-      marketPlays    <- positionRepo.getPlays(userWallet.address).flatMap(enrichPlays)
+      marketPlays    <- positionRepo.getPlays(userWallet.address, playFilter).flatMap(enrichPlays)
       journalEntries <- journalingRepo.getEntries(userWallet.userId, marketPlays.map(_.id).values)
     } yield MarketPlays(withJournalEntries(marketPlays, journalEntries)))
       .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
@@ -152,7 +153,7 @@ final case class LiveMarketPlayService(
   private def enrichPlays(plays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] =
     ZIO.collect(plays)(enrichPlay)
 
-  private def enrichPlay(play: MarketPlay): IO[Option[MarketPlayError], MarketPlay] =
+  private def enrichPlay(play: MarketPlay): IO[Option[MarketPlayError], MarketPlay] = {
     playsCache
       .get(play)
       .flatMap(data =>
@@ -168,6 +169,7 @@ final case class LiveMarketPlayService(
         }
       )
       .orElseFail(Some(InvalidRepresentation("Unable to enrich play")))
+  }
 
   override def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit] =
     logger.info(s"Importing positions for ${userWallet.address}") *>
@@ -219,23 +221,37 @@ object LiveMarketPlayService {
   val playData: MarketPlay => ZIO[Has[PriceQuoteRepo], MarketPlayError, MarketPlayData] = play => {
     ZIO.serviceWith[PriceQuoteRepo] { repo =>
       val (interval, currency) = play match {
+        //TODO With minute frequency I think I can set the start to the beginning of the minute.
         case p: Position => (TimeInterval(p.timeInterval.start.atBeginningOfHour(), p.timeInterval.end), p.currency)
         case t: TopUp    => (TimeInterval(t.timestamp.atBeginningOfHour(), t.timestamp.nextMinute()), Some(WBNB))
         case w: Withdraw => (TimeInterval(w.timestamp.atBeginningOfHour(), w.timestamp.nextMinute()), Some(WBNB))
       }
 
       (for {
+        //TODO Don't fetch for WBNB - WBNB.
         quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty())) { c =>
-                   val currencyPair = CurrencyPair(c, WBNB)
-                   repo
-                     .getQuotes(currencyPair, interval)
-                     .flatMap { listOfQuotes =>
-                       val bnbBusdPair = CurrencyPair(WBNB, BUSD)
-                       repo
-                         .getQuotes(bnbBusdPair, interval)
-                         .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes)))
-                     }
-                 }
+          val currencyPair = CurrencyPair(c, WBNB)
+          val bnbBusdPair = CurrencyPair(WBNB, BUSD)
+          for {
+            listOfQuotes <- if(c != WBNB) {
+              repo.getQuotes(currencyPair, interval)
+            } else {
+              UIO(List.empty)
+            }
+            bnbQuotes <- repo.getQuotes(bnbBusdPair, interval)
+          } yield PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes))
+
+//                   val currencyPair = CurrencyPair(c, WBNB)
+//                  //TODO 1/2 of db requests if I can do multi currency queries.
+//                   repo
+//                     .getQuotes(currencyPair, interval)
+//                     .flatMap { listOfQuotes =>
+//                       val bnbBusdPair = CurrencyPair(WBNB, BUSD)
+//                       repo
+//                         .getQuotes(bnbBusdPair, interval)
+//                         .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes)))
+//                     }
+       }
         data = play match {
           case p: Position =>
             val pos = p.copy(dataSource = Some(PriceQuotePositionData(quotes)))

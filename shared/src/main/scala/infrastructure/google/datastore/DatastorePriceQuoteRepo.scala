@@ -36,7 +36,7 @@ final case class DatastorePriceQuoteRepo(
       PropertyFilter.eq("baseCurrency", pair.base.value)
     )
     logger.info(s"Fetch quotes in $interval for ${pair.base.value}") *>
-    getQuotes(filter).map(_.getOrElse(pair, List.empty))
+      getQuotes(filter).map(_.getOrElse(pair, List.empty))
   }
 
   private def getQuotes(filter: StructuredQuery.Filter): IO[PriceQuoteError, Map[CurrencyPair, List[PriceQuote]]] = {
@@ -61,11 +61,6 @@ final case class DatastorePriceQuoteRepo(
       )
   }
 
-  /**
-   * We have BUSD as the only reference currency for now
-   *
-   * @return Latest quotes for all currencies that have quotes in the system.
-   */
   override def getLatestQuote(currency: Currency): IO[PriceQuoteError, PriceQuote] = {
     val query = Query
       .newProjectionEntityQueryBuilder()
