@@ -31,7 +31,7 @@ final case class BitQueryFacade (config: BitQueryConfig,
         quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value))))
       ) {
         timeInterval {
-          hour(count = Some(1), format = Some("%FT%TZ"))
+          minute(count = Some(1), format = Some("%FT%TZ"))
         } ~
         quotePrice(calculate = Some(average))
       }
