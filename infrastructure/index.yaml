@@ -4,7 +4,6 @@ indexes:
     properties:
       - name: address
       - name: state
-      - name: currency
       - name: playType
       - name: openedAt
         direction: desc
@@ -14,11 +13,15 @@ indexes:
       - name: address
       - name: openedAt
         direction: desc
+  - kind: MarketPlayTest
+    ancestor: no
+    properties:
+      - name: address
+      - name: currency
+        direction: desc
   - kind: PriceQuotesTest
     ancestor: no
     properties:
       - name: baseCurrency
       - name: quoteCurrency
       - name: timestamp
-      - name: timestampDup
-      - name: price
