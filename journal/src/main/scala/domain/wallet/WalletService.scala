@@ -20,10 +20,10 @@ trait WalletService {
 }
 
 final case class LiveWalletService(
-  userWalletRepo: UserWalletRepo,
-  walletRepo: WalletImportRepo,
-  positionService: MarketPlayService,
-  logger: Logger[String]
+                                    userWalletRepo: UserWalletRepo,
+                                    walletRepo: WalletRepo,
+                                    positionService: MarketPlayService,
+                                    logger: Logger[String]
 ) extends WalletService {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
     val userWallet = Wallet(userId, address)
@@ -57,7 +57,7 @@ final case class LiveWalletService(
 }
 
 object LiveWalletService {
-  lazy val layer: URLayer[Has[UserWalletRepo] with Has[WalletImportRepo] with Has[
+  lazy val layer: URLayer[Has[UserWalletRepo] with Has[WalletRepo] with Has[
     MarketPlayService
   ] with Logging, Has[
     WalletService

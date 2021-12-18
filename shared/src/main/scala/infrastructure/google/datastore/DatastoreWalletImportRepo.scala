@@ -2,17 +2,17 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{ WalletAddress, WalletAddressPredicate }
+import domain.model.{WalletAddress, WalletAddressPredicate}
 import domain.wallet.error._
-import domain.wallet.model.{ Importing, WalletImportStatus }
-import domain.wallet.{ error, WalletImportRepo }
-import util.{ tryOrLeft, ListEitherOps }
+import domain.wallet.model.{Importing, WalletImportStatus}
+import domain.wallet.{WalletRepo, error}
+import util.{ListEitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer}
 
 import scala.jdk.CollectionConverters._
 
@@ -20,7 +20,7 @@ final case class DatastoreWalletImportRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
   logger: Logger[String]
-) extends WalletImportRepo {
+) extends WalletRepo {
   override def addWallet(address: WalletAddress): IO[error.WalletError, Unit] =
     logger.info(s"Insert address $address") *>
       Task(
@@ -47,6 +47,13 @@ final case class DatastoreWalletImportRepo(
         throwable => WalletsFetchError(throwable),
         queryResult => queryResult.asScala.toList.map(asWalletAddress).rights
       )
+
+  //TODO Handle importing wallets.
+  override def getWallets(): IO[WalletError, List[WalletAddress]] = {
+    //TODO Handle the case where there are too many wallets.
+    executeQuery(Query.newEntityQueryBuilder().setKind(datastoreConfig.wallet).build())
+      .mapBoth(WalletsFetchError, results => results.asScala.toList.map(asWalletAddress).rights)
+  }
 
   private def asWalletAddress(entity: Entity): Either[InvalidWallet, WalletAddress] =
     tryOrLeft(entity.getKey.getName, InvalidWallet("Entity has no key name"))
@@ -92,6 +99,6 @@ final case class DatastoreWalletImportRepo(
 }
 
 object DatastoreWalletImportRepo {
-  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging, Has[WalletImportRepo]] =
+  lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Logging, Has[WalletRepo]] =
     (DatastoreWalletImportRepo(_, _, _)).toLayer
 }

@@ -4,7 +4,7 @@ import application.SyncApi
 import config.CryptoJournalConfig
 import domain.model.WalletAddress
 import domain.pricequote.LivePriceQuotesJobService
-import domain.wallet.WalletImportRepo
+import domain.wallet.{LocalWalletCache, WalletCache, WalletRepo}
 import domain.wallet.model.ImportDone
 import infrastructure.bitquery.BitQueryFacade
 import infrastructure.covalent.CovalentFacade
@@ -26,16 +26,19 @@ object Sync extends App {
       .exitCode
 
   private def program(config: Config) = {
-    val (syncLayer, pagContextLayer) = listenerEnvironment(config)
+    val (priceQuoteLayer, pagContextLayer, syncLayer) = listenerEnvironment(config)
 
     for {
-      quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(syncLayer).fork
+      quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(priceQuoteLayer).fork
       pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).fork
-      _               <- (quotesSyncFiber <*> pagContextFiber).join
+      syncFiber       <- (SyncApi.loadWallets() *> UIO(println("Wallets loaded"))).provideCustomLayer(syncLayer).fork
+      _               <- (quotesSyncFiber <*> pagContextFiber <*> syncFiber).join
+
+
       //      bnbStream <- BnbListener
       //                    .positionEntryStream()
-      //                    .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
-      //                    .flattenIterables
+//                          .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
+//                          .flattenIterables
       //                    .mapM(txObject =>
       //                      knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
       //                    )
@@ -68,26 +71,6 @@ object Sync extends App {
     } yield ()
   }
 
-  private def knownAddresses(tx: Transaction) = {
-    def elementOrNil(address: WalletAddress, addresses: List[WalletAddress]) =
-      if (addresses.contains(address)) {
-        List(address)
-      } else {
-        Nil
-      }
-
-    WalletImportRepo.getByImportStatus(ImportDone).flatMap { addresses =>
-      if (tx.getTo != null && tx.getFrom != null) {
-        val to             = WalletAddress.unsafeFrom(tx.getTo)
-        val from           = WalletAddress.unsafeFrom(tx.getFrom)
-        val foundAddresses = Nil ++ elementOrNil(to, addresses) ++ elementOrNil(from, addresses)
-        UIO(foundAddresses)
-      } else {
-        UIO(Nil)
-      }
-    }
-  }
-
   private def listenerEnvironment(config: Config) = {
     val configLayer          = TypesafeConfig.fromTypesafeConfig(config, CryptoJournalConfig.descriptor)
     val covalentConfigLayer  = configLayer.map(c => Has(c.get.covalent))
@@ -116,6 +99,8 @@ object Sync extends App {
     lazy val walletRepoLayer =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
+    lazy val walletCacheLayer = LocalWalletCache.layer
+
     lazy val priceQuoteRepoLayer =
       datastoreLayer ++ datastoreConfigLayer ++ clockLayer ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
@@ -129,6 +114,6 @@ object Sync extends App {
 
     lazy val priceQuotesSyncLayer = priceQuoteServiceLayer
 
-    (priceQuotesSyncLayer, paginationContextRepoLayer)
+    (priceQuotesSyncLayer, paginationContextRepoLayer, walletRepoLayer ++ walletCacheLayer)
   }
 }

@@ -7,7 +7,7 @@ import domain.wallet.model.WalletImportStatus
 
 import zio.{ Has, IO, ZIO }
 
-trait WalletImportRepo {
+trait WalletRepo {
   def addWallet(address: WalletAddress): IO[WalletError, Unit]
 
   def getByImportStatus(status: WalletImportStatus): IO[WalletError, List[WalletAddress]]
@@ -17,9 +17,11 @@ trait WalletImportRepo {
   def updateImportStatus(address: WalletAddress, state: WalletImportStatus): IO[WalletError, Unit]
 
   def getImportStatus(address: WalletAddress): IO[WalletError, WalletImportStatus]
+
+  def getWallets(): IO[WalletError, List[WalletAddress]]
 }
 
-object WalletImportRepo {
-  def getByImportStatus(status: WalletImportStatus): ZIO[Has[WalletImportRepo], WalletError, List[WalletAddress]] =
-    ZIO.serviceWith[WalletImportRepo](_.getByImportStatus(status))
+object WalletRepo {
+  def getByImportStatus(status: WalletImportStatus): ZIO[Has[WalletRepo], WalletError, List[WalletAddress]] =
+    ZIO.serviceWith[WalletRepo](_.getByImportStatus(status))
 }
