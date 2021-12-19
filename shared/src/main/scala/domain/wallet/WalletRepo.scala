@@ -5,7 +5,7 @@ import domain.model.WalletAddress
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
 
-import zio.{ Has, IO, ZIO }
+import zio.{Has, IO, ZIO}
 
 trait WalletRepo {
   def addWallet(address: WalletAddress): IO[WalletError, Unit]

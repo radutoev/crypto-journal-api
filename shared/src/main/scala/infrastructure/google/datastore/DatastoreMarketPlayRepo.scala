@@ -391,6 +391,8 @@ final case class DatastoreMarketPlayRepo(
     )
   }
 
+  override def merge(entry: PositionEntry): IO[MarketPlayError, Unit] = ???
+
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
       .tapError(throwable => logger.warn(throwable.getMessage))

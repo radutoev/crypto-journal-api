@@ -32,6 +32,8 @@ trait MarketPlayRepo {
   def getPreviousPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]]
 
   def getLatestPosition(address: WalletAddress, currency: Currency): IO[MarketPlayError, Option[Position]]
+
+  def merge(entry: PositionEntry): IO[MarketPlayError, Unit]
 }
 
 object MarketPlayRepo {
@@ -43,4 +45,7 @@ object MarketPlayRepo {
     currency: Currency
   ): ZIO[Has[MarketPlayRepo], MarketPlayError, Option[Position]] =
     ZIO.serviceWith[MarketPlayRepo](_.getLatestPosition(address, currency))
+
+  def merge(entry: PositionEntry): ZIO[Has[MarketPlayRepo], MarketPlayError, Unit] =
+    ZIO.serviceWith[MarketPlayRepo](_.merge(entry))
 }

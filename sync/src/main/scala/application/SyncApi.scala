@@ -1,22 +1,23 @@
 package io.softwarechain.cryptojournal
 package application
 
-import domain.model.{TransactionHash, WalletAddress}
+import domain.blockchain.BlockchainRepo
+import domain.model.{TransactionHash, WalletAddress, WalletAddressPredicate}
+import domain.position.{MarketPlayRepo, PositionEntry}
 import domain.pricequote.PriceQuotesJobService
-import domain.wallet.{WalletCache, WalletRepo, error}
+import domain.wallet.error.WalletError
+import domain.wallet.{WalletCache, WalletRepo}
 import infrastructure.binance.TradingStream
 import infrastructure.google.datastore.DatastorePaginationRepo
+import util.ListEitherOps
 import util.ListOps.cond
 
-import io.softwarechain.cryptojournal.domain.blockchain.BlockchainRepo
-import io.softwarechain.cryptojournal.domain.position.MarketPlayRepo
-import io.softwarechain.cryptojournal.domain.wallet.error.WalletError
+import eu.timepit.refined.refineV
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
-import org.web3j.protocol.core.methods.response.Transaction
 import zio.clock.Clock
 import zio.duration.durationInt
-import zio.stream.ZStream
-import zio.{Has, Schedule, URIO, ZIO}
+import zio.logging.Logging
+import zio.{Has, Schedule, UIO, URIO, ZIO}
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
@@ -27,24 +28,41 @@ object SyncApi {
   def clearPaginationContext(): URIO[Has[DatastorePaginationRepo] with Clock, Unit] =
     (ZIO.serviceWith[DatastorePaginationRepo](_.cleanup()) repeat Schedule.spaced(1.day)).unit.ignore
 
-//  def updatePositions(): ZStream[Has[WalletCache], Throwable, Transaction] = {
-//    TradingStream.bscStream()
-//      .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
-//      .flattenIterables
-//      .map(txResponse => txResponse.get())
-//      .mapM(tx => {
-//        val from = WalletAddress.unsafeFrom(tx.getFrom)
-//        val to   = WalletAddress.unsafeFrom(tx.getTo)
-//        for {
-//          fromFound <- WalletCache.exists(from)
-//          toFound   <- WalletCache.exists(to)
-//          addresses = Nil ++ cond(fromFound, () => from) ++ cond(toFound, () => to)
-//        } yield (TransactionHash.unsafeApply(tx.getHash), addresses)
-//      })
-//      .filter { case (_, addresses) => addresses.nonEmpty }
-////      .mapM { case (hash, _) => BlockchainRepo.fetchTransaction(hash).map(tx => ) }
-//      .forever
-//  }
+  def updatePositions(): ZIO[Has[MarketPlayRepo] with Logging with Has[BlockchainRepo] with Has[WalletCache], Throwable, Nothing] = {
+    TradingStream.bscStream()
+      .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
+      .flattenIterables
+      .map(txResponse => txResponse.get())
+      .tap(tx => Logging.info(s"Check transaction ${tx.getHash}"))
+      .mapM(tx => {
+        val txHash = TransactionHash.unsafeApply(tx.getHash)
+
+        def forAddress(rawAddress: String) = {
+          (for {
+            address <- ZIO.fromOption(Option(rawAddress))
+            wallet  <- ZIO.fromEither(refineV[WalletAddressPredicate](address))
+            found   <- WalletCache.exists(wallet)
+          } yield if(found) List(wallet) else Nil).orElse(UIO(Nil))
+        }
+
+        for {
+          from      <- forAddress(tx.getFrom)
+          to        <- forAddress(tx.getTo)
+          addresses = Nil ++ from ++ to
+        } yield (txHash, addresses)
+      })
+      .filter { case (_, addresses) => addresses.nonEmpty }
+      .mapM { case (hash, addresses) =>
+        Logging.info(s"Processing transaction ${hash.value}") *>
+        BlockchainRepo.fetchTransaction(hash)
+          .map(tx => addresses.map(address => PositionEntry.fromTransaction(tx, address)).rights.flatten)
+          .tapError(_ => Logging.error(s"Error fetching transaction ${hash.value}"))
+          .orElse(UIO(List.empty))
+      }
+      .flattenIterables
+      .foreach(e => MarketPlayRepo.merge(e).ignore)
+      .forever
+  }
 
   def loadWallets(): ZIO[Has[WalletRepo] with Has[WalletCache], WalletError, Unit] = {
     ZIO.services[WalletRepo, WalletCache].flatMap { case (walletRepo, walletCache) =>

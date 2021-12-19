@@ -31,43 +31,8 @@ object Sync extends App {
     for {
       quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(priceQuoteLayer).fork
       pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).fork
-      syncFiber       <- (SyncApi.loadWallets() *> UIO(println("Wallets loaded"))).provideCustomLayer(syncLayer).fork
+      syncFiber       <- (SyncApi.loadWallets() *> SyncApi.updatePositions()).provideCustomLayer(syncLayer).fork
       _               <- (quotesSyncFiber <*> pagContextFiber <*> syncFiber).join
-
-
-      //      bnbStream <- BnbListener
-      //                    .positionEntryStream()
-//                          .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
-//                          .flattenIterables
-      //                    .mapM(txObject =>
-      //                      knownAddresses(txObject.get()).map(TransactionHash.unsafeApply(txObject.get().getHash) -> _)
-      //                    )
-      //                    .filter(_._2.nonEmpty)
-      //                    .mapM {
-      //                      case (txHash, addresses) =>
-      //                        BlockchainRepo.fetchTransaction(txHash).map(_ -> addresses)
-      //                    }
-      //                    //TODO Redo logic for merging
-      //                    //                    .mapM {
-      //                    //                      case (transaction, addresses) =>
-      //                    //                        ZIO.foreach(addresses)(address =>
-      //                    //                          MarketPlayRepo
-      //                    //                            .getLatestPosition(address, Currency.unsafeFrom(transaction.coin.get))
-      //                    //                            .collect(MarketPlaysFetchError(address)) { case Some(position) => MarketPlays(List(position)) }
-      //                    //                            .map(marketPlays => address -> marketPlays)
-      //                    //                        )
-      //                    //                    }
-      //                    //                    .foreach { newAddressMarketPlays =>
-      //                    //                      ZIO.foreach(newAddressMarketPlays) {
-      //                    //                        case (address, marketPlays) =>
-      //                    //                          MarketPlayRepo.save(address, marketPlays.positions)
-      //                    //                      }
-      //                    //                    }
-      //                    .foreach(_ => UIO.unit)
-      //                    .provideCustomLayer(listenerEnvironment(config))
-      //                    .forever
-      //                    .fork
-      //      _ <- bnbStream.join
     } yield ()
   }
 
@@ -109,11 +74,11 @@ object Sync extends App {
     lazy val priceQuoteServiceLayer =
       (loggingLayer ++ priceQuoteRepoLayer ++ bitQueryFacadeLayer ++ clockLayer) >>> LivePriceQuotesJobService.layer
 
-//    lazy val syncLayer =
-//      exchangeRepoLayer ++ loggingLayer ++ walletRepoLayer ++ marketPlayRepo ++ currencyRepoLayer ++ priceQuoteServiceLayer ++ clockLayer ++ bitQueryFacadeLayer
+    lazy val syncLayer =
+      exchangeRepoLayer ++ loggingLayer ++ walletCacheLayer ++ marketPlayRepo ++ walletRepoLayer
 
     lazy val priceQuotesSyncLayer = priceQuoteServiceLayer
 
-    (priceQuotesSyncLayer, paginationContextRepoLayer, walletRepoLayer ++ walletCacheLayer)
+    (priceQuotesSyncLayer, paginationContextRepoLayer, syncLayer)
   }
 }
