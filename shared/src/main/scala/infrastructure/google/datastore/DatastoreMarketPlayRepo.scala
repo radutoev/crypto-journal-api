@@ -410,6 +410,7 @@ final case class DatastoreMarketPlayRepo(
             .catchSome {
               case _: NoPreviousPosition => handleNewPosition(p)
             }
+            .tapError(_ => logger.error(s"Unable to merge hashes: ${p.entries.map(_.hash.value).mkString(",")}"))
         } else {
           logger.warn(s"Position with no currency. Unable to merge hashes: ${p.entries.map(_.hash.value).mkString(",")}")
         }
