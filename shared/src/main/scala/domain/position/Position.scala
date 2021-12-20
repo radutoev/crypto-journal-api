@@ -222,9 +222,11 @@ object Position {
       Left(InvalidPosition("Entries not in chronological order"))
     }
 
-  def apply(entries: List[PositionEntry], id: PlayId): Position = new Position(entries, id = Some(id))
+  def apply(entries: List[PositionEntry], id: PlayId): Position =
+    new Position(entries.sortBy(_.timestamp)(Ordering[Instant]), id = Some(id))
 
-  def unsafeApply(entries: List[PositionEntry]): Position = new Position(entries)
+  def unsafeApply(entries: List[PositionEntry]): Position =
+    new Position(entries)
 
   def isSorted[T](seq: Seq[T])(implicit ord: Ordering[T]): Boolean = seq match {
     case Seq()  => true
