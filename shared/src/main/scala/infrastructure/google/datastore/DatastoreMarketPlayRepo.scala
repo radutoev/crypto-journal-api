@@ -3,6 +3,7 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
+import domain.position.Position.MergeResult.{NoChange, NoMerge, PositionsMerged}
 import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
@@ -16,9 +17,8 @@ import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
-import eu.timepit.refined.{refineMT, refineMV, refineV}
 import eu.timepit.refined.types.numeric.PosInt
-import zio.clock.Clock
+import eu.timepit.refined.{refineMV, refineV}
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
@@ -395,18 +395,10 @@ final case class DatastoreMarketPlayRepo(
 
     @inline
     def updatePosition(old: PositionDetails[PlayId], toMerge: Position): IO[MarketPlayError, Unit] = {
-      if(old.position.isClosed) {
-        toMerge.entries.lastOption.fold[IO[MarketPlayError, Unit]](ZIO.unit) { latestEntry =>
-          if(latestEntry.isInstanceOf[Sell]) {
-            val toUpdate = old.position.addEntries(toMerge.entries)
-            doUpdate(old.copy(position = toUpdate))
-          } else {
-            handleNewPosition(toMerge)
-          }
-        }
-      } else {
-        val toUpdate = old.position.addEntries(toMerge.entries)
-        doUpdate(old.copy(position = toUpdate))
+      Position.merge(old.position, toMerge) match {
+        case NoChange                     => ZIO.unit
+        case PositionsMerged(newPosition) => doUpdate(old.copy(position = newPosition))
+        case NoMerge                      => handleNewPosition(toMerge)
       }
     }
 
