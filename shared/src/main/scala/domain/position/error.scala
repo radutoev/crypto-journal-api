@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{ ContextId, PlayId, UserId, WalletAddress }
+import domain.model.{ContextId, Currency, PlayId, UserId, WalletAddress}
 import vo.pagination.PaginationContext
 
 object error {
@@ -18,6 +18,8 @@ object error {
   final case class PaginationContextFetchError(contextId: ContextId)      extends MarketPlayError
 
   final case class InvalidPosition(reason: String) extends MarketPlayError
+
+  final case class NoPreviousPosition(address: WalletAddress, currency: Currency) extends MarketPlayError
 
   final case class PriceQuotesError(throwable: Throwable) extends MarketPlayError
 

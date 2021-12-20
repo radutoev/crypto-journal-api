@@ -1,16 +1,14 @@
 package io.softwarechain.cryptojournal
 package application
 
-import domain.blockchain.BlockchainRepo
+import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.model.{TransactionHash, WalletAddress, WalletAddressPredicate}
-import domain.position.{MarketPlayRepo, PositionEntry}
+import domain.position.{MarketPlayRepo, MarketPlays}
 import domain.pricequote.PriceQuotesJobService
 import domain.wallet.error.WalletError
 import domain.wallet.{WalletCache, WalletRepo}
 import infrastructure.binance.TradingStream
 import infrastructure.google.datastore.DatastorePaginationRepo
-import util.ListEitherOps
-import util.ListOps.cond
 
 import eu.timepit.refined.refineV
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
@@ -55,13 +53,21 @@ object SyncApi {
       .mapM { case (hash, addresses) =>
         Logging.info(s"Processing transaction ${hash.value}") *>
         BlockchainRepo.fetchTransaction(hash)
-          .map(tx => addresses.map(address => PositionEntry.fromTransaction(tx, address)).rights.flatten)
+          .map(tx => interpretTransaction(addresses, tx))
           .tapError(_ => Logging.error(s"Error fetching transaction ${hash.value}"))
           .orElse(UIO(List.empty))
       }
       .flattenIterables
-      .foreach(e => MarketPlayRepo.merge(e).ignore)
+      .foreach { case (address, plays) => MarketPlayRepo.merge(address, plays).ignore }
       .forever
+  }
+
+  private def interpretTransaction(addresses: List[WalletAddress], transaction: Transaction): List[(WalletAddress, MarketPlays)] = {
+    addresses.map(address => interpretTransaction(address, transaction))
+  }
+
+  private def interpretTransaction(address: WalletAddress, transaction: Transaction): (WalletAddress, MarketPlays) = {
+    address -> MarketPlays.findMarketPlays(address, List(transaction))
   }
 
   def loadWallets(): ZIO[Has[WalletRepo] with Has[WalletCache], WalletError, Unit] = {

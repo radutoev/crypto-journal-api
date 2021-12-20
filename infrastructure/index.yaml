@@ -17,6 +17,12 @@ indexes:
     ancestor: no
     properties:
       - name: address
+      - name: playType
+        direction: desc
+  - kind: MarketPlayTest
+    ancestor: no
+    properties:
+      - name: address
       - name: currency
         direction: desc
   - kind: PriceQuotesTest

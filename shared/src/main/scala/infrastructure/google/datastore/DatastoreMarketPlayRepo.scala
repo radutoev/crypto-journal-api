@@ -7,19 +7,20 @@ import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
 import domain.position.model.CoinName
-import util.{ tryOrLeft, InstantOps, ListEitherOps, ListOptionOps }
+import util.{InstantOps, ListEitherOps, ListOptionOps, tryOrLeft}
 import vo.filter
-import vo.filter.{ Descending, PlayFilter, SortOrder }
-import vo.pagination.{ CursorPredicate, Page, PaginationContext }
+import vo.filter.{Descending, PlayFilter, SortOrder}
+import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
-import com.google.cloud.datastore.{ Cursor => PaginationCursor, _ }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
 import eu.timepit.refined
-import eu.timepit.refined.refineV
+import eu.timepit.refined.{refineMT, refineMV, refineV}
+import eu.timepit.refined.types.numeric.PosInt
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, UIO, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -32,7 +33,7 @@ final case class DatastoreMarketPlayRepo(
   logger: Logger[String]
 ) extends MarketPlayRepo {
 
-  override def save(address: WalletAddress, marketPlays: List[MarketPlay]): Task[Unit] = {
+  override def save(address: WalletAddress, marketPlays: List[MarketPlay]): IO[MarketPlayError, Unit] = {
     @inline
     def saveEntities(list: List[Entity]) =
       Task(datastore.newTransaction())
@@ -277,32 +278,7 @@ final case class DatastoreMarketPlayRepo(
       .flatMap { queryResult =>
         val results = queryResult.asScala
         if (results.nonEmpty) {
-          val datastoreEntry = results.next()
-          ZIO.fromEither {
-            for {
-              position <- entityToPosition(datastoreEntry)
-              next <- tryOrLeft(
-                       datastoreEntry.getString("nextPlayIds"),
-                       InvalidRepresentation("Entity has no nextPlayIds")
-                     ).map { rawPlayIds =>
-                       if (rawPlayIds.nonEmpty) {
-                         rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
-                       } else {
-                         List.empty
-                       }
-                     }
-              previous <- tryOrLeft(
-                           datastoreEntry.getString("previousPlayIds"),
-                           InvalidRepresentation("Entity has no previousPlayIds")
-                         ).map { rawPlayIds =>
-                           if (rawPlayIds.nonEmpty) {
-                             rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
-                           } else {
-                             List.empty
-                           }
-                         }
-            } yield PositionDetails(position, PositionLinks(previous, next))
-          }
+          ZIO.fromEither(entityToPositionDetails(results.next()))
         } else {
           ZIO.fail(MarketPlayNotFound(playId))
         }
@@ -371,7 +347,7 @@ final case class DatastoreMarketPlayRepo(
       }
   }
 
-  override def getLatestPosition(address: WalletAddress, currency: Currency): IO[MarketPlayError, Option[Position]] = {
+  private def getLatestPosition(address: WalletAddress, currency: Currency): IO[MarketPlayError, PositionDetails[PlayId]] = {
     val query = Query
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.marketPlay)
@@ -385,13 +361,90 @@ final case class DatastoreMarketPlayRepo(
       .setLimit(1)
       .build()
 
-    executeQuery(query).mapBoth(
-      throwable => MarketPlaysFetchError(s"Position fetch error for ${address.value}"),
-      results => results.asScala.toList.map(entityToPosition).collectFirst { case Right(value) => value }
-    )
+    executeQuery(query)
+      .orElseFail(MarketPlaysFetchError(s"Position fetch error for ${address.value}"))
+      .flatMap { queryResult =>
+        val results = queryResult.asScala
+        if (results.nonEmpty) {
+          ZIO.fromEither(entityToPositionDetails(results.next()))
+        } else {
+          ZIO.fail(NoPreviousPosition(address, currency))
+        }
+      }
   }
 
-  override def merge(entry: PositionEntry): IO[MarketPlayError, Unit] = ???
+  override def merge(address: WalletAddress, plays: MarketPlays): IO[MarketPlayError, Unit] = {
+    @inline
+    def handleNewPosition(p: Position): IO[MarketPlayError, Unit] = {
+      for {
+        latest <- latestPositions(address, refineMV(10))
+        toSave = marketPlayToEntity((p, (Nil, latest.map(_.id).values)), address)
+        _      <- Task(datastore.put(toSave))
+          .tapError(throwable => logger.warn(throwable.getMessage))
+          .mapError(t => MarketPlayImportError(address, t))
+      } yield ()
+    }
+
+    @inline
+    def doUpdate(data: PositionDetails[PlayId]): IO[MarketPlayError, Unit] = {
+      Task(datastore.update(positionToEntity(data.position, address, data.links.next, data.links.previous, datastoreConfig.marketPlay)))
+        .tapError(err => logger.warn(err.getMessage))
+        .unit
+        .mapError(err => MarketPlayImportError(address, err))
+    }
+
+    @inline
+    def updatePosition(old: PositionDetails[PlayId], toMerge: Position): IO[MarketPlayError, Unit] = {
+      if(old.position.isClosed) {
+        toMerge.entries.lastOption.fold[IO[MarketPlayError, Unit]](ZIO.unit) { latestEntry =>
+          if(latestEntry.isInstanceOf[Sell]) {
+            val toUpdate = old.position.addEntries(toMerge.entries)
+            doUpdate(old.copy(position = toUpdate))
+          } else {
+            handleNewPosition(toMerge)
+          }
+        }
+      } else {
+        val toUpdate = old.position.addEntries(toMerge.entries)
+        doUpdate(old.copy(position = toUpdate))
+      }
+    }
+
+    ZIO.foreach_(plays.plays) {
+      case p: Position =>
+        if(p.currency.isDefined) {
+          getLatestPosition(address, p.currency.get)
+            .flatMap(latestPositionDetails => updatePosition(latestPositionDetails, p))
+            .catchSome {
+              case _: NoPreviousPosition => handleNewPosition(p)
+            }
+        } else {
+          logger.warn(s"Position with no currency. Unable to merge hashes: ${p.entries.map(_.hash.value).mkString(",")}")
+        }
+      case t: TopUp    => save(address, List(t))
+      case w: Withdraw => save(address, List(w))
+    }
+  }
+
+  private def latestPositions(address: WalletAddress, count: PosInt): IO[MarketPlayError, List[Position]] = {
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(datastoreConfig.marketPlay)
+      .setFilter(
+        CompositeFilter.and(
+          PropertyFilter.eq("address", address.value),
+          PropertyFilter.eq("playType", "position")
+        )
+      )
+      .addOrderBy(OrderBy.desc("openedAt"))
+      .setLimit(count.value)
+      .build()
+
+    executeQuery(query).mapBoth(
+      _ => MarketPlaysFetchError("Position fetch error"),
+      results => results.asScala.toList.map(entityToPosition).rights
+    )
+  }
 
   private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
     Task(datastore.run(query, Seq.empty[ReadOption]: _*))
@@ -573,6 +626,32 @@ final case class DatastoreMarketPlayRepo(
       case "topUp"      => entityToTopUp(e)
       case "withdrawal" => entityToWithdrawal(e)
     }
+
+  private def entityToPositionDetails(entity: Entity): Either[InvalidRepresentation, PositionDetails[PlayId]] = {
+    for {
+      position <- entityToPosition(entity)
+      next <- tryOrLeft(
+        entity.getString("nextPlayIds"),
+        InvalidRepresentation("Entity has no nextPlayIds")
+      ).map { rawPlayIds =>
+        if (rawPlayIds.nonEmpty) {
+          rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+        } else {
+          List.empty
+        }
+      }
+      previous <- tryOrLeft(
+        entity.getString("previousPlayIds"),
+        InvalidRepresentation("Entity has no previousPlayIds")
+      ).map { rawPlayIds =>
+        if (rawPlayIds.nonEmpty) {
+          rawPlayIds.split("[,]").toList.map(PlayId.unsafeFrom)
+        } else {
+          List.empty
+        }
+      }
+    } yield PositionDetails(position, PositionLinks(previous, next))
+  }
 
   private val entityToPosition: Entity => Either[InvalidRepresentation, Position] = entity => {
     for {

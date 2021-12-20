@@ -208,6 +208,10 @@ final case class Position(
 
   //hardcoded to USDT for now
   lazy val balance: Option[FungibleData] = dataSource.flatMap(_.balance(entries))
+
+  def addEntries(entries: List[PositionEntry]): Position = {
+    this.copy(entries = this.entries ++ entries)
+  }
 }
 
 object Position {

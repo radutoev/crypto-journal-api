@@ -9,7 +9,7 @@ import io.softwarechain.cryptojournal.domain.model.{ ContextId, Currency, PlayId
 import zio.{ Has, IO, Task, ZIO }
 
 trait MarketPlayRepo {
-  def save(address: WalletAddress, positions: List[MarketPlay]): Task[Unit]
+  def save(address: WalletAddress, positions: List[MarketPlay]): IO[MarketPlayError, Unit]
 
   def getPlays(address: WalletAddress): IO[MarketPlayError, List[MarketPlay]]
 
@@ -31,21 +31,13 @@ trait MarketPlayRepo {
 
   def getPreviousPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]]
 
-  def getLatestPosition(address: WalletAddress, currency: Currency): IO[MarketPlayError, Option[Position]]
-
-  def merge(entry: PositionEntry): IO[MarketPlayError, Unit]
+  def merge(address: WalletAddress, plays: MarketPlays): IO[MarketPlayError, Unit]
 }
 
 object MarketPlayRepo {
-  def save(address: WalletAddress, positions: List[MarketPlay]): ZIO[Has[MarketPlayRepo], Throwable, Unit] =
+  def save(address: WalletAddress, positions: List[MarketPlay]): ZIO[Has[MarketPlayRepo], MarketPlayError, Unit] =
     ZIO.serviceWith[MarketPlayRepo](_.save(address, positions))
 
-  def getLatestPosition(
-    address: WalletAddress,
-    currency: Currency
-  ): ZIO[Has[MarketPlayRepo], MarketPlayError, Option[Position]] =
-    ZIO.serviceWith[MarketPlayRepo](_.getLatestPosition(address, currency))
-
-  def merge(entry: PositionEntry): ZIO[Has[MarketPlayRepo], MarketPlayError, Unit] =
-    ZIO.serviceWith[MarketPlayRepo](_.merge(entry))
+  def merge(address: WalletAddress, plays: MarketPlays): ZIO[Has[MarketPlayRepo], MarketPlayError, Unit] =
+    ZIO.serviceWith[MarketPlayRepo](_.merge(address, plays))
 }
