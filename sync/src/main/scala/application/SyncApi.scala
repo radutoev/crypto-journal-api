@@ -11,6 +11,7 @@ import infrastructure.binance.TradingStream
 import infrastructure.google.datastore.DatastorePaginationRepo
 
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.util.ListOptionOps
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import zio.clock.Clock
 import zio.duration.durationInt
@@ -28,10 +29,13 @@ object SyncApi {
 
   def updatePositions(): ZIO[Has[MarketPlayRepo] with Logging with Has[BlockchainRepo] with Has[WalletCache], Throwable, Nothing] = {
     TradingStream.bscStream()
-      .map(_.getBlock.getTransactions.asScala.toList.map(_.get().asInstanceOf[TransactionObject]))
+      .map(_.getBlock.getTransactions.asScala.toList
+        .map(Option.apply)
+        .values
+        .map(_.get().asInstanceOf[TransactionObject]))
       .flattenIterables
       .map(txResponse => txResponse.get())
-      .tap(tx => Logging.info(s"Check transaction ${tx.getHash}"))
+      .tap(tx => Logging.debug(s"Check transaction ${tx.getHash}"))
       .mapM(tx => {
         val txHash = TransactionHash.unsafeApply(tx.getHash)
 
@@ -74,5 +78,9 @@ object SyncApi {
     ZIO.services[WalletRepo, WalletCache].flatMap { case (walletRepo, walletCache) =>
       walletRepo.getWallets().flatMap(wallets => walletCache.addWallets(wallets.toSet))
     }
+  }
+
+  def addWallet(address: WalletAddress): ZIO[Has[WalletCache], Nothing, Unit] = {
+    ZIO.serviceWith[WalletCache](_.addWallet(address))
   }
 }

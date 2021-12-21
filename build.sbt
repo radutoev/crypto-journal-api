@@ -1,9 +1,9 @@
 import com.typesafe.sbt.packager.docker._
 
 val auth0Version          = "0.20.0"
-val datastoreVersion      = "2.2.0"
+val datastoreVersion      = "2.2.1"
 val jwtVersion            = "9.0.2"
-val logbackVersion        = "1.2.7"
+val logbackVersion        = "1.2.8"
 val reactiveVersion       = "1.0.3"
 val refinedVersion        = "0.9.28"
 val spotifyFuturesVersion = "4.3.1"
@@ -111,6 +111,7 @@ lazy val sync = project
       "dev.zio"        %% "zio-config-refined"          % zioConfigVersion,
       "dev.zio"        %% "zio-config-typesafe"         % zioConfigVersion,
       "dev.zio"        %% "zio-interop-reactivestreams" % zioInteropVersion,
+      "io.d11"         %% "zhttp"                       % zioHttpVersion,
       "org.web3j"      % "core"                         % web3jVersion
     )
   )

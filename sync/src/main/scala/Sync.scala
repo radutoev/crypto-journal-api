@@ -12,8 +12,11 @@ import infrastructure.google.datastore._
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
+import io.softwarechain.cryptojournal.infrastructure.api.Routes
 import org.web3j.protocol.core.methods.response.Transaction
 import sttp.client3.httpclient.zio.HttpClientZioBackend
+import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.server.ServerChannelFactory
 import zio._
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
@@ -26,13 +29,18 @@ object Sync extends App {
       .exitCode
 
   private def program(config: Config) = {
-    val (priceQuoteLayer, pagContextLayer, syncLayer) = listenerEnvironment(config)
+    val (priceQuoteLayer, pagContextLayer, syncLayer, zioHttpLayer) = listenerEnvironment(config)
 
     for {
       quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(priceQuoteLayer).fork
       pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).fork
       syncFiber       <- (SyncApi.loadWallets() *> SyncApi.updatePositions()).provideCustomLayer(syncLayer).fork
-      _               <- (quotesSyncFiber <*> pagContextFiber <*> syncFiber).join
+      httpFiber       <- (Server.port(8080) ++ Server.app(Routes.api))
+        .make
+        .use(_ => console.putStrLn("Server started on port 8080") *> ZIO.never)
+        .provideCustomLayer(zioHttpLayer)
+        .fork
+      _               <- (quotesSyncFiber <*> pagContextFiber <*> syncFiber <*> httpFiber).join
     } yield ()
   }
 
@@ -79,6 +87,8 @@ object Sync extends App {
 
     lazy val priceQuotesSyncLayer = priceQuoteServiceLayer
 
-    (priceQuotesSyncLayer, paginationContextRepoLayer, syncLayer)
+    lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
+
+    (priceQuotesSyncLayer, paginationContextRepoLayer, syncLayer, zioHttpServerLayer ++ walletCacheLayer)
   }
 }
