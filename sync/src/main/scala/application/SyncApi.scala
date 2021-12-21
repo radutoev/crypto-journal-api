@@ -9,9 +9,9 @@ import domain.wallet.error.WalletError
 import domain.wallet.{WalletCache, WalletRepo}
 import infrastructure.binance.TradingStream
 import infrastructure.google.datastore.DatastorePaginationRepo
+import util.ListOptionOps
 
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.util.ListOptionOps
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
 import zio.clock.Clock
 import zio.duration.durationInt
@@ -29,10 +29,13 @@ object SyncApi {
 
   def updatePositions(): ZIO[Has[MarketPlayRepo] with Logging with Has[BlockchainRepo] with Has[WalletCache], Throwable, Nothing] = {
     TradingStream.bscStream()
-      .map(_.getBlock.getTransactions.asScala.toList
-        .map(Option.apply)
-        .values
-        .map(_.get().asInstanceOf[TransactionObject]))
+      .map { block =>
+        Option(block.getBlock)
+          .flatMap(b => Option(b.getTransactions))
+          .map(_.asScala.toList)
+          .getOrElse(List.empty)
+          .map(_.get().asInstanceOf[TransactionObject])
+      }
       .flattenIterables
       .map(txResponse => txResponse.get())
       .tap(tx => Logging.debug(s"Check transaction ${tx.getHash}"))

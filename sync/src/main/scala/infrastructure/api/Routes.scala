@@ -26,7 +26,7 @@ object Routes {
         .flatMap(SyncApi.addWallet)
         .fold(
           _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-          _ => Response.status(Status.ACCEPTED)
+          _ => Response.status(Status.OK)
         )
   }
 }

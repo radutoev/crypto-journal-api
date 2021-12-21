@@ -4,13 +4,14 @@ import config.CryptoJournalConfig
 import domain.market.LiveMarketService
 import domain.portfolio.LiveKpiService
 import domain.position.{LiveJournalingService, LiveMarketPlayService}
-import domain.wallet.LiveWalletService
 import infrastructure.api.Routes
 import infrastructure.bitquery.BitQueryFacade
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
 import infrastructure.covalent.CovalentFacade
 import infrastructure.google.datastore._
+import infrastructure.journal.service.LiveWalletService
 import infrastructure.pricequote.LivePriceQuoteService
+import infrastructure.sync.SyncFacade
 
 import com.google.cloud.datastore.DatastoreOptions
 import com.typesafe.config.{Config, ConfigFactory}
@@ -40,6 +41,7 @@ object CryptoJournal extends App {
     val coinApiConfigLayer   = configLayer.map(c => Has(c.get.coinApi))
     val datastoreConfigLayer = configLayer.map(c => Has(c.get.datastore))
     val bitQueryConfigLayer  = configLayer.map(c => Has(c.get.bitquery))
+    val syncConfigLayer      = configLayer.map(c => Has(c.get.sync))
 
     lazy val zioHttpServerLayer = EventLoopGroup.auto() ++ ServerChannelFactory.auto
 
@@ -80,8 +82,10 @@ object CryptoJournal extends App {
     lazy val marketPlayService =
       marketPlayRepo ++ marketPlayCacheLayer ++ priceQuoteServiceLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
 
+    lazy val syncFacadeLayer = httpClientLayer ++ syncConfigLayer ++ loggingLayer >>> SyncFacade.layer
+
     lazy val walletServiceLayer =
-      userWalletRepo ++ walletImportLayer ++ marketPlayService ++ loggingLayer >>> LiveWalletService.layer
+      userWalletRepo ++ walletImportLayer ++ marketPlayService ++ syncFacadeLayer ++ loggingLayer >>> LiveWalletService.layer
 
     lazy val kpiServiceLayer = (marketPlayService ++ Clock.live ++ loggingLayer) >>> LiveKpiService.layer
 

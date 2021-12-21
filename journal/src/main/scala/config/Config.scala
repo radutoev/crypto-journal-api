@@ -15,9 +15,12 @@ final case class CryptoJournalConfig(
   coinApi: CoinApiConfig,
   covalent: CovalentConfig,
   demoAccount: DemoAccountConfig,
-  datastore: DatastoreConfig
+  datastore: DatastoreConfig,
+  sync: SyncConfig
 )
 
 final case class CoinApiConfig(baseUrl: String, key: String)
 
 final case class DemoAccountConfig(maxPositions: PosInt)
+
+final case class SyncConfig(url: String)
