@@ -3,7 +3,7 @@ package infrastructure.api
 
 import application.{CryptoJournalApi, PositionHelper}
 import domain.model._
-import domain.portfolio.{AccountBalance, KpiService}
+import domain.portfolio.KpiService
 import domain.position.error._
 import domain.position.{JournalingService, MarketPlayService, MarketPlays}
 import domain.pricequote.CurrencyPair
@@ -20,7 +20,7 @@ import infrastructure.api.dto.PriceQuote._
 import infrastructure.api.dto.TagDistribution._
 import infrastructure.api.dto.TradeSummary._
 import infrastructure.api.dto.Wallet._
-import infrastructure.api.dto.{DailyTradeData, FungibleData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionDetails, PositionJournalEntry, PriceQuote, TagDistribution, TradeSummary}
+import infrastructure.api.dto.{DailyTradeData, JournalEntry, Ohlcv, PortfolioKpi, PortfolioStats, PositionDetails, PositionJournalEntry, PriceQuote, TagDistribution, TradeSummary}
 import infrastructure.auth.JwtRequestContext
 import vo.TimeInterval
 import vo.filter.{Count, KpiFilter, PlayFilter}

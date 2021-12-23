@@ -2,30 +2,23 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
+import domain.model._
 import domain.position.error._
 import domain.position.model.ScamStrategy
-import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
-import infrastructure.google.datastore.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
-import util.{ tryOrLeft, ListEitherOps }
+import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
+import infrastructure.google.datastore.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
+import util.{ListEitherOps, tryOrLeft}
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import io.softwarechain.cryptojournal.domain.model.{
-  MistakePredicate,
-  PlayId,
-  PlayIdPredicate,
-  TagPredicate,
-  UserId,
-  UserIdPredicate
-}
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import scala.jdk.CollectionConverters._
 
 final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: DatastoreConfig, logger: Logger[String])
-    extends JournalingRepo {
+    extends JournalingRepo with DatastoreOps {
 
   override def getEntry(userId: UserId, playId: PlayId): IO[MarketPlayError, JournalEntry] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, playId))
@@ -34,7 +27,7 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .setKind(datastoreConfig.journal)
       .setFilter(PropertyFilter.eq("__key__", key))
       .build()
-    executeQuery(query)
+    executeQuery(query)(datastore, logger)
       .mapError(throwable => JournalFetchError(throwable))
       .flatMap { queryResult =>
         val results = queryResult.asScala
@@ -89,10 +82,6 @@ final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: 
       .set("scamStrategy", entry.scamStrategy.map(_.toString).getOrElse(""))
       .build()
   }
-
-  private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-      .tapError(throwable => logger.warn(throwable.getMessage))
 }
 
 object DatastoreJournalingRepo {

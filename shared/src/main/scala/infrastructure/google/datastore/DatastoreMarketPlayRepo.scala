@@ -31,7 +31,7 @@ final case class DatastoreMarketPlayRepo(
   datastoreConfig: DatastoreConfig,
   paginationRepo: DatastorePaginationRepo,
   logger: Logger[String]
-) extends MarketPlayRepo {
+) extends MarketPlayRepo with DatastoreOps {
 
   override def save(address: WalletAddress, marketPlays: List[MarketPlay]): IO[MarketPlayError, Unit] = {
     @inline
@@ -131,7 +131,7 @@ final case class DatastoreMarketPlayRepo(
 
     @inline
     def generatePage(query: EntityQuery): IO[MarketPlayError, (Page[MarketPlays], Option[PaginationContext])] =
-      executeQuery(query)
+      executeQuery(query)(datastore, logger)
         .map(Some(_))
         .mapBoth(
           _ => MarketPlaysFetchError(s"Market plays fetch error for address ${address.value}"),
@@ -258,7 +258,7 @@ final case class DatastoreMarketPlayRepo(
       )
 
   private def doExecuteWrapped(query: EntityQuery): Task[Option[QueryResults[Entity]]] =
-    executeQuery(query)
+    executeQuery(query)(datastore, logger)
       .map(Some(_))
       .catchSome {
         case e: DatastoreException if e.getMessage.contains("no matching index found") => UIO.none
@@ -273,7 +273,7 @@ final case class DatastoreMarketPlayRepo(
       .setFilter(PropertyFilter.eq("__key__", key))
       .build()
 
-    executeQuery(query)
+    executeQuery(query)(datastore, logger)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
       .flatMap { queryResult =>
         val results = queryResult.asScala
@@ -294,7 +294,7 @@ final case class DatastoreMarketPlayRepo(
       .setFilter(PropertyFilter.eq("__key__", key))
       .build()
 
-    executeQuery(query)
+    executeQuery(query)(datastore, logger)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
       .flatMap { result =>
         val results = result.asScala
@@ -325,7 +325,7 @@ final case class DatastoreMarketPlayRepo(
       .setFilter(PropertyFilter.eq("__key__", key))
       .build()
 
-    executeQuery(query)
+    executeQuery(query)(datastore, logger)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
       .flatMap { result =>
         val results = result.asScala
@@ -361,7 +361,7 @@ final case class DatastoreMarketPlayRepo(
       .setLimit(1)
       .build()
 
-    executeQuery(query)
+    executeQuery(query)(datastore, logger)
       .orElseFail(MarketPlaysFetchError(s"Position fetch error for ${address.value}"))
       .flatMap { queryResult =>
         val results = queryResult.asScala
@@ -433,15 +433,11 @@ final case class DatastoreMarketPlayRepo(
       .setLimit(count.value)
       .build()
 
-    executeQuery(query).mapBoth(
+    executeQuery(query)(datastore, logger).mapBoth(
       _ => MarketPlaysFetchError("Position fetch error"),
       results => results.asScala.toList.map(entityToPosition).rights
     )
   }
-
-  private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-      .tapError(throwable => logger.warn(throwable.getMessage))
 
   private def marketPlayToEntity(data: (MarketPlay, (List[PlayId], List[PlayId])), address: WalletAddress): Entity = {
     val (marketPlay, (next, previous)) = data

@@ -24,7 +24,7 @@ final case class DatastorePriceQuoteRepo(
   datastoreConfig: DatastoreConfig,
   clock: Clock.Service,
   logger: Logger[String]
-) extends PriceQuoteRepo {
+) extends PriceQuoteRepo with DatastoreOps {
 
   override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
     val filter = CompositeFilter.and(
@@ -47,8 +47,7 @@ final case class DatastorePriceQuoteRepo(
       .addOrderBy(OrderBy.asc("timestamp"))
       .build()
 
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-      .tapError(err => logger.warn(err.getMessage))
+    executeQuery(query)(datastore, logger)
       .mapBoth(
         _ => PriceQuoteFetchError("Unable to fetch quotes"),
         results =>
@@ -70,8 +69,7 @@ final case class DatastorePriceQuoteRepo(
       .setLimit(1)
       .build()
 
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-      .tapError(err => logger.warn(err.getMessage))
+   executeQuery(query)(datastore, logger)
       .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
       .flatMap(results => ZIO.fromOption(results.asScala.toList.headOption).orElseFail(PriceQuoteNotFound(currency)))
       .map(entity =>

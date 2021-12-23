@@ -20,7 +20,7 @@ final case class DatastoreWalletImportRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
   logger: Logger[String]
-) extends WalletRepo {
+) extends WalletRepo with DatastoreOps {
   override def addWallet(address: WalletAddress): IO[error.WalletError, Unit] =
     logger.info(s"Insert address $address") *>
       Task(
@@ -43,7 +43,7 @@ final case class DatastoreWalletImportRepo(
           .setKind(datastoreConfig.wallet)
           .setFilter(PropertyFilter.eq("importStatus", status.toString))
           .build()
-      ).mapBoth(
+      )(datastore, logger).mapBoth(
         throwable => WalletsFetchError(throwable),
         queryResult => queryResult.asScala.toList.map(asWalletAddress).rights
       )
@@ -51,7 +51,7 @@ final case class DatastoreWalletImportRepo(
   //TODO Handle importing wallets.
   override def getWallets(): IO[WalletError, List[WalletAddress]] = {
     //TODO Handle the case where there are too many wallets.
-    executeQuery(Query.newEntityQueryBuilder().setKind(datastoreConfig.wallet).build())
+    executeQuery(Query.newEntityQueryBuilder().setKind(datastoreConfig.wallet).build())(datastore, logger)
       .mapBoth(WalletsFetchError, results => results.asScala.toList.map(asWalletAddress).rights)
   }
 
@@ -63,10 +63,6 @@ final case class DatastoreWalletImportRepo(
           .left
           .map(_ => InvalidWallet(s"Invalid format for id $rawIdStr"))
       )
-
-  private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-      .tapError(throwable => logger.warn(throwable.getMessage))
 
   override def exists(address: WalletAddress): IO[error.WalletError, Boolean] =
     getByAddress(address).map(Option(_).isDefined)

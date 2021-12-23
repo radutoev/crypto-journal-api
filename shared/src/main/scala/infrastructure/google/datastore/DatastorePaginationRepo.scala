@@ -2,10 +2,10 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.{ ContextId, ContextIdPredicate }
+import domain.model.{ContextId, ContextIdPredicate}
 import domain.position.error._
-import util.{ tryOrLeft, InstantOps }
-import vo.pagination.{ CursorPredicate, PaginationContext }
+import util.{InstantOps, tryOrLeft}
+import vo.pagination.{CursorPredicate, PaginationContext}
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
@@ -13,18 +13,19 @@ import com.google.cloud.datastore._
 import eu.timepit.refined
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import java.time.Instant
-import scala.jdk.CollectionConverters.{ IteratorHasAsScala, SeqHasAsJava }
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 final case class DatastorePaginationRepo(
   datastore: Datastore,
   datastoreConfig: DatastoreConfig,
   clock: Clock.Service,
   logger: Logger[String]
-) {
+) extends DatastoreOps {
+
   def getPaginationContext(contextId: ContextId): IO[MarketPlayError, PaginationContext] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.paginationContext).newKey(contextId.value)
     val query = Query
@@ -34,7 +35,7 @@ final case class DatastorePaginationRepo(
       .setLimit(1)
       .build()
 
-    executeQuery(query)
+    executeQuery(query)(datastore, logger)
       .orElseFail(PaginationContextFetchError(contextId))
       .flatMap { results =>
         val list = results.asScala.toList
@@ -67,7 +68,7 @@ final case class DatastorePaginationRepo(
 
     lazy val cleanupEffect = (for {
       threshold <- clock.instant.map(_.atBeginningOfDay())
-      keys      <- executeQuery(query(threshold)).map(_.asScala.toList.map(_.getKey("__key__")))
+      keys      <- executeQuery(query(threshold))(datastore, logger).map(_.asScala.toList.map(_.getKey("__key__")))
       _ <- (Task(datastore.delete(keys: _*)).tapError(throwable => logger.warn(throwable.getMessage)) *> logger.info(
             "Pagination context cursors removed"
           )).when(keys.nonEmpty)
@@ -77,10 +78,6 @@ final case class DatastorePaginationRepo(
     logger.info("Cleaning pagination context cursors...") *>
     cleanupEffect
   }
-
-  private def executeQuery[Result](query: Query[Result]): Task[QueryResults[Result]] =
-    Task(datastore.run(query, Seq.empty[ReadOption]: _*))
-      .tapError(throwable => logger.warn(throwable.getMessage))
 
   private def entityAsPaginationContext(entity: Entity): Either[InvalidRepresentation, PaginationContext] =
     for {
