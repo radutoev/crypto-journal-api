@@ -5,20 +5,21 @@ import config.DatastoreConfig
 import domain.model._
 import domain.position.error._
 import domain.position.model.ScamStrategy
-import domain.position.{JournalEntry, JournalingRepo, PositionJournalEntry}
-import infrastructure.google.datastore.DatastoreJournalingRepo.{entityToJournalEntry, journalEntryKey}
-import util.{ListEitherOps, tryOrLeft}
+import domain.position.{ JournalEntry, JournalingRepo, PositionJournalEntry }
+import infrastructure.google.datastore.DatastoreJournalingRepo.{ entityToJournalEntry, journalEntryKey }
+import util.{ tryOrLeft, ListEitherOps }
 
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter
 import com.google.cloud.datastore._
 import eu.timepit.refined
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import scala.jdk.CollectionConverters._
 
 final case class DatastoreJournalingRepo(datastore: Datastore, datastoreConfig: DatastoreConfig, logger: Logger[String])
-    extends JournalingRepo with DatastoreOps {
+    extends JournalingRepo
+    with DatastoreOps {
 
   override def getEntry(userId: UserId, playId: PlayId): IO[MarketPlayError, JournalEntry] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.journal).newKey(journalEntryKey(userId, playId))

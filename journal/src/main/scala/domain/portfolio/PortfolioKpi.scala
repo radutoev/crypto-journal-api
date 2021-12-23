@@ -2,20 +2,20 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.model.fungible.{FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps}
-import domain.portfolio.PortfolioKpi.{DayFormatter, PortfolioKpiOps}
-import domain.portfolio.model.{DailyTradeData, DayFormat, DayPredicate}
-import domain.position.{MarketPlays, Position}
-import util.{InstantOps, ListOptionOps}
+import domain.model.fungible.{ FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps }
+import domain.portfolio.PortfolioKpi.{ DayFormatter, PortfolioKpiOps }
+import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate }
+import domain.position.{ MarketPlays, Position }
+import util.{ InstantOps, ListOptionOps }
 import vo.filter.Count
-import vo.{PeriodDistribution, TimeInterval}
+import vo.{ PeriodDistribution, TimeInterval }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
 import java.time.format.DateTimeFormatter
-import java.time.{DayOfWeek, Duration, Month, ZoneId}
+import java.time.{ DayOfWeek, Duration, Month, ZoneId }
 
 /**
  * @param marketPlays source to compute the KPIs for
@@ -37,9 +37,9 @@ final case class PortfolioKpi(
 
   lazy val winRate: Float = {
     val wins = marketPlays.wins
-    if(wins.nonEmpty) {
+    if (wins.nonEmpty) {
       val winCount = marketPlays.wins.size
-      val total = marketPlays.closedPositions.size
+      val total    = marketPlays.closedPositions.size
       winCount / total
     } else {
       0f
@@ -165,17 +165,15 @@ final case class PortfolioKpi(
     }.minOption
   }
 
-  def coinWins(count: Count): List[(Currency, FungibleData, Percentage)] = {
+  def coinWins(count: Count): List[(Currency, FungibleData, Percentage)] =
     coinWins.slice(0, Math.min(count, coinWins.size))
-  }
 
   lazy val coinWins: List[(Currency, FungibleData, Percentage)] = {
     marketPlays.wins.asCoinContributions
   }
 
-  def coinLoses(count: Count): List[(Currency, FungibleData, Percentage)] = {
+  def coinLoses(count: Count): List[(Currency, FungibleData, Percentage)] =
     coinLoses.slice(0, Math.min(count, coinLoses.size))
-  }
 
   lazy val coinLoses: List[(Currency, FungibleData, Percentage)] =
     marketPlays.loses.asCoinContributions.reverse
@@ -193,9 +191,18 @@ final case class PortfolioKpi(
     val returnByYear  = returnByDate.map(t => t._1.getYear      -> t._2).sumByKey()
 
     PeriodDistribution(
-      weekly = DayOfWeek.values().map(day => returnByDay.get(day).flatMap(_.get(BUSD)).getOrElse(FungibleData.zero(BUSD))).toList,
-      monthly = Month.values().map(month => returnByMonth.get(month).flatMap(_.get(BUSD)).getOrElse(FungibleData.zero(BUSD))).toList,
-      yearly = interval.years().map(year => year -> returnByYear.get(year).flatMap(_.get(BUSD)).getOrElse(FungibleData.zero(BUSD))).toMap
+      weekly = DayOfWeek
+        .values()
+        .map(day => returnByDay.get(day).flatMap(_.get(BUSD)).getOrElse(FungibleData.zero(BUSD)))
+        .toList,
+      monthly = Month
+        .values()
+        .map(month => returnByMonth.get(month).flatMap(_.get(BUSD)).getOrElse(FungibleData.zero(BUSD)))
+        .toList,
+      yearly = interval
+        .years()
+        .map(year => year -> returnByYear.get(year).flatMap(_.get(BUSD)).getOrElse(FungibleData.zero(BUSD)))
+        .toMap
     )
   }
 
@@ -206,8 +213,9 @@ final case class PortfolioKpi(
     val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
         journal.tags.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(BUSD)))
-    }.sumByKey().map { case (tag, currencySum) =>
-      tag -> currencySum.getOrElse(BUSD, FungibleData.zero(BUSD))
+    }.sumByKey().map {
+      case (tag, currencySum) =>
+        tag -> currencySum.getOrElse(BUSD, FungibleData.zero(BUSD))
     }
 
     val positionToReturnPercentage = journaledPositions.flatMap {
@@ -229,8 +237,9 @@ final case class PortfolioKpi(
     val positionToFiatReturn = journaledPositions.flatMap {
       case (journal, p) =>
         journal.mistakes.map(s => s -> p.fiatReturn.getOrElse(FungibleData.zero(BUSD)))
-    }.sumByKey().map { case (mistake, currencySum) =>
-      mistake -> currencySum.getOrElse(BUSD, FungibleData.zero(BUSD))
+    }.sumByKey().map {
+      case (mistake, currencySum) =>
+        mistake -> currencySum.getOrElse(BUSD, FungibleData.zero(BUSD))
     }
 
     val positionToReturnPercentage = journaledPositions.flatMap {
@@ -268,7 +277,8 @@ object PortfolioKpi {
 
   implicit class PortfolioKpiOps(positions: List[Position]) {
     lazy val asCoinContributions: List[(Currency, Fee, Percentage)] = {
-      positions.groupBy(_.currency)
+      positions
+        .groupBy(_.currency)
         .map {
           case (Some(currency), listOfPositions) =>
             (

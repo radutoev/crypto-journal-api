@@ -2,23 +2,23 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.model._
 import domain.position.MarketPlayService.MarketPlaysOps
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
-import domain.pricequote.{CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes}
+import domain.pricequote.{ CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes }
 import domain.wallet.Wallet
-import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
+import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
 import vo.filter.PlayFilter
-import vo.{CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval}
+import vo.{ CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval }
 
-import zio.cache.{Cache, Lookup}
+import zio.cache.{ Cache, Lookup }
 import zio.duration.durationInt
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, UIO, URLayer, ZIO, ZLayer}
+import zio.{ Has, IO, UIO, URLayer, ZIO, ZLayer }
 
 import java.time.Instant
 
@@ -62,8 +62,16 @@ object MarketPlayService {
   implicit class MarketPlaysOps(marketPlays: MarketPlays) {
     lazy val quotesTimestamps: List[CurrencyPairTimestamps] = {
       marketPlays.plays.flatMap {
-        case p: Position if p.currency.isDefined && p.coinAddress.isDefined  =>
-          p.entries.map(entry => CurrencyPairTimestamp(p.currency.get, WBNB, p.coinAddress.get, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"), entry.timestamp))
+        case p: Position if p.currency.isDefined && p.coinAddress.isDefined =>
+          p.entries.map(entry =>
+            CurrencyPairTimestamp(
+              p.currency.get,
+              WBNB,
+              p.coinAddress.get,
+              CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"),
+              entry.timestamp
+            )
+          )
         case _ => List.empty
       }.groupBy(_.pair)
         .view
@@ -153,7 +161,7 @@ final case class LiveMarketPlayService(
   private def enrichPlays(plays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] =
     ZIO.collect(plays)(enrichPlay)
 
-  private def enrichPlay(play: MarketPlay): IO[Option[MarketPlayError], MarketPlay] = {
+  private def enrichPlay(play: MarketPlay): IO[Option[MarketPlayError], MarketPlay] =
     playsCache
       .get(play)
       .flatMap(data =>
@@ -169,7 +177,6 @@ final case class LiveMarketPlayService(
         }
       )
       .orElseFail(Some(InvalidRepresentation("Unable to enrich play")))
-  }
 
   override def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit] =
     logger.info(s"Importing positions for ${userWallet.address}") *>
@@ -188,9 +195,11 @@ final case class LiveMarketPlayService(
     def handlePlayImport(marketPlays: MarketPlays): IO[MarketPlayError, Unit] =
       for {
         _ <- positionRepo.save(userWallet.address, marketPlays.plays)
-        _ <- ZIO.foreachParN_(4)(marketPlays.quotesTimestamps) {
-          case CurrencyPairTimestamps(pair, timestamps) => priceQuoteService.addQuotes(pair, timestamps)
-        }.ignore //TODO Handle failure of price_quotes fetching&saving.
+        _ <- ZIO
+              .foreachParN_(4)(marketPlays.quotesTimestamps) {
+                case CurrencyPairTimestamps(pair, timestamps) => priceQuoteService.addQuotes(pair, timestamps)
+              }
+              .ignore //TODO Handle failure of price_quotes fetching&saving.
         _ <- logger.info(s"Data import complete for ${userWallet.address.value}")
       } yield ()
 
@@ -225,16 +234,16 @@ object LiveMarketPlayService {
       (for {
         //TODO Don't fetch for WBNB - WBNB.
         quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty())) { c =>
-          val currencyPair = CurrencyPair(c, WBNB)
-          val bnbBusdPair = CurrencyPair(WBNB, BUSD)
-          for {
-            listOfQuotes <- if(c != WBNB) {
-              repo.getQuotes(currencyPair, interval)
-            } else {
-              UIO(List.empty)
-            }
-            bnbQuotes <- repo.getQuotes(bnbBusdPair, interval)
-          } yield PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes))
+                   val currencyPair = CurrencyPair(c, WBNB)
+                   val bnbBusdPair  = CurrencyPair(WBNB, BUSD)
+                   for {
+                     listOfQuotes <- if (c != WBNB) {
+                                      repo.getQuotes(currencyPair, interval)
+                                    } else {
+                                      UIO(List.empty)
+                                    }
+                     bnbQuotes <- repo.getQuotes(bnbBusdPair, interval)
+                   } yield PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes))
 
 //                   val currencyPair = CurrencyPair(c, WBNB)
 //                  //TODO 1/2 of db requests if I can do multi currency queries.
@@ -246,7 +255,7 @@ object LiveMarketPlayService {
 //                         .getQuotes(bnbBusdPair, interval)
 //                         .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes)))
 //                     }
-       }
+                 }
         data = play match {
           case p: Position =>
             val pos = p.copy(dataSource = Some(PriceQuotePositionData(quotes)))

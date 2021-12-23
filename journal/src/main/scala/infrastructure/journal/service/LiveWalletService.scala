@@ -1,23 +1,23 @@
 package io.softwarechain.cryptojournal
 package infrastructure.journal.service
 
-import domain.model.{UserId, WalletAddress}
+import domain.model.{ UserId, WalletAddress }
 import domain.position.MarketPlayService
-import domain.wallet.error.{UnableToAddWallet, WalletError}
-import domain.wallet.model.{ImportDone, WalletImportStatus}
-import domain.wallet.{UserWalletRepo, Wallet, WalletRepo, WalletService}
+import domain.wallet.error.{ UnableToAddWallet, WalletError }
+import domain.wallet.model.{ ImportDone, WalletImportStatus }
+import domain.wallet.{ UserWalletRepo, Wallet, WalletRepo, WalletService }
 import infrastructure.sync.SyncFacade
 
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, URLayer }
 
 final case class LiveWalletService(
-                                    userWalletRepo: UserWalletRepo,
-                                    walletRepo: WalletRepo,
-                                    positionService: MarketPlayService,
-                                    syncFacade: SyncFacade,
-                                    logger: Logger[String]
-                                  ) extends WalletService {
+  userWalletRepo: UserWalletRepo,
+  walletRepo: WalletRepo,
+  positionService: MarketPlayService,
+  syncFacade: SyncFacade,
+  logger: Logger[String]
+) extends WalletService {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] = {
     val userWallet = Wallet(userId, address)
 
@@ -58,4 +58,3 @@ object LiveWalletService {
   ]] =
     (LiveWalletService(_, _, _, _, _)).toLayer
 }
-

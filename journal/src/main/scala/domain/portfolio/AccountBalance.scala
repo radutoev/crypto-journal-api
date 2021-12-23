@@ -1,10 +1,10 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.FungibleData.{Bigger, Equal, Lower}
-import domain.model.{FungibleData, BUSD}
+import domain.model.FungibleData.{ Bigger, Equal, Lower }
+import domain.model.{ BUSD, FungibleData }
 import domain.portfolio.model.Performance.NoChangeInPerformance
-import domain.portfolio.model.{Decrease, Increase, Performance}
+import domain.portfolio.model.{ Decrease, Increase, Performance }
 import domain.position._
 
 final case class AccountBalance(marketPlays: MarketPlays) {
@@ -12,7 +12,7 @@ final case class AccountBalance(marketPlays: MarketPlays) {
 
   lazy val trend = marketPlays.balanceTrend().map(_._2)
 
-  def performance(relativeTo: AccountBalance): Performance = {
+  def performance(relativeTo: AccountBalance): Performance =
     value.compare(relativeTo.value) match {
       case Left(_) => NoChangeInPerformance
       case Right(comparisonResult) =>
@@ -32,5 +32,4 @@ final case class AccountBalance(marketPlays: MarketPlays) {
             )
         }
     }
-  }
 }

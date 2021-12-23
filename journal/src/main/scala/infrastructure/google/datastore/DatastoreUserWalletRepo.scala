@@ -24,7 +24,8 @@ final case class DatastoreUserWalletRepo(
   datastoreConfig: DatastoreConfig,
   logger: Logger[String],
   clock: Clock.Service
-) extends UserWalletRepo with DatastoreOps {
+) extends UserWalletRepo
+    with DatastoreOps {
   override def addWallet(userId: UserId, address: WalletAddress): IO[WalletError, Unit] =
     clock.instant.flatMap(instant =>
       getWallet(userId, address)

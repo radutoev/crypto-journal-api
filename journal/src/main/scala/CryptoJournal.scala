@@ -3,7 +3,7 @@ package io.softwarechain.cryptojournal
 import config.CryptoJournalConfig
 import domain.market.LiveMarketService
 import domain.portfolio.LiveKpiService
-import domain.position.{LiveJournalingService, LiveMarketPlayService}
+import domain.position.{ LiveJournalingService, LiveMarketPlayService }
 import infrastructure.api.Routes
 import infrastructure.bitquery.BitQueryFacade
 import infrastructure.coinapi.CoinApiFacadeHistoricalData
@@ -14,14 +14,14 @@ import infrastructure.pricequote.LivePriceQuoteService
 import infrastructure.sync.SyncFacade
 
 import com.google.cloud.datastore.DatastoreOptions
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory }
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.{ EventLoopGroup, Server }
 import zio.clock.Clock
 import zio.config.typesafe.TypesafeConfig
 import zio.logging.slf4j.Slf4jLogger
-import zio.{App, ExitCode, Has, URIO, ZIO, console}
+import zio.{ console, App, ExitCode, Has, URIO, ZIO }
 
 object CryptoJournal extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -61,16 +61,20 @@ object CryptoJournal extends App {
 
     lazy val bitQueryFacadeLayer = loggingLayer ++ bitQueryConfigLayer >>> BitQueryFacade.layer
 
-    lazy val priceQuoteRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ httpClientLayer ++ covalentConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
+    lazy val priceQuoteRepoLayer =
+      datastoreLayer ++ datastoreConfigLayer ++ httpClientLayer ++ covalentConfigLayer ++ Clock.live ++ loggingLayer >>> DatastorePriceQuoteRepo.layer
 
-    lazy val priceQuoteServiceLayer = bitQueryFacadeLayer ++ priceQuoteRepoLayer ++ loggingLayer >>> LivePriceQuoteService.layer
+    lazy val priceQuoteServiceLayer =
+      bitQueryFacadeLayer ++ priceQuoteRepoLayer ++ loggingLayer >>> LivePriceQuoteService.layer
 
     lazy val userWalletRepo =
       loggingLayer ++ datastoreLayer ++ datastoreConfigLayer ++ Clock.live >>> DatastoreUserWalletRepo.layer
 
-    lazy val walletImportLayer = loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
+    lazy val walletImportLayer =
+      loggingLayer ++ datastoreLayer ++ datastoreConfigLayer >>> DatastoreWalletImportRepo.layer
 
-    lazy val paginationContextRepo = loggingLayer ++ datastoreLayer ++ Clock.live ++ datastoreConfigLayer >>> DatastorePaginationRepo.layer
+    lazy val paginationContextRepo =
+      loggingLayer ++ datastoreLayer ++ Clock.live ++ datastoreConfigLayer >>> DatastorePaginationRepo.layer
 
     lazy val marketPlayRepo =
       datastoreLayer ++ datastoreConfigLayer ++ paginationContextRepo ++ loggingLayer ++ Clock.live >>> DatastoreMarketPlayRepo.layer

@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.wallet
 
-import domain.model.{UserId, WalletAddress}
+import domain.model.{ UserId, WalletAddress }
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
 
