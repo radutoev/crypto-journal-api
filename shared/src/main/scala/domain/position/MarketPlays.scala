@@ -168,45 +168,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     currencyBalance.map.toMap
   }
 
-  //TODO implement merge.
-  def merge(other: MarketPlays): MarketPlays = other
-//    var currencyPositionMap = Map.empty[Currency, Position]
-//    val otherPositions      = ArrayBuffer.empty[Position]
-//
-//    other.positions.foreach { position =>
-//      if (currencyPositionMap.contains(position.currency)) {
-//        otherPositions.addOne(position)
-//      } else {
-//        currencyPositionMap += position.currency -> position
-//      }
-//    }
-//
-//    //oldest first
-//    val merged = positions.reverse.map { position =>
-//      if (currencyPositionMap.contains(position.currency)) {
-//        val oldPosition = currencyPositionMap(position.currency)
-//        oldPosition.copy(
-//          entries = oldPosition.entries ::: position.entries
-//        )
-//        currencyPositionMap -= position.currency
-//        oldPosition
-//      } else {
-//        position
-//      }
-//    }
-//
-//    val notCorrelated = currencyPositionMap.values.toList
-//
-//    MarketPlays(
-//      (otherPositions.toList :::
-//        notCorrelated :::
-//        merged :::
-//        transferIns :::
-//        other.transferIns :::
-//        transferOuts :::
-//        other.transferOuts).sortBy(_.openedAt)(Ordering[Instant])
-//    )
-
   def isEmpty: Boolean = plays.isEmpty
 
   def filter(interval: TimeInterval): MarketPlays =

@@ -3,7 +3,7 @@ package infrastructure.google.datastore
 
 import config.DatastoreConfig
 import domain.model._
-import domain.position.Position.MergeResult.{NoChange, NoMerge, PositionsMerged}
+import domain.position.MarketPlay.MergeResult.{NoChange, NoMerge, PositionsMerged}
 import domain.position.PositionEntry.PositionEntryIdPredicate
 import domain.position._
 import domain.position.error._
@@ -395,7 +395,7 @@ final case class DatastoreMarketPlayRepo(
 
     @inline
     def updatePosition(old: PositionDetails[PlayId], toMerge: Position): IO[MarketPlayError, Unit] = {
-      Position.merge(old.position, toMerge) match {
+      MarketPlay.merge(old.position, toMerge) match {
         case NoChange                     => ZIO.unit
         case PositionsMerged(newPosition) => doUpdate(old.copy(position = newPosition))
         case NoMerge                      => handleNewPosition(toMerge)

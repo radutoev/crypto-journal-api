@@ -187,10 +187,7 @@ final case class LiveMarketPlayService(
     @inline
     def handlePlayImport(marketPlays: MarketPlays): IO[MarketPlayError, Unit] =
       for {
-        //Get open positions that might become closed with the new data coming in
-        openPositions <- positionRepo.getPositions(userWallet.address, Open).map(MarketPlays(_))
-        merged        = openPositions.merge(marketPlays)
-        _ <- positionRepo.save(userWallet.address, merged.plays)
+        _ <- positionRepo.save(userWallet.address, marketPlays.plays)
         _ <- ZIO.foreachParN_(4)(marketPlays.quotesTimestamps) {
           case CurrencyPairTimestamps(pair, timestamps) => priceQuoteService.addQuotes(pair, timestamps)
         }.ignore //TODO Handle failure of price_quotes fetching&saving.

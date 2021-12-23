@@ -3,7 +3,6 @@ package domain.position
 
 import domain.model._
 import domain.model.fungible.{FungibleDataMapOps, FungibleDataOps, OptionalFungibleDataOps}
-import domain.position.Position.MergeResult.{NoChange, NoMerge, PositionsMerged}
 import domain.position.error.InvalidPosition
 import domain.position.model.CoinName
 import domain.pricequote.PriceQuote
@@ -233,27 +232,5 @@ object Position {
     case Seq()  => true
     case Seq(_) => true
     case _      => seq.sliding(2).forall { case Seq(first, second) => ord.lteq(first, second) }
-  }
-
-  //TODO add tests.
-  def merge(older: Position, newer: Position): MergeResult = {
-    if(older.isOpen) {
-      newer.entries.headOption.fold[MergeResult](NoChange) { entry =>
-        if(entry.isInstanceOf[Sell]) {
-          PositionsMerged(older.addEntries(newer.entries))
-        } else {
-          NoMerge
-        }
-      }
-    } else {
-      PositionsMerged(older.addEntries(newer.entries))
-    }
-  }
-
-  sealed trait MergeResult
-  object MergeResult {
-    final case object NoChange extends MergeResult
-    final case class  PositionsMerged(newPosition: Position) extends MergeResult
-    final case object NoMerge extends MergeResult
   }
 }
