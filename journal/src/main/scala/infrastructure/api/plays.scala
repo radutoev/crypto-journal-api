@@ -12,7 +12,7 @@ import infrastructure.api.Routes.ApiError
 import infrastructure.api.common.dto.FungibleData
 import infrastructure.api.common.dto._
 import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps, QParamsOps}
-import infrastructure.api.plays.dto.{JournalEntry, PositionJournalEntry, fromMarketPlay, fromPosition, fromPositionDetails}
+import infrastructure.api.plays.dto.{JournalEntry, PositionJournalEntry, fromMarketPlay, fromPosition, fromPositionDetails, positionDetailsCodec}
 import infrastructure.auth.JwtRequestContext
 import util.ListEitherOps
 import vo.filter.PlayFilter
@@ -67,7 +67,12 @@ object plays {
                      .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        marketPlayErrorToHttpResponse,
-                       positionDetails => Response.jsonString(fromPositionDetails(positionDetails).toJson)
+                       positionDetails => {
+                         val x = fromPositionDetails(positionDetails)
+                         val y = x.toJson(positionDetailsCodec)
+                         println(y)
+                         Response.jsonString(fromPositionDetails(positionDetails).toJson(positionDetailsCodec))
+                       }
                      )
       } yield response
 
@@ -376,14 +381,14 @@ object plays {
     )
 
     implicit val journalEntryCodec: JsonCodec[JournalEntry]         = DeriveJsonCodec.gen[JournalEntry]
-    implicit val positionLinksCodec: JsonCodec[PositionLinks]       = DeriveJsonCodec.gen[PositionLinks]
-    implicit val positionDetailsCodec: JsonCodec[PositionDetails]   = DeriveJsonCodec.gen[PositionDetails]
     implicit val priceQuoteCodec: JsonCodec[PriceQuote]             = DeriveJsonCodec.gen[PriceQuote]
     implicit val positionEntryCodec: JsonCodec[PositionEntry]       = DeriveJsonCodec.gen[PositionEntry]
     implicit val positionCodec: JsonCodec[Position]                 = DeriveJsonCodec.gen[Position]
     implicit val transferInPlayCodec: JsonCodec[TopUp]              = DeriveJsonCodec.gen[TopUp]
     implicit val marketPlayCodec: JsonCodec[MarketPlay]             = DeriveJsonCodec.gen[MarketPlay]
     implicit val positionTagsCodec: JsonCodec[PositionJournalEntry] = DeriveJsonCodec.gen[PositionJournalEntry]
+    implicit val positionLinksCodec: JsonCodec[PositionLinks]       = DeriveJsonCodec.gen[PositionLinks]
+    implicit val positionDetailsCodec: JsonCodec[PositionDetails]   = DeriveJsonCodec.gen[PositionDetails]
 
     def fromPositionDetails(pd: CJPositionDetails[CJPosition]): PositionDetails =
       PositionDetails(
