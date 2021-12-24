@@ -267,39 +267,19 @@ final case class DatastoreMarketPlayRepo(
   override def getPosition(playId: PlayId): IO[MarketPlayError, PositionDetails[PlayId]] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay).newKey(playId.value)
 
-    val query = Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.marketPlay)
-      .setFilter(PropertyFilter.eq("__key__", key))
-      .build()
-
-    executeQuery(query)(datastore, logger)
+    get(key)(datastore, logger)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
-      .flatMap { queryResult =>
-        val results = queryResult.asScala
-        if (results.nonEmpty) {
-          ZIO.fromEither(entityToPositionDetails(results.next()))
-        } else {
-          ZIO.fail(MarketPlayNotFound(playId))
-        }
-      }
+      .flatMap(entity => entity.map(e => ZIO.fromEither(entityToPositionDetails(e))).getOrElse(ZIO.fail(MarketPlayNotFound(playId))))
   }
 
   override def getNextPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay).newKey(playId.value)
 
-    val query = Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.marketPlay)
-      .setFilter(PropertyFilter.eq("__key__", key))
-      .build()
-
-    executeQuery(query)(datastore, logger)
+    get(key)(datastore, logger)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
       .flatMap { result =>
-        val results = result.asScala
-        if (results.nonEmpty) {
-          val entity = results.next()
+        if(result.isDefined) {
+          val entity = result.get
           ZIO.fromEither {
             tryOrLeft(entity.getString("nextPlayIds"), InvalidRepresentation("Entity has no nextPlayIds")).map {
               rawPlayIds =>
@@ -319,18 +299,11 @@ final case class DatastoreMarketPlayRepo(
   override def getPreviousPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]] = {
     val key = datastore.newKeyFactory().setKind(datastoreConfig.marketPlay).newKey(playId.value)
 
-    val query = Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.marketPlay)
-      .setFilter(PropertyFilter.eq("__key__", key))
-      .build()
-
-    executeQuery(query)(datastore, logger)
+    get(key)(datastore, logger)
       .mapError(throwable => MarketPlayFetchError(playId, throwable))
       .flatMap { result =>
-        val results = result.asScala
-        if (results.nonEmpty) {
-          val entity = results.next()
+        if(result.isDefined) {
+          val entity = result.get
           ZIO.fromEither {
             tryOrLeft(entity.getString("previousPlayIds"), InvalidRepresentation("Entity has no nextPlayIds")).map {
               rawPlayIds =>
