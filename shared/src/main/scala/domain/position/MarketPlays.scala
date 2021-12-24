@@ -99,7 +99,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
       List.empty
     }
 
-  //hardcoded to USDT for now
   def balanceTrend(): List[(Instant, FungibleData)] =
     if (interval.isDefined) {
       val start         = interval.get.start.atBeginningOfDay()

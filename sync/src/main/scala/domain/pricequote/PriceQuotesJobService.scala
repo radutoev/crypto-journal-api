@@ -29,9 +29,10 @@ final case class LivePriceQuotesJobService(
     (for {
       startTime <- priceQuoteRepo
                     .getLatestQuote(WBNB)
+                    .tap(quote => logger.info(s"Latest quote for ${WBNB.value} on ${quote.timestamp}"))
                     .map(_.timestamp.plusSeconds(60))
                     .catchSome {
-                      case PriceQuoteNotFound(_) => UIO(BeginningOfTime)
+                      case PriceQuoteNotFound(_) => logger.info(s"Price quote not found for ${WBNB.value}") *> UIO(BeginningOfTime)
                     }
       _ <- logger.info(s"Update WBNB quotes from $startTime")
       _ <- bitQueryFacade

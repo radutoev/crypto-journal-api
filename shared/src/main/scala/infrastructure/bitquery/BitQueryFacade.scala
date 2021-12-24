@@ -21,7 +21,6 @@ final case class BitQueryFacade (config: BitQueryConfig,
                                  logger: Logger[String]) {
   private lazy val zioHttpBackend = HttpClientZioBackend()
 
-  //TODO I think I need to have minute frequency, instead of hour.
   def getPrices(pair: CurrencyAddressPair, since: LocalDate): Task[List[PriceQuote]] = {
     val query = ethereum(network = Some(EthereumNetwork.bsc))(
       dexTrades(

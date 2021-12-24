@@ -9,7 +9,6 @@ import domain.wallet.error.WalletError
 import domain.wallet.{WalletCache, WalletRepo}
 import infrastructure.binance.TradingStream
 import infrastructure.google.datastore.DatastorePaginationRepo
-import util.ListOptionOps
 
 import eu.timepit.refined.refineV
 import org.web3j.protocol.core.methods.response.EthBlock.TransactionObject
