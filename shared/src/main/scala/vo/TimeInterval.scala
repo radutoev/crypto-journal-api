@@ -5,6 +5,8 @@ import domain.model.NumberOfDays
 import util.InstantOps
 
 import eu.timepit.refined.refineV
+import eu.timepit.refined.types.numeric.PosInt
+import io.softwarechain.cryptojournal.vo.TimeInterval.SecondsInDay
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -13,6 +15,23 @@ import java.time.temporal.ChronoUnit
 final case class TimeInterval(start: Instant, end: Instant) {
   def days(): List[Instant] =
     days(start.atBeginningOfDay()).takeWhile(_.isBefore(end)).toList
+
+  def dayChunks(dayCount: PosInt): List[TimeInterval] = {
+    val startFrom = start.atBeginningOfDay()
+
+    days(startFrom)
+      .takeWhile(_.isBefore(end))
+      .grouped(dayCount.value)
+      .map { lazyTimestamps =>
+        val timestamps = lazyTimestamps.toList
+        if(timestamps.head == startFrom) {
+          TimeInterval(timestamps.head, timestamps.last)
+        } else {
+          TimeInterval(timestamps.head.minusSeconds(SecondsInDay), timestamps.last)
+        }
+      }
+      .toList
+  }
 
   def dayCount: NumberOfDays = refineV.unsafeFrom(days().size)
 
@@ -28,7 +47,7 @@ final case class TimeInterval(start: Instant, end: Instant) {
    * @return New TimeInterval
    */
   def minus(days: NumberOfDays): TimeInterval = {
-    val seconds = days.value * 86400
+    val seconds = days.value * SecondsInDay
     TimeInterval(start.minusSeconds(seconds), end.minusSeconds(seconds))
   }
 
@@ -44,6 +63,8 @@ final case class TimeInterval(start: Instant, end: Instant) {
 }
 
 object TimeInterval {
+  private val SecondsInDay = 86400
+
   def apply(start: Instant, end: Instant) = new TimeInterval(start, end)
 
   def apply(start: Instant) = new TimeInterval(start, start)

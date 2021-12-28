@@ -46,8 +46,8 @@ final case class LivePriceQuotesJobService(
                   CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
                 )
               ),
-              startTime.toLocalDate()
-            )
+              startTime
+            )(clock)
             .flatMap(quotes => priceQuoteRepo.saveQuotes(PriceQuotesChunk(CurrencyPair(WBNB, BUSD), quotes)))
     } yield ()).orElseFail(PriceQuoteFetchError("Quote update failure"))
 
