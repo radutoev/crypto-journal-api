@@ -34,9 +34,9 @@ object Routes {
   lazy val api = CORS(
     health +++
       open.routes +++
-      authenticate(forbidden, userId => contextId(badRequest, clientId => wallets.routes(userId, clientId))) +++
-      authenticate(forbidden, userId => contextId(badRequest, clientId => plays.routes(userId, clientId))) +++
-      authenticate(forbidden, userId => contextId(badRequest, clientId => portfolio.routes(userId, clientId))) +++
+      authenticate(forbidden, userId => contextId(badRequest, cId => wallets.routes(userId, cId))) +++
+      authenticate(forbidden, userId => contextId(badRequest, cId => plays.routes(userId, cId))) +++
+      authenticate(forbidden, userId => contextId(badRequest, cId => portfolio.routes(userId, cId))) +++
       authenticate(forbidden, userId => contextId(badRequest, _ => market.routes(userId))) +++
       authenticate(forbidden, userId => contextId(badRequest, _ => setups.routes(userId))),
     config = CORSConfig(anyOrigin = true)
