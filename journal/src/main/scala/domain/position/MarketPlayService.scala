@@ -8,7 +8,7 @@ import domain.position.MarketPlayService.MarketPlaysOps
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
-import domain.pricequote.{ CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes }
+import domain.pricequote.{ CurrencyAddressPair, CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes }
 import domain.wallet.Wallet
 import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
 import vo.filter.PlayFilter
@@ -60,7 +60,7 @@ object MarketPlayService {
     ZIO.serviceWith[MarketPlayService](_.getPlays(userWallet, filter))
 
   implicit class MarketPlaysOps(marketPlays: MarketPlays) {
-    lazy val quotesTimestamps: List[CurrencyPairTimestamps] = {
+    lazy val quotesTimestamps: Set[CurrencyPairTimestamps] = {
       marketPlays.plays.flatMap {
         case p: Position if p.currency.isDefined && p.coinAddress.isDefined =>
           p.entries.map(entry =>
@@ -75,9 +75,9 @@ object MarketPlayService {
         case _ => List.empty
       }.groupBy(_.pair)
         .view
-        .mapValues(_.map(_.timestamp))
-        .toList
+        .mapValues(_.map(_.timestamp).toSet)
         .map(CurrencyPairTimestamps(_))
+        .toSet
     }
   }
 }
@@ -195,13 +195,37 @@ final case class LiveMarketPlayService(
     def handlePlayImport(marketPlays: MarketPlays): IO[MarketPlayError, Unit] =
       for {
         _ <- positionRepo.save(userWallet.address, marketPlays.plays)
-        _ <- ZIO
-              .foreachParN_(4)(marketPlays.quotesTimestamps) {
-                case CurrencyPairTimestamps(pair, timestamps) => priceQuoteService.addQuotes(pair, timestamps)
-              }
-              .ignore //TODO Handle failure of price_quotes fetching&saving.
+        _ <- saveCoinToDexCoinQuotes(marketPlays.quotesTimestamps)
+        allTimestamps = marketPlays.quotesTimestamps.flatMap(_.timestamps)
+        _ <- saveDexCoinToBusdQuotes(allTimestamps)
         _ <- logger.info(s"Data import complete for ${userWallet.address.value}")
       } yield ()
+
+    @inline
+    def saveCoinToDexCoinQuotes(data: Set[CurrencyPairTimestamps]) = {
+      ZIO
+        .foreachParN_(4)(data) {
+          case CurrencyPairTimestamps(pair, timestamps) => priceQuoteService.addQuotes(pair, timestamps)
+        }
+        .ignore //TODO Handle failure of price_quotes fetching&saving.
+    }
+
+    @inline
+    def saveDexCoinToBusdQuotes(timestamps: Set[Instant]) = {
+      priceQuoteService.addQuotes(
+        CurrencyAddressPair(
+          CurrencyAddress(
+            WBNB,
+            CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")
+          ),
+          CurrencyAddress(
+            BUSD,
+            CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
+          )
+        ),
+        timestamps
+      ).ignore
+    }
 
     for {
       _ <- logger.info(s"Importing data for ${userWallet.address.value}...")

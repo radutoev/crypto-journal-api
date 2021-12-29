@@ -32,7 +32,7 @@ object Sync extends App {
     val (priceQuoteLayer, pagContextLayer, syncLayer, zioHttpLayer) = listenerEnvironment(config)
 
     for {
-      quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(priceQuoteLayer).fork
+//      quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(priceQuoteLayer).fork
       pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).fork
       syncFiber       <- (SyncApi.loadWallets() *> SyncApi.updatePositions()).provideCustomLayer(syncLayer).fork
       httpFiber       <- (Server.port(8081) ++ Server.app(Routes.api))
@@ -40,7 +40,7 @@ object Sync extends App {
         .use(_ => console.putStrLn("Server started on port 8080") *> ZIO.never)
         .provideCustomLayer(zioHttpLayer)
         .fork
-      _               <- (quotesSyncFiber <*> pagContextFiber <*> syncFiber <*> httpFiber).join
+      _               <- (/*quotesSyncFiber <*> */ pagContextFiber <*> syncFiber <*> httpFiber).join
     } yield ()
   }
 

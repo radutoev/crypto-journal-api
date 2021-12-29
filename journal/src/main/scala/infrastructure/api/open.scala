@@ -63,5 +63,21 @@ object open {
                        }
                      )
       } yield response).orElseFail(BadRequest("Invalid data"))
+
+    case Method.GET -> Root / "test" / "bitquery" =>
+      PositionHelper.bitqueryTest()
+        .fold(
+          _ => Response.status(Status.INTERNAL_SERVER_ERROR), {
+            case Nil => Response.http(status = Status.NO_CONTENT)
+            case list =>
+              Response.http(
+                status = Status.OK,
+                headers = Header("Content-Type", "application/json") :: Nil,
+                content = HttpData.CompleteData(
+                  Chunk.fromArray(list.map(fromPriceQuote).toJson.getBytes(HTTP_CHARSET))
+                )
+              )
+          }
+        )
   }
 }

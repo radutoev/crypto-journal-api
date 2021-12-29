@@ -16,7 +16,7 @@ final case class LivePriceQuoteService(
   priceQuoteRepo: PriceQuoteRepo,
   logger: Logger[String]
 ) extends PriceQuoteService {
-  override def addQuotes(pair: CurrencyAddressPair, timestamps: List[Instant]): IO[PriceQuoteError, Unit] =
+  override def addQuotes(pair: CurrencyAddressPair, timestamps: Set[Instant]): IO[PriceQuoteError, Unit] =
     (for {
       _      <- logger.info(s"Save price quotes for ${pair.base.currency} -> ${pair.quote.currency}")
       quotes <- bitQueryFacade.getPrices(pair, timestamps)

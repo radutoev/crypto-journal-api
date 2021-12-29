@@ -100,6 +100,6 @@ object CryptoJournal extends App {
     lazy val applicationServiceLayer =
       marketPlayService ++ walletServiceLayer ++ kpiServiceLayer ++ journalServiceLayer ++ marketServiceLayer
 
-    zioHttpServerLayer ++ applicationServiceLayer ++ covalentFacadeLayer ++ priceQuoteRepoLayer
+    zioHttpServerLayer ++ applicationServiceLayer ++ covalentFacadeLayer ++ priceQuoteRepoLayer ++ bitQueryFacadeLayer
   }
 }
