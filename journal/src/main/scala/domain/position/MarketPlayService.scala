@@ -244,17 +244,6 @@ object LiveMarketPlayService {
                                     }
                      bnbQuotes <- repo.getQuotes(bnbBusdPair, interval)
                    } yield PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes))
-
-//                   val currencyPair = CurrencyPair(c, WBNB)
-//                  //TODO 1/2 of db requests if I can do multi currency queries.
-//                   repo
-//                     .getQuotes(currencyPair, interval)
-//                     .flatMap { listOfQuotes =>
-//                       val bnbBusdPair = CurrencyPair(WBNB, BUSD)
-//                       repo
-//                         .getQuotes(bnbBusdPair, interval)
-//                         .map(bnbQuotes => PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes)))
-//                     }
                  }
         data = play match {
           case p: Position =>
