@@ -39,7 +39,7 @@ object Routes {
       authenticate(forbidden, userId => contextId(badRequest, cId => portfolio.routes(userId, cId))) +++
       authenticate(forbidden, userId => contextId(badRequest, _ => market.routes(userId))) +++
       authenticate(forbidden, userId => contextId(badRequest, _ => setups.routes(userId))),
-    config = CORSConfig(anyOrigin = true)
+    config = CORSConfig(anyOrigin = true, exposedHeaders = Some(Set("X-CoinLogger-ContextId", "X-CoinLogger-ContextId".toLowerCase)))
   )
 
   private def health = HttpApp.collect {
