@@ -10,12 +10,14 @@ import vo.{PriceQuotesChunk, TimeInterval}
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
+import io.softwarechain.cryptojournal.util.InstantOps
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, URLayer, ZIO}
 
-import java.time.Instant
+import java.time.{Instant, ZoneId, ZoneOffset}
 import java.util.UUID
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
@@ -69,7 +71,7 @@ final case class DatastorePriceQuoteRepo(
       .setLimit(1)
       .build()
 
-   executeQuery(query)(datastore, logger)
+    executeQuery(query)(datastore, logger)
       .orElseFail(PriceQuoteFetchError("Unable to fetch latest quotes"))
       .flatMap(results => ZIO.fromOption(results.asScala.toList.headOption).orElseFail(PriceQuoteNotFound(currency)))
       .map(entity =>
@@ -137,4 +139,34 @@ final case class DatastorePriceQuoteRepo(
 object DatastorePriceQuoteRepo {
   lazy val layer: URLayer[Has[Datastore] with Has[DatastoreConfig] with Clock with Logging, Has[PriceQuoteRepo]] =
     (DatastorePriceQuoteRepo(_, _, _, _)).toLayer
+
+  private[datastore] def generateDatastoreQuotes(quotes: List[PriceQuote]): List[PriceQuoteBase] = {
+    def generateQuotesBase(source: List[PriceQuote], groupFns: List[Instant => Instant]): List[PriceQuoteBase] = {
+      if(groupFns.nonEmpty) {
+        val acc: mutable.Map[Instant, mutable.ArrayBuffer[PriceQuote]] = mutable.Map.empty
+        source.foreach { quote =>
+          val key = groupFns.head(quote.timestamp)
+          acc.update(key, acc.getOrElse(key, mutable.ArrayBuffer.empty).addOne(quote))
+        }
+        acc.view.map { case (timestamp, innerQuotes) =>
+          PriceQuoteBase(
+            timestamp,
+            BigDecimal(innerQuotes.map(_.price).sum / innerQuotes.length).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble, //average of given quotes.
+            generateQuotesBase(innerQuotes.toList, groupFns.tail)
+          )
+        }
+        .toList
+      } else {
+        source.map(q => PriceQuoteBase(q.timestamp, q.price, Nil))
+      }
+    }
+
+    val groupFns: List[Instant => Instant] = List(
+      t => t.atBeginningOfDay(),
+      t => t.atBeginningOfHour()
+    )
+    generateQuotesBase(quotes, groupFns)
+  }
+
+  private[datastore] case class PriceQuoteBase(timestamp: Instant, price: Double, children: List[PriceQuoteBase])
 }
