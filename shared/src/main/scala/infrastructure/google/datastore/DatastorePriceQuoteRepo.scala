@@ -5,17 +5,18 @@ import config.DatastoreConfig
 import domain.model.Currency
 import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound}
 import domain.pricequote.{CurrencyPair, PriceQuote, PriceQuoteRepo}
+import infrastructure.google.datastore.DatastorePriceQuoteRepo.{PriceQuoteBase, generateDatastoreQuotes}
+import util.InstantOps
 import vo.{PriceQuotesChunk, TimeInterval}
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
-import io.softwarechain.cryptojournal.util.InstantOps
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, URLayer, ZIO}
 
-import java.time.{Instant, ZoneId, ZoneOffset}
+import java.time.Instant
 import java.util.UUID
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -27,6 +28,8 @@ final case class DatastorePriceQuoteRepo(
   clock: Clock.Service,
   logger: Logger[String]
 ) extends PriceQuoteRepo with DatastoreOps {
+
+  type Ancestor = (String, String)
 
   override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
     val filter = CompositeFilter.and(
@@ -84,23 +87,50 @@ final case class DatastorePriceQuoteRepo(
 
   override def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit] = {
     @inline
-    def saveEntities(list: List[Entity]) =
-      Task(datastore.newTransaction())
-        .bracket(txn => Task(txn.rollback()).when(txn.isActive).ignore) { txn =>
-          Task {
-            txn.put(list: _*)
-            txn.commit()
-          } *> logger.info(s"Imported ${list.size} of ${quotesChunk.pair.base} to ${quotesChunk.pair.quote}")
-        }
+    def saveEntities(list: List[Entity]) = {
+      Task(datastore.put(list: _*))
         .tapError(throwable =>
           logger.error(s"Error saving quotes: ${list.mkString(",")}") *> logger.error(throwable.getMessage)
         )
-        .ignore //TODO handle transactions response when doing error handling.
+        .ignore //TODO handle errors
+    }
+
+    def elementKind(depth: Int): Option[String] = {
+      Option(depth match {
+        case 0 => "DayPriceQuote"
+        case 1 => "HourPriceQuote"
+        case 2 => "MinutePriceQuote"
+        case _ => ""
+      }).filter(_.nonEmpty)
+    }
+
+    def ancestor(depth: Int, value: String): Option[Ancestor] = {
+      elementKind(depth).map(_ -> value)
+    }
+
+    def makeEntities(baseQuotes: List[PriceQuoteBase], ancestors: List[Ancestor])(implicit keyFactory: KeyFactory): List[Entity] = {
+      baseQuotes.flatMap { quote =>
+        var keyBuilder = keyFactory.setKind(elementKind(ancestors.size).get)
+        if(ancestors.nonEmpty) {
+          keyBuilder = keyBuilder.addAncestors(ancestors.map(a => PathElement.of(a._1, a._2)).asJava)
+        }
+        val id = UUID.randomUUID().toString //TODO Key needs to be generated based on date i think.
+
+        val childAncestor = ancestor(ancestors.size, id).get
+        val entity = Entity.newBuilder(keyBuilder.newKey(id))
+          .set("baseCurrency", quotesChunk.pair.base.value)
+          .set("quoteCurrency", quotesChunk.pair.quote.value)
+          .set("timestamp", TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(quote.timestamp.getEpochSecond, quote.timestamp.getNano)))
+          .set("price", quote.price)
+          .build()
+        val childrenEntities = makeEntities(quote.children, ancestors :+ childAncestor)
+        entity +: childrenEntities
+      }
+    }
 
     {
-      val entities = quotesChunk.quotes
-        .map(quote => priceQuoteWithCurrencyToEntity((quotesChunk.pair.base, quotesChunk.pair.quote, quote)))
-        .grouped(25)
+      val entities = makeEntities(generateDatastoreQuotes(quotesChunk.quotes), Nil)(datastore.newKeyFactory())
+        .grouped(500)
         .toList
 
       for {
@@ -121,18 +151,6 @@ final case class DatastorePriceQuoteRepo(
         Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)
       )
     )
-  }
-
-  private def priceQuoteWithCurrencyToEntity(data: (Currency, Currency, PriceQuote)) = {
-    val timestamp =
-      TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(data._3.timestamp.getEpochSecond, data._3.timestamp.getNano))
-    Entity
-      .newBuilder(datastore.newKeyFactory().setKind(datastoreConfig.priceQuote).newKey(UUID.randomUUID().toString))
-      .set("baseCurrency", data._1.value)
-      .set("quoteCurrency", data._2.value)
-      .set("timestamp", timestamp)
-      .set("price", data._3.price)
-      .build()
   }
 }
 

@@ -1,10 +1,11 @@
 package io.softwarechain.cryptojournal
 
-import domain.position.{ MarketPlay, Position, TopUp, Withdraw }
+import domain.position.{MarketPlay, Position, TopUp, Withdraw}
 
 import com.google.cloud.Timestamp
+import io.softwarechain.cryptojournal.domain.model.date.Hour
 
-import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
+import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 import scala.util.Try
 
 package object util {
@@ -55,6 +56,17 @@ package object util {
 
     def toDatastoreTimestamp(): Timestamp =
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)
+  }
+
+  implicit class InstantsOps(instants: Set[Instant]) {
+    //default to hour for now, as I don't need anything extra.
+    lazy val distributionByHour: Map[Hour, Set[Instant]] = {
+      instants.map(instant => instant.atBeginningOfHour() -> instant)
+        .groupBy(_._1)
+        .map { case (hourInstant, list) =>
+          Hour(hourInstant) -> list.map(_._2)
+        }
+    }
   }
 
   object ListOps {

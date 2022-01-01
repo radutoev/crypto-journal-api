@@ -6,6 +6,8 @@ import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuoteRepo, Pri
 import infrastructure.bitquery.BitQueryFacade
 import vo.{PriceQuotesChunk, TimeInterval}
 
+import io.softwarechain.cryptojournal.domain.model.date
+import io.softwarechain.cryptojournal.domain.model.date.Hour
 import zio.{Has, IO, URLayer}
 import zio.logging.{Logger, Logging}
 
@@ -16,13 +18,15 @@ final case class LivePriceQuoteService(
   priceQuoteRepo: PriceQuoteRepo,
   logger: Logger[String]
 ) extends PriceQuoteService {
-  override def addQuotes(pair: CurrencyAddressPair, timestamps: Set[Instant]): IO[PriceQuoteError, Unit] =
+
+  override def addQuote(pair: CurrencyAddressPair, hour: Hour): IO[PriceQuoteError, Unit] = {
     (for {
-      _      <- logger.info(s"Save price quotes for ${pair.base.currency} -> ${pair.quote.currency}")
-      quotes <- bitQueryFacade.getPrices(pair, timestamps)
-      _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(CurrencyPair(pair.base.currency, pair.quote.currency), quotes))
-    } yield ())
-      .orElseFail(PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes"))
+      _      <- logger.info(s"Save price quotes ${pair.base.currency} -> ${pair.quote.currency} @ ${hour.value}")
+      quotes <- bitQueryFacade.getPrices(pair, Set(hour.value))
+      cPair  = CurrencyPair(pair.base.currency, pair.quote.currency)
+      _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(cPair, quotes))
+    } yield ()).orElseFail(PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes"))
+  }
 
   override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, Unit] = ???
 }

@@ -2,23 +2,23 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{ BlockchainRepo, Transaction }
+import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.model._
 import domain.position.MarketPlayService.MarketPlaysOps
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
-import domain.pricequote.{ CurrencyAddressPair, CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes }
+import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes}
 import domain.wallet.Wallet
-import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
+import util.{InstantOps, InstantsOps, ListOptionOps, MarketPlaysListOps}
 import vo.filter.PlayFilter
-import vo.{ CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval }
+import vo.{CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval}
 
-import zio.cache.{ Cache, Lookup }
+import zio.cache.{Cache, Lookup}
 import zio.duration.durationInt
-import zio.logging.{ Logger, Logging }
+import zio.logging.{Logger, Logging}
 import zio.stream.ZStream
-import zio.{ Has, IO, UIO, URLayer, ZIO, ZLayer }
+import zio.{Has, IO, UIO, URLayer, ZIO, ZLayer}
 
 import java.time.Instant
 
@@ -203,28 +203,29 @@ final case class LiveMarketPlayService(
 
     @inline
     def saveCoinToDexCoinQuotes(data: Set[CurrencyPairTimestamps]) = {
-      ZIO
-        .foreachParN_(4)(data) {
-          case CurrencyPairTimestamps(pair, timestamps) => priceQuoteService.addQuotes(pair, timestamps)
-        }
-        .ignore //TODO Handle failure of price_quotes fetching&saving.
+      val requestData = data.flatMap { currenciesAndTimestamps =>
+        currenciesAndTimestamps.timestamps.distributionByHour.keySet.map(hour => currenciesAndTimestamps.pair -> hour)
+      }
+      ZIO.foreachParN_(4)(requestData) {
+        case (pair, hour) => priceQuoteService.addQuote(pair, hour)
+      }.ignore //TODO Handle failure of price_quotes fetching&saving.
     }
 
     @inline
     def saveDexCoinToBusdQuotes(timestamps: Set[Instant]) = {
-      priceQuoteService.addQuotes(
-        CurrencyAddressPair(
-          CurrencyAddress(
-            WBNB,
-            CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")
-          ),
-          CurrencyAddress(
-            BUSD,
-            CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
-          )
+      val pair = CurrencyAddressPair(
+        CurrencyAddress(
+          WBNB,
+          CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")
         ),
-        timestamps
-      ).ignore
+        CurrencyAddress(
+          BUSD,
+          CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
+        )
+      )
+      ZIO.foreachParN_(4)(timestamps.distributionByHour.keySet.map(hour => pair -> hour)) {
+        case (pair, hour) => priceQuoteService.addQuote(pair, hour)
+      }.ignore //TODO Handle failure of price_quotes fetching&saving.
     }
 
     for {
