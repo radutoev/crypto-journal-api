@@ -44,46 +44,6 @@ final case class DatastorePriceQuoteRepo(
       entityQuotes => entityQuotes.view.map(entityToPriceQuote).map(_._2).toList
     )
 
-  /**
-   * @deprecated I think :)
-   *  */
-  override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, List[PriceQuote]] = {
-    val filter = CompositeFilter.and(
-      PropertyFilter
-        .ge("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.start.getEpochSecond, interval.start.getNano)),
-      PropertyFilter
-        .le("timestamp", Timestamp.ofTimeSecondsAndNanos(interval.end.getEpochSecond, interval.end.getNano)),
-      PropertyFilter.eq("quoteCurrency", pair.quote.value),
-      PropertyFilter.eq("baseCurrency", pair.base.value)
-    )
-    logger.info(s"Fetch quotes in $interval for ${pair.base.value}") *>
-    getQuotes(filter).map(_.getOrElse(pair, List.empty))
-  }
-
-  /**
-   * @deprecated I think :)
-   *  */
-  private def getQuotes(filter: StructuredQuery.Filter): IO[PriceQuoteError, Map[CurrencyPair, List[PriceQuote]]] = {
-    val query = Query
-      .newEntityQueryBuilder()
-      .setKind(datastoreConfig.priceQuote)
-      .setFilter(filter)
-      .addOrderBy(OrderBy.asc("timestamp"))
-      .build()
-
-    executeQuery(query)(datastore, logger)
-      .mapBoth(
-        _ => PriceQuoteFetchError("Unable to fetch quotes"),
-        results =>
-          results.asScala.toList
-            .map(entityToPriceQuote)
-            .groupBy(_._1)
-            .view
-            .mapValues(_.map(_._2))
-            .toMap
-      )
-  }
-
   override def getLatestQuote(currency: Currency): IO[PriceQuoteError, PriceQuote] = {
     val query = Query
       .newProjectionEntityQueryBuilder()

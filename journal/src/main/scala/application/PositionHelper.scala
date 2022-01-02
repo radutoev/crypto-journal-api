@@ -2,12 +2,12 @@ package io.softwarechain.cryptojournal
 package application
 
 import domain.blockchain.BlockchainRepo
-import domain.model.{BUSD, CoinAddress, CurrencyAddress, TransactionHash, WBNB, WalletAddress}
+import domain.model._
 import domain.position.PositionEntry
-import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuote, PriceQuoteRepo}
+import domain.pricequote.{CurrencyAddressPair, PriceQuote}
+import infrastructure.bitquery.BitQueryFacade
 import vo.TimeInterval
 
-import io.softwarechain.cryptojournal.infrastructure.bitquery.BitQueryFacade
 import zio.{Has, UIO, ZIO}
 
 import java.time.Instant
@@ -25,13 +25,6 @@ object PositionHelper {
             .tapError(err => UIO(println(err)))
             .mapError(new RuntimeException(_))
         )
-    )
-
-  def quotes(pair: CurrencyPair, interval: TimeInterval): ZIO[Has[PriceQuoteRepo], Throwable, List[PriceQuote]] =
-    ZIO.serviceWith(
-      _.getQuotes(pair, interval)
-        .tapError(err => UIO(println(err)))
-        .mapError(err => new RuntimeException(err.toString))
     )
 
   def bitqueryTest(): ZIO[Has[BitQueryFacade], Throwable, List[PriceQuote]] =
