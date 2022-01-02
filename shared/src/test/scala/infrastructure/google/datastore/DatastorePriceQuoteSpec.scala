@@ -1,9 +1,11 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
-import domain.pricequote.PriceQuote
+import domain.model.date.Minute
+import domain.pricequote.{CurrencyPair, PriceQuote}
+import infrastructure.google.datastore.DatastorePriceQuoteRepo.{MinuteOps, PriceQuoteBase}
 
-import DatastorePriceQuoteRepo.PriceQuoteBase
+import io.softwarechain.cryptojournal.domain.model.{BUSD, WBNB}
 import zio.test.Assertion._
 import zio.test.TestAspect.ignore
 import zio.test._
@@ -24,6 +26,13 @@ object DatastorePriceQuoteSpec extends DefaultRunnableSpec {
         val entities = DatastorePriceQuoteRepo.generateDatastoreQuotes(quotes)
         assert(entities)(hasSameElementsDistinct(Expected))
       } @@ ignore //Looks like recursive equality doesn't work.
+    }
+
+    suite("Date ops") {
+      test("Format minute to datastore key") {
+        val minute = Minute(Instant.parse("2021-03-05T16:33:25.000Z"))
+        assert(minute.datastoreKey(CurrencyPair(WBNB, BUSD)))(equalTo("WBNB-BUSD-2021-03-05-16-33"))
+      }
     }
   }
 

@@ -4,13 +4,14 @@ package domain.position
 import domain.blockchain.error._
 import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.model._
+import domain.model.date.Minute
 import domain.position.MarketPlayService.MarketPlaysOps
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
 import domain.pricequote.error.PriceQuoteError
-import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuoteRepo, PriceQuoteService, PriceQuotes}
+import domain.pricequote._
 import domain.wallet.Wallet
-import util.{InstantOps, InstantsOps, ListOptionOps, MarketPlaysListOps}
+import util.{InstantsOps, ListOps, ListOptionOps, MarketPlaysListOps}
 import vo.filter.PlayFilter
 import vo.{CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval}
 
@@ -249,12 +250,12 @@ final case class LiveMarketPlayService(
 object LiveMarketPlayService {
   val playData: MarketPlay => ZIO[Has[PriceQuoteRepo], MarketPlayError, MarketPlayData] = play => {
     ZIO.serviceWith[PriceQuoteRepo] { repo =>
-      val (interval, currency) = play match {
-        //TODO With minute frequency I think I can set the start to the beginning of the minute.
-        case p: Position => (TimeInterval(p.timeInterval.start.atBeginningOfHour(), p.timeInterval.end), p.currency)
-        case t: TopUp    => (TimeInterval(t.timestamp.atBeginningOfHour(), t.timestamp.nextMinute()), Some(WBNB))
-        case w: Withdraw => (TimeInterval(w.timestamp.atBeginningOfHour(), w.timestamp.nextMinute()), Some(WBNB))
+      val (timestamps, currency) = play match {
+        case p: Position => (List(p.timeInterval.start) ++ ListOps.cond(p.isClosed, () => p.timeInterval.end), p.currency)
+        case t: TopUp    => (List(t.timestamp), Some(WBNB))
+        case w: Withdraw => (List(w.timestamp), Some(WBNB))
       }
+      val minutes = timestamps.map(Minute(_)).toSet
 
       (for {
         //TODO Don't fetch for WBNB - WBNB.
@@ -263,11 +264,11 @@ object LiveMarketPlayService {
                    val bnbBusdPair  = CurrencyPair(WBNB, BUSD)
                    for {
                      listOfQuotes <- if (c != WBNB) {
-                                      repo.getQuotes(currencyPair, interval)
+                                      repo.getQuotes(currencyPair, minutes)
                                     } else {
                                       UIO(List.empty)
                                     }
-                     bnbQuotes <- repo.getQuotes(bnbBusdPair, interval)
+                     bnbQuotes <- repo.getQuotes(bnbBusdPair, minutes)
                    } yield PriceQuotes(Map(currencyPair -> listOfQuotes, bnbBusdPair -> bnbQuotes))
                  }
         data = play match {

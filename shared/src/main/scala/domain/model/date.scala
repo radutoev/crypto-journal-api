@@ -6,6 +6,14 @@ import util.InstantOps
 import java.time.Instant
 
 object date {
+  final case class Day(value: Instant) extends AnyVal
+
+  object Day {
+    def apply(from: Instant): Day = {
+      new Day(from.atBeginningOfDay())
+    }
+  }
+
   final case class Hour(value: Instant) extends AnyVal {
     def toDay(): Day = Day(value)
   }
@@ -16,11 +24,11 @@ object date {
     }
   }
 
-  final case class Day(value: Instant) extends AnyVal
+  final case class Minute(value: Instant) extends AnyVal
 
-  object Day {
-    def apply(from: Instant): Day = {
-      new Day(from.atBeginningOfDay())
+  object Minute {
+    def apply(from: Instant): Minute = {
+      new Minute(from.atBeginningOfMinute())
     }
   }
 }
