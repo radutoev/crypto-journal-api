@@ -129,7 +129,9 @@ final case class DatastorePriceQuoteRepo(
     }
 
     {
-      val entities = makeEntities(generateDatastoreQuotes(quotesChunk.quotes), Nil)(datastore.newKeyFactory())
+//      val quotesBase = generateDatastoreQuotes(quotesChunk.quotes)
+      val quotesBase = quotesChunk.quotes.map(q => PriceQuoteBase(q.timestamp, q.price, Nil))
+      val entities = makeEntities(quotesBase, Nil)(datastore.newKeyFactory())
         .grouped(500)
         .toList
 

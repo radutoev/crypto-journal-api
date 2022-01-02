@@ -27,7 +27,8 @@ final case class LiveWalletService(
         case true => logger.info(s"Address ${address.value} found in system. Skipping import.")
         case false =>
           (
-            walletRepo.addWallet(address) *> syncFacade.addWallet(address).orElseFail(UnableToAddWallet(address))
+            //TODO Add back the sync call after deploying the sync module
+            walletRepo.addWallet(address) //*> syncFacade.addWallet(address).orElseFail(UnableToAddWallet(address))
           ).zipParRight(
               positionService
                 .importPlays(userWallet)
