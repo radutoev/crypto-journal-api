@@ -2,14 +2,14 @@ package io.softwarechain.cryptojournal
 package infrastructure.pricequote
 
 import domain.model.Currency
-import domain.model.date.{Hour, TimeUnit}
-import domain.pricequote.error.{PriceQuoteError, PriceQuotesSaveError}
+import domain.model.date.{ Hour, TimeUnit }
+import domain.pricequote.error.{ PriceQuoteError, PriceQuotesSaveError }
 import domain.pricequote._
 import infrastructure.bitquery.BitQueryFacade
-import vo.{PriceQuotesChunk, TimeInterval}
+import vo.{ PriceQuotesChunk, TimeInterval }
 
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, URLayer }
 
 final case class LivePriceQuoteService(
   bitQueryFacade: BitQueryFacade,
@@ -17,20 +17,28 @@ final case class LivePriceQuoteService(
   logger: Logger[String]
 ) extends PriceQuoteService {
 
-  override def addQuote(pair: CurrencyAddressPair, hour: Hour): IO[PriceQuoteError, Unit] = {
+  override def addQuote(pair: CurrencyAddressPair, hour: Hour): IO[PriceQuoteError, Unit] =
     (for {
       _      <- logger.info(s"Save price quotes ${pair.base.currency} -> ${pair.quote.currency} @ ${hour.value}")
       quotes <- bitQueryFacade.getPrices(pair, Set(hour.value))
       cPair  = CurrencyPair(pair.base.currency, pair.quote.currency)
       _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(cPair, quotes))
-    } yield ()).orElseFail(PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes"))
-  }
+    } yield ()).orElseFail(
+      PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes")
+    )
 
-  override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, Unit] = {
-    ???
-  }
+  override def getQuotes(pair: CurrencyPair, interval: TimeInterval, unit: TimeUnit): IO[PriceQuoteError, PriceQuotes] =
+    priceQuoteRepo.getQuotes(pair, interval, unit).map(quotes => PriceQuotes(Map(pair -> quotes)))
 
-  override def getQuotes(quote: Currency, interval: TimeInterval, unit: TimeUnit): IO[PriceQuoteError, List[PriceQuote]] = ???
+  def getQuotes(
+    currencies: Set[Currency],
+    targetCurrency: Currency,
+    interval: TimeInterval,
+    unit: TimeUnit
+  ): IO[PriceQuoteError, PriceQuotes] = {
+    priceQuoteRepo.getQuotes(currencies, targetCurrency, interval, unit)
+      .map(tuples => PriceQuotes(tuples.groupBy(_._1).view.mapValues(_.map(_._2)).toMap))
+  }
 }
 
 object LivePriceQuoteService {

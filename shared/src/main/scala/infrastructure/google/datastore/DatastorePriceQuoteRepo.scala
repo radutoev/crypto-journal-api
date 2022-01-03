@@ -4,21 +4,21 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.model.Currency
 import domain.model.date._
-import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound}
-import domain.pricequote.{CurrencyPair, PriceQuote, PriceQuoteRepo}
-import infrastructure.google.datastore.DatastorePriceQuoteRepo.{PriceQuoteBase, TimeUnitOps}
+import domain.pricequote.error.{ PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound }
+import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuoteRepo }
+import infrastructure.google.datastore.DatastorePriceQuoteRepo.{ PriceQuoteBase, TimeUnitInstanceOps, TimeUnitOps }
 import util.InstantOps
-import vo.{PriceQuotesChunk, TimeInterval}
+import vo.{ PriceQuotesChunk, TimeInterval }
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
+import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, Task, URLayer, ZIO }
 
 import java.time.format.DateTimeFormatter
-import java.time.{Instant, ZoneOffset}
+import java.time.{ Instant, ZoneOffset }
 import java.util.UUID
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -35,18 +35,29 @@ final case class DatastorePriceQuoteRepo(
   type Ancestor = (String, String)
 
   def getQuotes(pair: CurrencyPair, minutes: Set[Minute]): IO[PriceQuoteError, List[PriceQuote]] =
-    get(minutes.map(minute => minute.datastoreKey(pair)).map(key => datastore
-      .newKeyFactory()
-      .setKind("MinutePriceQuote")
-      .newKey(key)))(datastore, logger)
-    .mapBoth(
-      _ => PriceQuoteFetchError(s"Error fetching price quotes for $pair"),
-      entityQuotes => entityQuotes.view.map(entityToPriceQuote).map(_._2).toList
-    )
+    get(
+      minutes
+        .map(minute => minute.datastoreKey(pair))
+        .map(key =>
+          datastore
+            .newKeyFactory()
+            .setKind("MinutePriceQuote")
+            .newKey(key)
+        )
+    )(datastore, logger)
+      .mapBoth(
+        _ => PriceQuoteFetchError(s"Error fetching price quotes for $pair"),
+        entityQuotes => entityQuotes.view.map(entityToPriceQuote).map(_._2).toList
+      )
 
-  def getQuotes(pair: CurrencyPair, interval: TimeInterval, timeUnit: TimeUnitInstance): IO[PriceQuoteError, List[PriceQuote]] = {
-    val query = Query.newEntityQueryBuilder()
-      .setKind(envAwareKind(timeUnit.datastoreKind))
+  override def getQuotes(
+    pair: CurrencyPair,
+    interval: TimeInterval,
+    unit: TimeUnit
+  ): IO[PriceQuoteError, List[PriceQuote]] = {
+    val query = Query
+      .newEntityQueryBuilder()
+      .setKind(envAwareKind(unit.datastoreKind))
       .setFilter(
         CompositeFilter.and(
           PropertyFilter
@@ -56,11 +67,43 @@ final case class DatastorePriceQuoteRepo(
           PropertyFilter.eq("quoteCurrency", pair.quote.value),
           PropertyFilter.eq("baseCurrency", pair.base.value)
         )
-      ).build()
+      )
+      .build()
+
     executeQuery(query)(datastore, logger)
       .mapBoth(
         _ => PriceQuoteFetchError(s"Error fetching quotes for $pair"),
         _.asScala.toList.map(entityToPriceQuote).map(_._2)
+      )
+  }
+
+  override def getQuotes(
+    currencies: Set[Currency],
+    targetCurrency: Currency,
+    interval: TimeInterval,
+    unit: TimeUnit
+  ): IO[PriceQuoteError, List[(CurrencyPair, PriceQuote)]] = {
+    val kind = envAwareKind(unit.datastoreKind)
+
+    val timePoints: List[TimeUnitInstance] = unit match {
+      case DayUnit => interval.days().map(Day(_))
+      case _       => List.empty
+    }
+
+    val keys = currencies.flatMap { currency =>
+      timePoints.map { timePoint =>
+        timePoint.datastoreKey(CurrencyPair(currency, targetCurrency))
+      }
+    }.map { keyValue =>
+      datastore.newKeyFactory().setKind(kind).newKey(keyValue)
+    }
+
+    //TODO Do I need to batch this?? Run some integration tests for this.
+    //TODO I might need to change the signature such that I know what data I am missing.
+    get(keys)(datastore, logger)
+      .mapBoth(
+        _ => PriceQuoteFetchError("Error fetching quotes"),
+        _.view.map(entityToPriceQuote).toList
       )
   }
 
@@ -158,7 +201,7 @@ final case class DatastorePriceQuoteRepo(
 
   private def envAwareKind(base: String): String = {
     val testEnv = datastoreConfig.priceQuote.toLowerCase.endsWith("test")
-    if(testEnv) {
+    if (testEnv) {
       base + "Test"
     } else base
   }
@@ -199,14 +242,16 @@ object DatastorePriceQuoteRepo {
 
   private[datastore] case class PriceQuoteBase(timestamp: Instant, price: Double, children: List[PriceQuoteBase])
 
-  implicit class TimeUnitOps(instance: TimeUnitInstance) {
-    private lazy val Formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm").withZone(ZoneOffset.UTC)
+  implicit class TimeUnitInstanceOps(instance: TimeUnitInstance) {
+    private lazy val Formatter: DateTimeFormatter =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm").withZone(ZoneOffset.UTC)
 
-    def datastoreKey(pair: CurrencyPair): String = {
+    def datastoreKey(pair: CurrencyPair): String =
       s"$pair-${Formatter.format(instance.value)}"
-    }
+  }
 
-    lazy val datastoreKind: String = instance.unit match {
+  implicit class TimeUnitOps(unit: TimeUnit) {
+    lazy val datastoreKind: String = unit match {
       case DayUnit    => "DayPriceQuote"
       case HourUnit   => "HourPriceQuote"
       case MinuteUnit => "MinutePriceQuote"
