@@ -125,6 +125,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     }
 
   def balanceTrend(interval: TimeInterval,
+                   targetCurrency: Currency,
                    quotes: PriceQuotes): List[FungibleDataTimePoint] = {
 
     def computeAmount(timestamp: Instant,
@@ -132,7 +133,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
                       subtract: Set[FungibleData]): Option[BigDecimal] = {
       @inline
       def quotedValue(fungible: FungibleData): Option[BigDecimal] = {
-        quotes.findPrice(CurrencyPair(fungible.currency, BUSD), timestamp)
+        quotes.findPrice(CurrencyPair(fungible.currency, targetCurrency), timestamp)
           .map(_.price * fungible.amount)
       }
 
@@ -157,7 +158,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
             val amounts = position.entries.map {
               case a: AirDrop     => computeAmount(day, Set(a.received), Set(a.fee))
               case a: Approval    => computeAmount(day, Set.empty, Set(a.fee))
-              case b: Buy         => computeAmount(day, Set(b.received), Set(b.spent, b.spentOriginal.fold(FungibleData.zero(BUSD))(identity), b.fee))
+              case b: Buy         => computeAmount(day, Set(b.received), Set(b.spent, b.spentOriginal.fold(FungibleData.zero(targetCurrency))(identity), b.fee))
               case c: Claim       => computeAmount(day, Set(c.received), Set(c.fee))
               case c: Contribute  => computeAmount(day, Set.empty, Set(c.spent, c.fee))
               case s: Sell        => computeAmount(day, Set(s.received), Set(s.sold, s.fee))
@@ -180,9 +181,9 @@ final case class MarketPlays(plays: List[MarketPlay]) {
         }.values
 
         amounts match {
-          case list => FungibleDataTimePoint(FungibleData(list.sum, BUSD), day)
+          case list => FungibleDataTimePoint(FungibleData(list.sum, targetCurrency), day)
           //Nil means that either a quote was not found, or it was outside of the time interval.
-          case Nil  => FungibleDataTimePoint(FungibleData.zero(BUSD), day)
+          case Nil  => FungibleDataTimePoint(FungibleData.zero(targetCurrency), day)
         }
       }
   }
