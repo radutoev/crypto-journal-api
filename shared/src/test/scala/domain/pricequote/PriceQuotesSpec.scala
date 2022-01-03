@@ -69,6 +69,37 @@ object PriceQuotesSpec extends DefaultRunnableSpec {
         )
         assert(priceQuotes.findPrice(CurrencyPair(xlm, BUSD), timestamp))(isSome(equalTo(PriceQuote(0.1d, timestamp))))
       }
+    ),
+    suite("Merge PriceQuotes")(
+      test("Merge with empty") {
+        val timestamp   = Instant.now()
+        val pair = CurrencyPair(WBNB, BUSD)
+        val result = PriceQuotes(Map(pair -> List(PriceQuote(0.3d, timestamp)))).merge(PriceQuotes.empty())
+        val expected = PriceQuotes(Map(pair -> List(PriceQuote(0.3d, timestamp))))
+        assert(result)(equalTo(expected))
+      },
+      test("Merge new currencies") {
+        val timestamp   = Instant.now()
+        val pair1 = CurrencyPair(WBNB, BUSD)
+        val pair2 = CurrencyPair(WBNB, Currency.unsafeFrom("ACoin"))
+        val result = PriceQuotes(Map(pair1 -> List(PriceQuote(0.3d, timestamp))))
+          .merge(PriceQuotes(Map(pair2 -> List(PriceQuote(0.7d, timestamp)))))
+        val expected = PriceQuotes(Map(
+          pair1 -> List(PriceQuote(0.3d, timestamp)),
+          pair2 -> List(PriceQuote(0.7d, timestamp))
+        ))
+        assert(result)(equalTo(expected))
+      },
+      test("Merge existent currencies, original has priority") {
+        val timestamp   = Instant.now()
+        val pair = CurrencyPair(WBNB, BUSD)
+        val result = PriceQuotes(Map(pair -> List(PriceQuote(0.3d, timestamp))))
+          .merge(PriceQuotes(Map(pair -> List(PriceQuote(0.2d, timestamp.minusSeconds(10)), PriceQuote(0.9d, timestamp)))))
+        val expected = PriceQuotes(
+          Map(pair -> List(PriceQuote(0.2d, timestamp.minusSeconds(10)), PriceQuote(0.3d, timestamp)))
+        )
+        assert(result)(equalTo(expected))
+      }
     )
   )
 }

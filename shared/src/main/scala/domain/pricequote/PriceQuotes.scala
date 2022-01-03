@@ -48,6 +48,11 @@ final case class PriceQuotes(private val source: Map[CurrencyPair, List[PriceQuo
     }
   }
 
+  def merge(other: PriceQuotes): PriceQuotes = {
+    val merged = this.source.toSeq ++ other.source.toSeq
+    PriceQuotes(merged.groupBy(_._1).view.mapValues(_.flatMap(_._2).toList.distinctBy(_.timestamp).sortBy(_.timestamp)).toMap)
+  }
+
   def isEmpty(): Boolean =
     source.isEmpty || source.map {
       case (_, quotes) => quotes.isEmpty

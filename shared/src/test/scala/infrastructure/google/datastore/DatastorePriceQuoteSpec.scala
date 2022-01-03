@@ -2,10 +2,10 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import domain.model.date.Minute
+import domain.model.{BUSD, WBNB}
 import domain.pricequote.{CurrencyPair, PriceQuote}
-import infrastructure.google.datastore.DatastorePriceQuoteRepo.{TimeUnitOps, PriceQuoteBase}
+import infrastructure.google.datastore.DatastorePriceQuoteRepo.{PriceQuoteBase, TimeUnitInstanceOps}
 
-import io.softwarechain.cryptojournal.domain.model.{BUSD, WBNB}
 import zio.test.Assertion._
 import zio.test.TestAspect.ignore
 import zio.test._
