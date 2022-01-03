@@ -1,17 +1,15 @@
 package io.softwarechain.cryptojournal
 package infrastructure.pricequote
 
+import domain.model.Currency
+import domain.model.date.{Hour, TimeUnit}
 import domain.pricequote.error.{PriceQuoteError, PriceQuotesSaveError}
-import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuoteRepo, PriceQuoteService}
+import domain.pricequote._
 import infrastructure.bitquery.BitQueryFacade
 import vo.{PriceQuotesChunk, TimeInterval}
 
-import io.softwarechain.cryptojournal.domain.model.date
-import io.softwarechain.cryptojournal.domain.model.date.Hour
-import zio.{Has, IO, URLayer}
 import zio.logging.{Logger, Logging}
-
-import java.time.Instant
+import zio.{Has, IO, URLayer}
 
 final case class LivePriceQuoteService(
   bitQueryFacade: BitQueryFacade,
@@ -28,7 +26,11 @@ final case class LivePriceQuoteService(
     } yield ()).orElseFail(PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes"))
   }
 
-  override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, Unit] = ???
+  override def getQuotes(pair: CurrencyPair, interval: TimeInterval): IO[PriceQuoteError, Unit] = {
+    ???
+  }
+
+  override def getQuotes(quote: Currency, interval: TimeInterval, unit: TimeUnit): IO[PriceQuoteError, List[PriceQuote]] = ???
 }
 
 object LivePriceQuoteService {

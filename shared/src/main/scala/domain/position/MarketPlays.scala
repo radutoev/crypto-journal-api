@@ -4,8 +4,10 @@ package domain.position
 import domain.blockchain.Transaction
 import domain.model.fungible.OptionalFungibleDataOps
 import domain.model._
-import util.{ InstantOps, ListOptionOps, MarketPlaysListOps }
+import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
 import vo.TimeInterval
+
+import io.softwarechain.cryptojournal.domain.pricequote.{CurrencyPair, PriceQuotes}
 
 import java.time.Instant
 import scala.collection.mutable
@@ -99,6 +101,9 @@ final case class MarketPlays(plays: List[MarketPlay]) {
       List.empty
     }
 
+  /**
+   * @deprecated
+   */
   def balanceTrend(): List[(Instant, FungibleData)] =
     if (interval.isDefined) {
       val start         = interval.get.start.atBeginningOfDay()
@@ -119,6 +124,28 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     } else {
       List.empty
     }
+
+  def balanceTrend(interval: TimeInterval,
+                   quotes: PriceQuotes): List[FungibleDataTimePoint] = {
+    val start = interval.start.atBeginningOfDay()
+    interval.days()
+      .map { day =>
+        val filterInterval = TimeInterval(start, day.atEndOfDay())
+        val amounts = plays.collect {
+          case t: TopUp if filterInterval.contains(t.timestamp) =>
+            for {
+              valueQuote <- quotes.findPrice(CurrencyPair(t.value.currency, BUSD), day)
+              feeQuote   <- quotes.findPrice(CurrencyPair(t.fee.currency, BUSD), day)
+            } yield t.value.amount * valueQuote.price - t.fee.amount * feeQuote.price
+        }.values
+
+        amounts match {
+          case list => FungibleDataTimePoint(FungibleData(list.sum, BUSD), day)
+          //Nil means that either a quote was not found, or it was outside of the time interval.
+          case Nil  => FungibleDataTimePoint(FungibleData.zero(BUSD), day)
+        }
+      }
+  }
 
   def distributionByCurrency(): Map[Currency, List[FungibleDataTimePoint]] = {
     val currencyBalance: CurrencyBalance = new CurrencyBalance(mutable.Map.empty)
@@ -364,10 +391,18 @@ private class CurrencyBalance(val map: mutable.Map[Currency, List[FungibleDataTi
 final case class FungibleDataTimePoint(
   fungibleData: FungibleData,
   timestamp: Instant,
-  metadata: FungibleDataTimePointMetadata
+  metadata: Option[FungibleDataTimePointMetadata] = None
 ) {
   override def toString: String =
-    s"${fungibleData.amount},${fungibleData.currency},${timestamp},${metadata.hash},${metadata.entryType}"
+    s"${fungibleData.amount},${fungibleData.currency},${timestamp}"
+}
+
+object FungibleDataTimePoint {
+  def apply(fungibleData: FungibleData, timestamp: Instant): FungibleDataTimePoint =
+    new FungibleDataTimePoint(fungibleData, timestamp)
+
+  def apply(fungibleData: FungibleData, timestamp: Instant, metadata: FungibleDataTimePointMetadata): FungibleDataTimePoint =
+    new FungibleDataTimePoint(fungibleData, timestamp, Some(metadata))
 }
 
 final case class FungibleDataTimePointMetadata(hash: TransactionHash, entryType: String)

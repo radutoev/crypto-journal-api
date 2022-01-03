@@ -3,7 +3,7 @@ package infrastructure.google.datastore
 
 import domain.model.date.Minute
 import domain.pricequote.{CurrencyPair, PriceQuote}
-import infrastructure.google.datastore.DatastorePriceQuoteRepo.{MinuteOps, PriceQuoteBase}
+import infrastructure.google.datastore.DatastorePriceQuoteRepo.{TimeUnitOps, PriceQuoteBase}
 
 import io.softwarechain.cryptojournal.domain.model.{BUSD, WBNB}
 import zio.test.Assertion._
