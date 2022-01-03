@@ -85,6 +85,12 @@ package object util {
     }
   }
 
+  implicit class SetOptionOps[Value](list: Set[Option[Value]]) {
+    lazy val uniqueValues: Set[Value] = list.collect {
+      case Some(value) => value
+    }
+  }
+
   implicit class MarketPlaysListOps(marketPlays: List[MarketPlay]) {
     lazy val positions: List[Position] = marketPlays.collect { case p: Position => p }
 

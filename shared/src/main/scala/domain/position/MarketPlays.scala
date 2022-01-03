@@ -2,12 +2,11 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.Transaction
-import domain.model.fungible.OptionalFungibleDataOps
 import domain.model._
-import util.{InstantOps, ListOptionOps, MarketPlaysListOps}
+import domain.model.fungible.OptionalFungibleDataOps
+import domain.pricequote.{CurrencyPair, PriceQuotes}
+import util.{InstantOps, ListOptionOps, MarketPlaysListOps, SetOptionOps}
 import vo.TimeInterval
-
-import io.softwarechain.cryptojournal.domain.pricequote.{CurrencyPair, PriceQuotes}
 
 import java.time.Instant
 import scala.collection.mutable
@@ -127,16 +126,57 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 
   def balanceTrend(interval: TimeInterval,
                    quotes: PriceQuotes): List[FungibleDataTimePoint] = {
+
+    def computeAmount(timestamp: Instant,
+                      add: Set[FungibleData],
+                      subtract: Set[FungibleData]): Option[BigDecimal] = {
+      @inline
+      def quotedValue(fungible: FungibleData): Option[BigDecimal] = {
+        quotes.findPrice(CurrencyPair(fungible.currency, BUSD), timestamp)
+          .map(_.price * fungible.amount)
+      }
+
+      val additions    = add.map(quotedValue).uniqueValues
+      val subtractions = subtract.map(quotedValue).uniqueValues
+
+      if(additions.nonEmpty || subtractions.nonEmpty) {
+        Some(additions.sum - subtractions.sum)
+      } else None
+    }
+
     val start = interval.start.atBeginningOfDay()
+
     interval.days()
       .map { day =>
         val filterInterval = TimeInterval(start, day.atEndOfDay())
         val amounts = plays.collect {
+
+          case original: Position =>
+            val position = original.copy(entries = original.entries.filter(p => filterInterval.contains(p.timestamp)))
+
+            val amounts = position.entries.map {
+              case a: AirDrop     => computeAmount(day, Set(a.received), Set(a.fee))
+              case a: Approval    => computeAmount(day, Set.empty, Set(a.fee))
+              case b: Buy         => computeAmount(day, Set(b.received), Set(b.spent, b.spentOriginal.fold(FungibleData.zero(BUSD))(identity), b.fee))
+              case c: Claim       => computeAmount(day, Set(c.received), Set(c.fee))
+              case c: Contribute  => computeAmount(day, Set.empty, Set(c.spent, c.fee))
+              case s: Sell        => computeAmount(day, Set(s.received), Set(s.sold, s.fee))
+              case t: TransferIn  => computeAmount(day, Set(t.value), Set(t.fee))
+              case t: TransferOut => computeAmount(day, Set.empty, Set(t.amount, t.fee))
+            }.values
+
+            if(amounts.nonEmpty) {
+              Some(amounts.sum)
+            } else {
+              None
+            }
+
           case t: TopUp if filterInterval.contains(t.timestamp) =>
-            for {
-              valueQuote <- quotes.findPrice(CurrencyPair(t.value.currency, BUSD), day)
-              feeQuote   <- quotes.findPrice(CurrencyPair(t.fee.currency, BUSD), day)
-            } yield t.value.amount * valueQuote.price - t.fee.amount * feeQuote.price
+            computeAmount(day, Set(t.value), Set(t.fee))
+
+          case w: Withdraw if filterInterval.contains(w.timestamp) =>
+            computeAmount(day, Set.empty, Set(w.value, w.fee))
+
         }.values
 
         amounts match {
