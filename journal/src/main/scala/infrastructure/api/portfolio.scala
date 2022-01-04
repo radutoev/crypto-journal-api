@@ -2,26 +2,27 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ ContextId, UserId, WalletAddressPredicate }
-import domain.portfolio.{ AccountBalance, KpiService, NetReturn, PortfolioKpi => CJPortfolioKpi }
-import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData, Performance => CJPerformance }
-import infrastructure.api.common.{ CountQParamOps, IntervalQParamsOps }
-import infrastructure.api.common.dto.FungibleData
-import infrastructure.api.common.dto._
+import domain.model.{ContextId, UserId, WalletAddressPredicate}
+import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
+import domain.portfolio.{NetReturn, PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
+import infrastructure.api.common.dto.{FungibleData, _}
+import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps}
 import infrastructure.auth.JwtRequestContext
-import vo.{ TimeInterval, PeriodDistribution => CJPeriodDistribution }
-import vo.filter.{ Count, KpiFilter }
+import vo.filter.{Count, KpiFilter}
+import vo.{TimeInterval, PeriodDistribution => CJPeriodDistribution}
+
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
 import zio.prelude.Validation
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 import java.time.Duration
 
 object portfolio {
   def routes(userId: UserId, contextId: ContextId) = HttpApp.collectM {
+    //dashboard endpoint
     case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "kpi" =>
       for {
         address <- ZIO
@@ -31,11 +32,11 @@ object portfolio {
         kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPortfolioKpis(address)(kpiFilter)
-                     .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
+                     .getPlaysOverview(address)(kpiFilter)
+                     .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi => Response.jsonString(PortfolioKpi(portfolioKpi).toJson)
+                       playsOverview => Response.jsonString(PortfolioKpi(playsOverview).toJson)
                      )
       } yield response
 
@@ -48,8 +49,8 @@ object portfolio {
         kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPortfolioKpis(address)(kpiFilter)
-                     .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
+                     .getPlaysOverview(address)(kpiFilter)
+                     .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        portfolioKpi =>
@@ -70,12 +71,12 @@ object portfolio {
         kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPortfolioKpis(address)(kpiFilter)
-                     .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
+                     .getPlaysOverview(address)(kpiFilter)
+                     .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi =>
-                         Response.jsonString(portfolioKpi.dailyContribution.map {
+                       playsOverview =>
+                         Response.jsonString(playsOverview.distinctValues.dailyContribution.map {
                            case (day, data) => day.value -> DailyTradeData(data)
                          }.toJson)
                      )
@@ -90,14 +91,14 @@ object portfolio {
         kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPortfolioKpis(address)(kpiFilter)
-                     .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
+                     .getPlaysOverview(address)(kpiFilter)
+                     .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi =>
+                       playsOverview =>
                          Response.jsonString(
                            kpiFilter.count
-                             .fold(TradeSummary(portfolioKpi))(count => TradeSummary(portfolioKpi, count))
+                             .fold(TradeSummary(playsOverview))(count => TradeSummary(playsOverview, count))
                              .toJson
                          )
                      )
@@ -112,11 +113,11 @@ object portfolio {
         kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPortfolioKpis(address)(kpiFilter)
-                     .provideSomeLayer[Has[KpiService]](JwtRequestContext.layer(userId, contextId))
+                     .getPlaysOverview(address)(kpiFilter)
+                     .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       portfolioKpi => Response.jsonString(TagDistribution(portfolioKpi).toJson)
+                       playsOverview => Response.jsonString(TagDistribution(playsOverview.distinctValues).toJson)
                      )
       } yield response
   }
@@ -152,33 +153,38 @@ object portfolio {
   implicit val portfolioStatsCodec: JsonCodec[PortfolioStats] = DeriveJsonCodec.gen[PortfolioStats]
 
   object PortfolioKpi {
-    def apply(kpi: CJPortfolioKpi): PortfolioKpi =
+    def apply(playsOverview: PlaysOverview): PortfolioKpi =
       new PortfolioKpi(
-        ValueTrendComparison.fromAccountBalance(kpi.accountBalance, AccountBalance(kpi.referenceMarketPlays)),
-        kpi.tradeCount,
-        kpi.winRate,
-        kpi.loseRate,
-        ValueTrendComparison.fromNetReturn(kpi.netReturn, NetReturn(kpi.referenceMarketPlays)),
-        kpi.avgDailyTradeCount
+        ValueTrendComparison(
+          playsOverview.balanceTrend.latestValue.fungibleData.asJson,
+          playsOverview.balanceTrend.items.map(_.fungibleData.amount),
+          Performance(playsOverview.balancePerformance)
+        ),
+        playsOverview.distinctValues.tradeCount,
+        playsOverview.distinctValues.winRate,
+        playsOverview.distinctValues.loseRate,
+        null, //TODO Refactor NetReturn.
+//        ValueTrendComparison.fromNetReturn(kpi.netReturn, NetReturn(kpi.referenceMarketPlays)),
+        playsOverview.distinctValues.avgDailyTradeCount
       )
   }
 
   object PortfolioStats {
 
-    def apply(portfolioKpi: CJPortfolioKpi, count: Count): PortfolioStats =
+    def apply(playsOverview: PlaysOverview, count: Count): PortfolioStats =
       new PortfolioStats(
-        distinctValues = KpiDistinctValues(portfolioKpi),
-        TradeSummary(portfolioKpi, count),
-        PeriodDistribution(portfolioKpi.periodReturn()),
-        TagDistribution(portfolioKpi)
+        distinctValues = KpiDistinctValues(playsOverview.distinctValues),
+        TradeSummary(playsOverview, count),
+        PeriodDistribution(playsOverview.distinctValues.periodReturn()),
+        TagDistribution(playsOverview.distinctValues)
       )
 
-    def apply(portfolioKpi: CJPortfolioKpi): PortfolioStats =
+    def apply(playsOverview: PlaysOverview): PortfolioStats =
       new PortfolioStats(
-        distinctValues = KpiDistinctValues(portfolioKpi),
-        TradeSummary(portfolioKpi),
-        PeriodDistribution(portfolioKpi.periodReturn()),
-        TagDistribution(portfolioKpi)
+        distinctValues = KpiDistinctValues(playsOverview.distinctValues),
+        TradeSummary(playsOverview),
+        PeriodDistribution(playsOverview.distinctValues.periodReturn()),
+        TagDistribution(playsOverview.distinctValues)
       )
   }
 
@@ -192,13 +198,6 @@ object portfolio {
         netReturn.value.asJson,
         netReturn.trend.map(_.amount),
         Performance(netReturn.performance(compareWith))
-      )
-
-    def fromAccountBalance(balance: AccountBalance, compareWith: AccountBalance): ValueTrendComparison =
-      new ValueTrendComparison(
-        balance.value.asJson,
-        balance.trend.map(_.amount),
-        Performance(balance.performance(compareWith))
       )
   }
 
@@ -228,25 +227,25 @@ object portfolio {
     def asHumanReadableForm(d: Duration): String =
       d.toString.substring(2).replaceAll("(\\d[HMS])(?!$)", "$1 ").toLowerCase()
 
-    def apply(portfolio: CJPortfolioKpi): KpiDistinctValues =
+    def apply(distinctValues: CJPlaysDistinctValues): KpiDistinctValues =
       new KpiDistinctValues(
-        portfolio.netReturn.value.amount,
-        portfolio.biggestWin.map(_.asJson),
-        portfolio.biggestLoss.map(_.asJson),
-        portfolio.winRate,
-        portfolio.loseRate,
-        portfolio.tradeCount,
-        portfolio.openTradesCount,
-        portfolio.avgDailyTradeCount,
-        portfolio.totalWins.value,
-        portfolio.totalLoses.value,
-        portfolio.maxConsecutiveWins.value,
-        portfolio.maxConsecutiveLoses.value,
-        portfolio.totalCoins,
-        portfolio.numberOfCoins,
-        asHumanReadableForm(portfolio.avgWinningHoldTime),
-        asHumanReadableForm(portfolio.avgLosingHoldTime),
-        portfolio.totalFees.map { case (currency, data) => currency.value -> data.asJson }
+        distinctValues.netReturn.value.amount,
+        distinctValues.biggestWin.map(_.asJson),
+        distinctValues.biggestLoss.map(_.asJson),
+        distinctValues.winRate,
+        distinctValues.loseRate,
+        distinctValues.tradeCount,
+        distinctValues.openTradesCount,
+        distinctValues.avgDailyTradeCount,
+        distinctValues.totalWins.value,
+        distinctValues.totalLoses.value,
+        distinctValues.maxConsecutiveWins.value,
+        distinctValues.maxConsecutiveLoses.value,
+        distinctValues.totalCoins,
+        distinctValues.numberOfCoins,
+        asHumanReadableForm(distinctValues.avgWinningHoldTime),
+        asHumanReadableForm(distinctValues.avgLosingHoldTime),
+        distinctValues.totalFees.map { case (currency, data) => currency.value -> data.asJson }
       )
   }
 
@@ -255,16 +254,16 @@ object portfolio {
   object TradeSummary {
     implicit val tradeSummaryCodec: JsonCodec[TradeSummary] = DeriveJsonCodec.gen[TradeSummary]
 
-    def apply(portfolio: CJPortfolioKpi, count: Count): TradeSummary =
+    def apply(playsOverview: PlaysOverview, count: Count): TradeSummary =
       new TradeSummary(
-        wins = portfolio.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
-        loses = portfolio.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
+        wins = playsOverview.distinctValues.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
+        loses = playsOverview.distinctValues.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
       )
 
-    def apply(portfolio: CJPortfolioKpi): TradeSummary =
+    def apply(playsOverview: PlaysOverview): TradeSummary =
       new TradeSummary(
-        wins = portfolio.coinWins.map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
-        loses = portfolio.coinLoses.map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
+        wins = playsOverview.distinctValues.coinWins.map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
+        loses = playsOverview.distinctValues.coinLoses.map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
       )
   }
 
@@ -276,7 +275,7 @@ object portfolio {
   object TagDistribution {
     implicit val tagDistributionCodec: JsonCodec[TagDistribution] = DeriveJsonCodec.gen[TagDistribution]
 
-    def apply(portfolioKpi: CJPortfolioKpi): TagDistribution =
+    def apply(portfolioKpi: CJPlaysDistinctValues): TagDistribution =
       new TagDistribution(
         mistakes = portfolioKpi.mistakeContribution.map {
           case (mistake, (fungibleData, percentage)) =>

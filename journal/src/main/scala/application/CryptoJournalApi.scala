@@ -3,18 +3,18 @@ package application
 
 import domain.account.RequestContext
 import domain.market.error.MarketError
-import domain.market.{ MarketService, Ohlcv }
-import domain.model.{ PlayId, WalletAddress }
-import domain.portfolio.error.PortfolioError
-import domain.portfolio.{ KpiService, PortfolioKpi }
+import domain.market.{MarketService, Ohlcv}
+import domain.model.{PlayId, WalletAddress}
+import domain.portfolio.error.StatsError
+import domain.portfolio.{AccountBalance, PlaysDistinctValues, PlaysOverview, StatsService}
 import domain.position._
 import domain.position.error.MarketPlayError
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
-import domain.wallet.{ Wallet, WalletService }
-import vo.filter.{ KpiFilter, PlayFilter }
+import domain.wallet.{Wallet, WalletService}
+import vo.filter.{KpiFilter, PlayFilter}
 
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object CryptoJournalApi {
   def getLatestPlays(
@@ -54,12 +54,12 @@ object CryptoJournalApi {
   ): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, List[Position]] =
     ZIO.serviceWith[MarketPlayService](_.getPreviousPositions(positionId))
 
-  def getPortfolioKpis(
+  def getPlaysOverview(
     address: WalletAddress
-  )(kpiFilter: KpiFilter): ZIO[Has[KpiService] with Has[RequestContext], PortfolioError, PortfolioKpi] =
+  )(kpiFilter: KpiFilter): ZIO[Has[StatsService] with Has[RequestContext], StatsError, PlaysOverview] =
     for {
       userId       <- RequestContext.userId
-      portfolioKpi <- ZIO.serviceWith[KpiService](_.portfolioKpi(Wallet(userId, address))(kpiFilter))
+      portfolioKpi <- ZIO.serviceWith[StatsService](_.playsOverview(Wallet(userId, address))(kpiFilter))
     } yield portfolioKpi
 
   def addWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[RequestContext], WalletError, Unit] =

@@ -3,7 +3,7 @@ package domain.portfolio
 
 import domain.model._
 import domain.model.fungible.{ FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps }
-import domain.portfolio.PortfolioKpi.{ DayFormatter, PortfolioKpiOps }
+import domain.portfolio.PlaysDistinctValues.{ DayFormatter, PortfolioKpiOps }
 import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate }
 import domain.position.{ MarketPlays, Position }
 import util.{ InstantOps, ListOptionOps }
@@ -22,14 +22,12 @@ import java.time.{ DayOfWeek, Duration, Month, ZoneId }
  * @param interval timeInterval does not have to be an exact match with the interval of the given positions.
  * @param referenceMarketPlays marketPlays compares against referenceMarketPlays to generate performance.
  */
-final case class PortfolioKpi(
+final case class PlaysDistinctValues(
   marketPlays: MarketPlays,
   interval: TimeInterval,
   referenceMarketPlays: MarketPlays = MarketPlays.empty()
 ) {
   lazy val netReturn: NetReturn = NetReturn(marketPlays)
-
-//  lazy val accountBalance: AccountBalance = AccountBalance(marketPlays)
 
   lazy val tradeCount: Int = marketPlays.closedPositions.size
 
@@ -270,7 +268,7 @@ final case class PortfolioKpi(
   }
 }
 
-object PortfolioKpi {
+object PlaysDistinctValues {
   private[portfolio] val DayFormatter = DateTimeFormatter
     .ofPattern("yyyy-MM-dd")
     .withZone(ZoneId.systemDefault())
