@@ -6,7 +6,7 @@ import domain.market.error.MarketError
 import domain.market.{MarketService, Ohlcv}
 import domain.model.{PlayId, WalletAddress}
 import domain.portfolio.error.StatsError
-import domain.portfolio.{AccountBalance, PlaysDistinctValues, PlaysOverview, StatsService}
+import domain.portfolio.{PlaysOverview, StatsService}
 import domain.position._
 import domain.position.error.MarketPlayError
 import domain.wallet.error.WalletError

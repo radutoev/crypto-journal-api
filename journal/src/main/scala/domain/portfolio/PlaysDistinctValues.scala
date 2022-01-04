@@ -2,20 +2,19 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.model.fungible.{ FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps }
-import domain.portfolio.PlaysDistinctValues.{ DayFormatter, PortfolioKpiOps }
-import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate }
-import domain.position.{ MarketPlays, Position }
-import util.{ InstantOps, ListOptionOps }
+import domain.model.fungible.{FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps}
+import domain.portfolio.PlaysDistinctValues.PortfolioKpiOps
+import domain.position.{MarketPlays, Position}
+import util.{InstantOps, ListOptionOps}
 import vo.filter.Count
-import vo.{ PeriodDistribution, TimeInterval }
+import vo.{PeriodDistribution, TimeInterval}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
 
 import java.time.format.DateTimeFormatter
-import java.time.{ DayOfWeek, Duration, Month, ZoneId }
+import java.time.{DayOfWeek, Duration, Month, ZoneId}
 
 /**
  * @param marketPlays source to compute the KPIs for
@@ -24,11 +23,8 @@ import java.time.{ DayOfWeek, Duration, Month, ZoneId }
  */
 final case class PlaysDistinctValues(
   marketPlays: MarketPlays,
-  interval: TimeInterval,
-  referenceMarketPlays: MarketPlays = MarketPlays.empty()
+  interval: TimeInterval
 ) {
-  lazy val netReturn: NetReturn = NetReturn(marketPlays)
-
   lazy val tradeCount: Int = marketPlays.closedPositions.size
 
   lazy val openTradesCount: Int = marketPlays.openPositions.size
@@ -251,21 +247,22 @@ final case class PlaysDistinctValues(
     }.toMap
   }
 
-  lazy val dailyContribution: Map[DayFormat, DailyTradeData] = {
-    marketPlays.closedPositions
-      .filter(p => interval.contains(p.closedAt.get))
-      .map(p => p.closedAt.get.atBeginningOfDay() -> p)
-      .groupBy(_._1)
-      .map {
-        case (day, list) =>
-          val dailyPositions = list.map(_._2)
-          val dailyTradeData = DailyTradeData(
-            NetReturn(MarketPlays(dailyPositions)),
-            refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size)
-          )
-          refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
-      }
-  }
+  //TODO Re-implement this
+//  lazy val dailyContribution: Map[DayFormat, DailyTradeData] = {
+//    marketPlays.closedPositions
+//      .filter(p => interval.contains(p.closedAt.get))
+//      .map(p => p.closedAt.get.atBeginningOfDay() -> p)
+//      .groupBy(_._1)
+//      .map {
+//        case (day, list) =>
+//          val dailyPositions = list.map(_._2)
+//          val dailyTradeData = DailyTradeData(
+//            NetReturn(MarketPlays(dailyPositions)),
+//            refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size)
+//          )
+//          refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
+//      }
+//  }
 }
 
 object PlaysDistinctValues {

@@ -1,11 +1,14 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.portfolio.model.Performance
-import domain.position.FungibleDataTimePoint
+
+import domain.model.{FungibleDataTimePoint, Trend}
+import domain.portfolio.performance.Performance
 
 final case class PlaysOverview (distinctValues: PlaysDistinctValues,
                                 balanceTrend: Trend,
-                                balancePerformance: Performance) {
+                                balancePerformance: Performance,
+                                netReturnTrend: Trend,
+                                netReturnPerformance: Performance) {
   def accountBalance: FungibleDataTimePoint = balanceTrend.latestValue
 }

@@ -1,23 +1,21 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.portfolio.error.{
-  AccountBalanceComputeError,
-  InvalidPortfolioError,
-  PortfolioKpiGenerationError,
-  StatsError
-}
-import domain.position.{ MarketPlayService, MarketPlays }
+import domain.model.date.DayUnit
+import domain.model.{BUSD, WBNB}
+import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError}
 import domain.position.error.MarketPlayError
+import domain.position.{MarketPlayService, MarketPlays}
+import domain.pricequote.{CurrencyPair, PriceQuoteService, PriceQuotes}
 import domain.wallet.Wallet
+import util.{BeginningOfCrypto, InstantOps}
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PlayFilter }
-import util.{ BeginningOfCrypto, InstantOps }
+import vo.filter.{KpiFilter, PlayFilter}
 
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, UIO, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, UIO, URLayer}
 
 trait StatsService {
   def playsOverview(userWallet: Wallet)(kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
@@ -25,7 +23,7 @@ trait StatsService {
 
 final case class LiveStatsService(
   marketPlaysService: MarketPlayService,
-  accountBalance: AccountBalance,
+  priceQuoteService: PriceQuoteService,
   clock: Clock.Service,
   logger: Logger[String]
 ) extends StatsService {
@@ -38,11 +36,21 @@ final case class LiveStatsService(
       count                     = kpiFilter.count.getOrElse(30) //TODO Inspect this!
       filter                    <- PlayFilter(count, timeInterval).toZIO.mapError(InvalidPortfolioError)
       plays                     <- marketPlaysService.getPlays(wallet, filter).mapError(statsErrorMapper)
+      quotes                    <- fetchQuotes(plays, timeInterval)
       referencePlays            <- fetchReferencePlays(wallet, filter, timeIntervalForComparison)
-      distinctValues            = new PlaysDistinctValues(plays, filter.interval, referencePlays)
-      balanceTrend              <- getBalanceTrend(plays, timeInterval)
-      referenceTrend            <- getBalanceTrend(referencePlays, timeIntervalForComparison)
-    } yield PlaysOverview(distinctValues, balanceTrend, balanceTrend.performance(referenceTrend))
+      referenceQuotes           <- fetchQuotes(referencePlays, timeIntervalForComparison)
+      distinctValues            = new PlaysDistinctValues(plays, filter.interval)
+      balanceTrend              = plays.balanceTrend(timeInterval, BUSD, quotes)
+      referenceBalanceTrend     = referencePlays.balanceTrend(timeIntervalForComparison, BUSD, referenceQuotes)
+      netReturnTrend            = plays.netReturn(timeInterval, BUSD, quotes)
+      referenceNetReturnTrend   = referencePlays.netReturn(timeInterval, BUSD, quotes)
+    } yield PlaysOverview(
+      distinctValues,
+      balanceTrend,
+      balanceTrend.performance(referenceBalanceTrend),
+      netReturnTrend,
+      netReturnTrend.performance(referenceNetReturnTrend)
+    )
 
   /**
    * Creates a new timestamp to be used for retrieving positions that will be used for performance generation.
@@ -71,19 +79,20 @@ final case class LiveStatsService(
         .mapError(statsErrorMapper)
     } else UIO(MarketPlays.empty())
 
-  private def getBalanceTrend(plays: MarketPlays, interval: TimeInterval) =
-    accountBalance
-      .trend(plays, interval)
-      .mapBoth(
-        _ => AccountBalanceComputeError(s"Error computing account balance for interval $interval"),
-        dataPoints => Trend(dataPoints).right.get
-      )
+  private def fetchQuotes(plays: MarketPlays, interval: TimeInterval): IO[StatsError, PriceQuotes] = {
+    val fetchQuotesEffect = for {
+      bnbUsdQuotes   <- priceQuoteService.getQuotes(CurrencyPair(WBNB, BUSD), interval, DayUnit)
+      coinsBnbQuotes <- priceQuoteService.getQuotes(plays.currencies.map(_._1), WBNB, interval, DayUnit)
+    } yield bnbUsdQuotes.merge(coinsBnbQuotes)
+    fetchQuotesEffect.orElseFail(PortfolioKpiGenerationError("Unable to fetch quotes"))
+  }
 
   private def statsErrorMapper(positionError: MarketPlayError): StatsError =
     PortfolioKpiGenerationError("Unable to generate KPIs")
 }
 
 object LiveStatsService {
-  lazy val layer: URLayer[Has[MarketPlayService] with Has[AccountBalance] with Clock with Logging, Has[StatsService]] =
+  lazy val layer
+    : URLayer[Has[MarketPlayService] with Has[PriceQuoteService] with Clock with Logging, Has[StatsService]] =
     (LiveStatsService(_, _, _, _)).toLayer
 }

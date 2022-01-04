@@ -8,6 +8,8 @@ import domain.pricequote.{CurrencyPair, PriceQuotes}
 import util.{InstantOps, ListOptionOps, MarketPlaysListOps, SetOptionOps}
 import vo.TimeInterval
 
+import io.softwarechain.cryptojournal.domain.position.model.HideFromStats
+
 import java.time.Instant
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -100,33 +102,9 @@ final case class MarketPlays(plays: List[MarketPlay]) {
       List.empty
     }
 
-  /**
-   * @deprecated
-   */
-  def balanceTrend(): List[(Instant, FungibleData)] =
-    if (interval.isDefined) {
-      val start         = interval.get.start.atBeginningOfDay()
-      val trendInterval = TimeInterval(start, Instant.now().atEndOfDay())
-      trendInterval
-        .days()
-        .reverse
-        .map(_.atEndOfDay())
-        .map { day =>
-          val filterInterval = TimeInterval(start, day)
-          day -> plays.collect {
-            case p: Position                                         => p.copy(entries = p.entries.filter(p => filterInterval.contains(p.timestamp))).balance
-            case t: TopUp if filterInterval.contains(t.timestamp)    => t.balance
-            case w: Withdraw if filterInterval.contains(w.timestamp) => w.balance
-          }.values.foldLeft(FungibleData.zero(BUSD))((acc, balance) => acc.add(balance.amount))
-        }
-        .sortBy(_._1)(Ordering[Instant])
-    } else {
-      List.empty
-    }
-
   def balanceTrend(interval: TimeInterval,
                    targetCurrency: Currency,
-                   quotes: PriceQuotes): List[FungibleDataTimePoint] = {
+                   quotes: PriceQuotes): Trend = {
 
     def computeAmount(timestamp: Instant,
                       add: Set[FungibleData],
@@ -147,7 +125,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 
     val start = interval.start.atBeginningOfDay()
 
-    interval.days()
+    val dataPoints = interval.days()
       .map { day =>
         val filterInterval = TimeInterval(start, day.atEndOfDay())
         val amounts = plays.collect {
@@ -186,6 +164,38 @@ final case class MarketPlays(plays: List[MarketPlay]) {
           case Nil  => FungibleDataTimePoint(FungibleData.zero(targetCurrency), day)
         }
       }
+
+    Trend(dataPoints).right.get
+  }
+
+  //TODO Finish implementation
+  def netReturn(interval: TimeInterval,
+                targetCurrency: Currency,
+                quotes: PriceQuotes): Trend = {
+
+    @inline
+    def isHiddenPosition(play: MarketPlay): Boolean = {
+      play match {
+        case p: Position => p.journal.exists(_.scamStrategy.exists(_ == HideFromStats))
+        case _ => true
+      }
+    }
+
+    val start = interval.start.atBeginningOfDay()
+    //we don't have knowledge when the position was hidden, so we use a binary approach for including/excluding the position.
+    val visiblePositions = plays.view.filterNot(isHiddenPosition).map(_.asInstanceOf[Position]).toList
+
+    interval.days()
+      .map { day =>
+        val filterInterval = TimeInterval(start, day.atEndOfDay())
+
+        //positions that are considered to be closed in the given interval.
+        val positions = visiblePositions.map { original =>
+          original.copy(entries = original.entries.filter(p => filterInterval.contains(p.timestamp)))
+        }.filter(_.isClosed)
+      }
+
+    Trend(List(FungibleDataTimePoint(FungibleData.zero(BUSD), interval.start))).right.get
   }
 
   def distributionByCurrency(): Map[Currency, List[FungibleDataTimePoint]] = {
@@ -428,22 +438,3 @@ private class CurrencyBalance(val map: mutable.Map[Currency, List[FungibleDataTi
       )
     )
 }
-
-final case class FungibleDataTimePoint(
-  fungibleData: FungibleData,
-  timestamp: Instant,
-  metadata: Option[FungibleDataTimePointMetadata] = None
-) {
-  override def toString: String =
-    s"${fungibleData.amount},${fungibleData.currency},${timestamp}"
-}
-
-object FungibleDataTimePoint {
-  def apply(fungibleData: FungibleData, timestamp: Instant): FungibleDataTimePoint =
-    new FungibleDataTimePoint(fungibleData, timestamp)
-
-  def apply(fungibleData: FungibleData, timestamp: Instant, metadata: FungibleDataTimePointMetadata): FungibleDataTimePoint =
-    new FungibleDataTimePoint(fungibleData, timestamp, Some(metadata))
-}
-
-final case class FungibleDataTimePointMetadata(hash: TransactionHash, entryType: String)

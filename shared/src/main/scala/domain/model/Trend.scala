@@ -1,10 +1,9 @@
 package io.softwarechain.cryptojournal
-package domain.portfolio
+package domain.model
 
 import domain.model.FungibleData.{Bigger, Equal, Lower}
-import domain.portfolio.model.{Decrease, Increase, Performance}
-import domain.portfolio.model.Performance.NoChangeInPerformance
-import domain.position.FungibleDataTimePoint
+import domain.portfolio.performance.{Decrease, Increase, Performance}
+import domain.portfolio.performance.Performance._
 
 import zio.prelude.NonEmptyList
 

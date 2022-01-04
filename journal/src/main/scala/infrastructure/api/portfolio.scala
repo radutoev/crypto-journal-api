@@ -2,9 +2,9 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ContextId, UserId, WalletAddressPredicate}
-import domain.portfolio.model.{DailyTradeData => CJDailyTradeData, Performance => CJPerformance}
-import domain.portfolio.{NetReturn, PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
+import domain.model.{ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate}
+import domain.portfolio.performance.{Performance => CJPerformance}
+import domain.portfolio.{PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
 import infrastructure.api.common.dto.{FungibleData, _}
 import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps}
 import infrastructure.auth.JwtRequestContext
@@ -76,9 +76,11 @@ object portfolio {
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        playsOverview =>
-                         Response.jsonString(playsOverview.distinctValues.dailyContribution.map {
-                           case (day, data) => day.value -> DailyTradeData(data)
-                         }.toJson)
+                         Response.status(Status.NOT_IMPLEMENTED)
+                         //TODO Re-implement this.
+//                         Response.jsonString(playsOverview.distinctValues.dailyContribution.map {
+//                           case (day, data) => day.value -> new DailyTradeData(BigDecimal(0), 0)
+//                         }.toJson)
                      )
       } yield response
 
@@ -163,8 +165,11 @@ object portfolio {
         playsOverview.distinctValues.tradeCount,
         playsOverview.distinctValues.winRate,
         playsOverview.distinctValues.loseRate,
-        null, //TODO Refactor NetReturn.
-//        ValueTrendComparison.fromNetReturn(kpi.netReturn, NetReturn(kpi.referenceMarketPlays)),
+        ValueTrendComparison(
+          playsOverview.netReturnTrend.latestValue.fungibleData.asJson,
+          playsOverview.netReturnTrend.items.map(_.fungibleData.amount),
+          Performance(playsOverview.netReturnPerformance)
+        ),
         playsOverview.distinctValues.avgDailyTradeCount
       )
   }
@@ -173,7 +178,7 @@ object portfolio {
 
     def apply(playsOverview: PlaysOverview, count: Count): PortfolioStats =
       new PortfolioStats(
-        distinctValues = KpiDistinctValues(playsOverview.distinctValues),
+        distinctValues = KpiDistinctValues(playsOverview.distinctValues, playsOverview.netReturnTrend.latestValue),
         TradeSummary(playsOverview, count),
         PeriodDistribution(playsOverview.distinctValues.periodReturn()),
         TagDistribution(playsOverview.distinctValues)
@@ -181,7 +186,7 @@ object portfolio {
 
     def apply(playsOverview: PlaysOverview): PortfolioStats =
       new PortfolioStats(
-        distinctValues = KpiDistinctValues(playsOverview.distinctValues),
+        distinctValues = KpiDistinctValues(playsOverview.distinctValues, playsOverview.netReturnTrend.latestValue),
         TradeSummary(playsOverview),
         PeriodDistribution(playsOverview.distinctValues.periodReturn()),
         TagDistribution(playsOverview.distinctValues)
@@ -192,13 +197,6 @@ object portfolio {
 
   object ValueTrendComparison {
     implicit val valueTrendComparison: JsonCodec[ValueTrendComparison] = DeriveJsonCodec.gen[ValueTrendComparison]
-
-    def fromNetReturn(netReturn: NetReturn, compareWith: NetReturn): ValueTrendComparison =
-      new ValueTrendComparison(
-        netReturn.value.asJson,
-        netReturn.trend.map(_.amount),
-        Performance(netReturn.performance(compareWith))
-      )
   }
 
   final case class KpiDistinctValues(
@@ -227,9 +225,10 @@ object portfolio {
     def asHumanReadableForm(d: Duration): String =
       d.toString.substring(2).replaceAll("(\\d[HMS])(?!$)", "$1 ").toLowerCase()
 
-    def apply(distinctValues: CJPlaysDistinctValues): KpiDistinctValues =
+    def apply(distinctValues: CJPlaysDistinctValues,
+              latestNetReturn: FungibleDataTimePoint): KpiDistinctValues =
       new KpiDistinctValues(
-        distinctValues.netReturn.value.amount,
+        latestNetReturn.fungibleData.amount,
         distinctValues.biggestWin.map(_.asJson),
         distinctValues.biggestLoss.map(_.asJson),
         distinctValues.winRate,
@@ -338,7 +337,7 @@ object portfolio {
   object DailyTradeData {
     implicit val dailyTradeDataCodec: JsonCodec[DailyTradeData] = DeriveJsonCodec.gen[DailyTradeData]
 
-    def apply(data: CJDailyTradeData): DailyTradeData =
-      new DailyTradeData(data.netReturn.value.amount, data.tradeCount.value)
+    /*def apply(data: CJDailyTradeData): DailyTradeData =
+      new DailyTradeData(data.netReturn.value.amount, data.tradeCount.value)*/
   }
 }

@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 
 import config.CryptoJournalConfig
 import domain.market.LiveMarketService
-import domain.portfolio.{LiveAccountBalance, LiveStatsService}
+import domain.portfolio.LiveStatsService
 import domain.position.{LiveJournalingService, LiveMarketPlayService}
 import infrastructure.api.Routes
 import infrastructure.bitquery.BitQueryFacade
@@ -83,8 +83,6 @@ object CryptoJournal extends App {
 
     lazy val marketPlayCacheLayer = priceQuoteRepoLayer >+> LiveMarketPlayService.cacheLayer
 
-    lazy val accountBalanceLayer = priceQuoteServiceLayer ++ loggingLayer >>> LiveAccountBalance.layer
-
     lazy val marketPlayService =
       marketPlayRepo ++ marketPlayCacheLayer ++ priceQuoteServiceLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
 
@@ -93,7 +91,7 @@ object CryptoJournal extends App {
     lazy val walletServiceLayer =
       userWalletRepo ++ walletImportLayer ++ marketPlayService ++ syncFacadeLayer ++ loggingLayer >>> LiveWalletService.layer
 
-    lazy val kpiServiceLayer = (marketPlayService ++ accountBalanceLayer ++ Clock.live ++ loggingLayer) >>> LiveStatsService.layer
+    lazy val kpiServiceLayer = (marketPlayService ++ priceQuoteServiceLayer ++ Clock.live ++ loggingLayer) >>> LiveStatsService.layer
 
     lazy val journalServiceLayer = journalRepoLayer >>> LiveJournalingService.layer
 
