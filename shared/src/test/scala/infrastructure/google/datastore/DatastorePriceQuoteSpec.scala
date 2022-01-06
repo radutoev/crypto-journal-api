@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
-import domain.model.date.Minute
+import domain.model.date.{Day, Hour, Minute}
 import domain.model.{BUSD, WBNB}
 import domain.pricequote.{CurrencyPair, PriceQuote}
 import infrastructure.google.datastore.DatastorePriceQuoteRepo.{PriceQuoteBase, TimeUnitInstanceOps}
@@ -37,25 +37,25 @@ object DatastorePriceQuoteSpec extends DefaultRunnableSpec {
   }
 
   val Item1 = PriceQuoteBase(
-    Instant.parse("2021-04-05T00:00:00.000Z"),
+    Day(Instant.parse("2021-04-05T00:00:00.000Z")),
     0.3d,
     List(
       PriceQuoteBase(
-        Instant.parse("2021-04-05T15:00:00.000Z"),
+        Hour(Instant.parse("2021-04-05T15:00:00.000Z")),
         0.3d,
         List(
-          PriceQuoteBase(Instant.parse("2021-04-05T15:23:00.000Z"), 0.3d, Nil)
+          PriceQuoteBase(Minute(Instant.parse("2021-04-05T15:23:00.000Z")), 0.3d, Nil)
         )
       )
     )
   )
 
   val SubItem1 = PriceQuoteBase(
-    Instant.parse("2021-07-05T10:00:00.000Z"),
+    Hour(Instant.parse("2021-07-05T10:00:00.000Z")),
     2.3d,
     List(
       PriceQuoteBase(
-        Instant.parse("2021-07-05T10:21:00.000Z"),
+        Minute(Instant.parse("2021-07-05T10:21:00.000Z")),
         2.3d,
         Nil
       )
@@ -63,11 +63,11 @@ object DatastorePriceQuoteSpec extends DefaultRunnableSpec {
   )
 
   val SubItem2 = PriceQuoteBase(
-    Instant.parse("2021-07-05T12:00:00.000Z"),
+    Hour(Instant.parse("2021-07-05T12:00:00.000Z")),
     6.3d,
     List(
       PriceQuoteBase(
-        Instant.parse("2021-07-05T12:21:00.000Z"),
+        Minute(Instant.parse("2021-07-05T12:21:00.000Z")),
         6.3d,
         Nil
       )
@@ -75,16 +75,16 @@ object DatastorePriceQuoteSpec extends DefaultRunnableSpec {
   )
 
   val SubItem3 = PriceQuoteBase(
-    Instant.parse("2021-07-05T18:00:00.000Z"),
+    Hour(Instant.parse("2021-07-05T18:00:00.000Z")),
     3.6d,
     List(
       PriceQuoteBase(
-        Instant.parse("2021-07-05T18:20:00.000Z"),
+        Minute(Instant.parse("2021-07-05T18:20:00.000Z")),
         7d,
         Nil
       ),
       PriceQuoteBase(
-        Instant.parse("2021-07-05T18:30:00.000Z"),
+        Minute(Instant.parse("2021-07-05T18:30:00.000Z")),
         0.2d,
         Nil
       )
@@ -92,7 +92,7 @@ object DatastorePriceQuoteSpec extends DefaultRunnableSpec {
   )
 
   val Item2 = PriceQuoteBase(
-    Instant.parse("2021-07-05T00:00:00.000Z"),
+    Day(Instant.parse("2021-07-05T00:00:00.000Z")),
     3.95d,
     List(SubItem1, SubItem2, SubItem3)
   )
