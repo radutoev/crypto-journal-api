@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
-import domain.model.{BUSD, FungibleData, TransactionHash, WBNB}
+import domain.model.{BUSD, FungibleData, FungibleDataTimePoint, TransactionHash, WBNB}
 import domain.pricequote.{CurrencyPair, PriceQuote, PriceQuotes}
 import vo.TimeInterval
 
@@ -40,7 +40,7 @@ object MarketPlaysSpec extends DefaultRunnableSpec {
           FungibleDataTimePoint(FungibleData(1236d, BUSD), Instant.parse("2021-10-09T00:00:00.000Z")),
           FungibleDataTimePoint(FungibleData(1224.96, BUSD), Instant.parse("2021-10-10T00:00:00.000Z")),
         )
-        assert(marketPlays.balanceTrend(interval, BUSD, quotes))(hasSameElements(expected))
+        assert(marketPlays.balanceTrend(interval, BUSD, quotes).items.toList)(hasSameElements(expected))
       }
     }
   }

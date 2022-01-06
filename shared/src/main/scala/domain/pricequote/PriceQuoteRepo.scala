@@ -6,7 +6,7 @@ import domain.model.date.{Minute, TimeUnit}
 import domain.pricequote.error.PriceQuoteError
 import vo.{PriceQuotesChunk, TimeInterval}
 
-import zio.IO
+import zio.{Has, IO, ZIO}
 
 trait PriceQuoteRepo {
   def getQuotes(pair: CurrencyPair, minutes: Set[Minute]): IO[PriceQuoteError, List[PriceQuote]]
@@ -18,4 +18,12 @@ trait PriceQuoteRepo {
   def getLatestQuote(currency: Currency): IO[PriceQuoteError, PriceQuote]
 
   def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit]
+}
+
+object PriceQuoteRepo {
+  def getQuotes(pair: CurrencyPair, interval: TimeInterval, unit: TimeUnit): ZIO[Has[PriceQuoteRepo], PriceQuoteError, List[PriceQuote]] =
+    ZIO.serviceWith(_.getQuotes(pair, interval, unit))
+
+  def saveQuotes(quotesChunk: PriceQuotesChunk): ZIO[Has[PriceQuoteRepo], PriceQuoteError, Unit] =
+    ZIO.serviceWith(_.saveQuotes(quotesChunk))
 }
