@@ -4,22 +4,21 @@ package infrastructure.google.datastore
 import config.DatastoreConfig
 import domain.model.Currency
 import domain.model.date._
-import domain.pricequote.error.{ PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound }
-import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuoteRepo }
-import infrastructure.google.datastore.DatastorePriceQuoteRepo.{ PriceQuoteBase, TimeUnitInstanceOps, TimeUnitOps }
-import util.InstantOps
-import vo.{ PriceQuotesChunk, TimeInterval }
+import domain.pricequote.error.{PriceQuoteError, PriceQuoteFetchError, PriceQuoteNotFound, PriceQuotesSaveError}
+import domain.pricequote.{CurrencyPair, PriceQuote, PriceQuoteRepo}
+import infrastructure.google.datastore.DatastorePriceQuoteRepo.{AveragingPriceQuote, PriceQuoteBase, TimeUnitInstanceOps, TimeUnitOps, generateDatastoreQuotes}
+import util.ListOptionOps
+import vo.{PriceQuotesChunk, TimeInterval}
 
 import com.google.cloud.Timestamp
-import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
+import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, Task, URLayer, ZIO }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, Task, URLayer, ZIO}
 
 import java.time.format.DateTimeFormatter
-import java.time.{ Instant, ZoneOffset }
-import java.util.UUID
+import java.time.{Instant, ZoneOffset}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.Try
@@ -136,53 +135,113 @@ final case class DatastorePriceQuoteRepo(
         )
         .ignore //TODO handle errors
 
-    def elementKind(depth: Int): Option[String] =
-      Option(depth match {
-        case 0 => "DayPriceQuote"
-        case 1 => "HourPriceQuote"
-        case 2 => "MinutePriceQuote"
-        case _ => ""
-      }).filter(_.nonEmpty)
-
-    def ancestor(depth: Int, value: String): Option[Ancestor] =
-      elementKind(depth).map(_ -> value)
-
-    def makeEntities(baseQuotes: List[PriceQuoteBase], ancestors: List[Ancestor])(
-      implicit keyFactory: KeyFactory
-    ): List[Entity] =
-      baseQuotes.flatMap { quote =>
-        var keyBuilder = keyFactory.setKind(elementKind(ancestors.size).get)
-        if (ancestors.nonEmpty) {
-          keyBuilder = keyBuilder.addAncestors(ancestors.map(a => PathElement.of(a._1, a._2)).asJava)
+    def makeEntities(baseQuotes: List[PriceQuoteBase], ancestors: List[Ancestor])(implicit keyFactory: KeyFactory): List[Entity] = {
+      if(baseQuotes.nonEmpty) {
+        baseQuotes.flatMap { base =>
+          val ancestorPaths = ancestors.map(t => PathElement.of(t._1, t._2))
+          val kind = envAwareKind(base.timeUnitInstance.unit.datastoreKind)
+          val id = base.timeUnitInstance.datastoreKey(quotesChunk.pair)
+          val entity = Entity
+            .newBuilder(keyFactory.addAncestors(ancestorPaths.asJava).setKind(kind).newKey(id))
+            .set("baseCurrency", quotesChunk.pair.base.value)
+            .set("quoteCurrency", quotesChunk.pair.quote.value)
+            .set(
+              "timestamp",
+              TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(base.timeUnitInstance.value.getEpochSecond, base.timeUnitInstance.value.getNano))
+            )
+            .set("price", base.price)
+            .build()
+          entity +: makeEntities(base.children, ancestors :+ (kind -> id))
         }
-        val id = UUID.randomUUID().toString //TODO Key needs to be generated based on date i think.
+      } else Nil
+    }
 
-        val childAncestor = ancestor(ancestors.size, id).get
+    //I also need to know which keys were not found; for those i need to create DayPriceQuotes.
+    def groupByEntityPresence(entities: List[Entity],
+                              allKeys: List[String]): (List[Entity], List[String]) = {
+      val keys    = entities.map(_.getKey.getName)
+      val newKeys = allKeys.diff(keys)
+      (entities, newKeys)
+    }
+
+    def entitiesToCreate(newItems: List[PriceQuoteBase])(implicit keyFactory: KeyFactory): List[Entity] = {
+      newItems.flatMap { base =>
+        val id = base.timeUnitInstance.datastoreKey(quotesChunk.pair)
+        val kind = envAwareKind(base.timeUnitInstance.unit.datastoreKind)
+        val children = makeEntities(base.children, List(kind -> id))
         val entity = Entity
-          .newBuilder(keyBuilder.newKey(id))
+          .newBuilder(keyFactory.newKey(id))
           .set("baseCurrency", quotesChunk.pair.base.value)
           .set("quoteCurrency", quotesChunk.pair.quote.value)
           .set(
             "timestamp",
-            TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(quote.timestamp.getEpochSecond, quote.timestamp.getNano))
+            TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(base.timeUnitInstance.value.getEpochSecond, base.timeUnitInstance.value.getNano))
           )
-          .set("price", quote.price)
+          .set("price", base.price)
+          .set("units", ListValue.newBuilder().set(children.map(e => EntityValue.of(e)).asJava).build())
           .build()
-        val childrenEntities = makeEntities(quote.children, ancestors :+ childAncestor)
-        entity +: childrenEntities
+        entity +: children
       }
+    }
+
+    def entitiesToUpdate(items: List[(Entity, PriceQuoteBase)])(implicit keyFactory: KeyFactory): List[Entity] = {
+      items.map { case (entity, quote) =>
+        val averagingPriceQuote = entityToAvgPriceQuote(entity)
+        val timestamps = averagingPriceQuote.units.map(_.timestamp)
+        val hoursToAdd = quote.children.filterNot(base => timestamps.contains(base.timeUnitInstance.value))
+        if(hoursToAdd.nonEmpty) {
+          val children = makeEntities(hoursToAdd, List(entity.getKey.getKind -> entity.getKey.getName))(keyFactory)
+
+          val units = averagingPriceQuote.units ++ hoursToAdd.map(base => PriceQuote(base.price, base.timeUnitInstance.value))
+          val newPrice = BigDecimal(units.map(_.price).sum / units.length)
+            .setScale(2, BigDecimal.RoundingMode.HALF_UP)
+            .toDouble
+          val entityUnits = entity.getList[EntityValue]("units")
+          entityUnits.addAll(children.map(e => EntityValue.of(e)).asJava)
+          val toUpdate = Entity.newBuilder(entity)
+            .set("price", newPrice)
+            .set("units", entityUnits)
+            .build()
+          Some(toUpdate +: children)
+        } else {
+          None
+        }
+      }.values.flatten
+    }
+
+    def makeDayKey(key: String)(implicit keyFactory: KeyFactory): Key =
+      keyFactory
+        .setKind(envAwareKind(DayUnit.datastoreKind))
+        .newKey(key)
 
     {
-//      val quotesBase = generateDatastoreQuotes(quotesChunk.quotes)
-      val quotesBase = quotesChunk.quotes.map(q => PriceQuoteBase(q.timestamp, q.price, Nil))
-      val entities = makeEntities(quotesBase, Nil)(datastore.newKeyFactory())
-        .grouped(500)
-        .toList
+      implicit val keyFactory: KeyFactory = datastore.newKeyFactory()
+      val quotesBase = generateDatastoreQuotes(quotesChunk.quotes).toVector
 
-      for {
-        _ <- ZIO.foreach_(entities)(items => saveEntities(items))
-        _ <- logger.info(s"Finished upsert of quotes")
+      //Get Day datastore entities
+      //Update entities if needed with new price value and
+      //write hourly entities (this is an atomic operation, because I have all the minutes for a given hour).
+
+      val keysAndIndices = quotesBase.zipWithIndex.map { case (quotesBase, index) =>
+        quotesBase.timeUnitInstance.datastoreKey(quotesChunk.pair) -> index
+      }.toMap
+
+      val keys = keysAndIndices.map { case (key, _) => makeDayKey(key) }.toList
+
+      val upsertEffect = for {
+        results             <- get(keys.toSet)(datastore, logger)
+        (toUpdate, newKeys) = groupByEntityPresence(results, keys.map(_.getName))
+        newQuotes           = newKeys.map(newKey => keysAndIndices.get(newKey).map(index => quotesBase(index))).values
+        newEntities         = entitiesToCreate(newQuotes)
+        toUpdateBaseQuotes  = toUpdate.map { entity =>
+          keysAndIndices.get(entity.getKey.getName).map(index => quotesBase(index)).map(base => entity -> base)
+        }.values
+        updateEntities      = entitiesToUpdate(toUpdateBaseQuotes)
+        upsertEntities      = newEntities ++ updateEntities
+        _                   <- ZIO.foreach_(upsertEntities.grouped(500).toList)(items => saveEntities(items))
       } yield ()
+
+      upsertEffect.orElseFail(PriceQuotesSaveError(quotesChunk.pair, "Unable to save price quotes"))
     }.when(quotesChunk.quotes.nonEmpty)
   }
 
@@ -199,6 +258,18 @@ final case class DatastorePriceQuoteRepo(
     )
   }
 
+  private def entityToAvgPriceQuote(entity: Entity): AveragingPriceQuote = {
+    AveragingPriceQuote(
+      quote = PriceQuote(entity.getDouble("price"), Instant.ofEpochSecond(entity.getTimestamp("timestamp").getSeconds)),
+      units = entity.getList[EntityValue]("units").asScala.toList.map { ev =>
+        PriceQuote(
+          price = ev.get().getDouble("price"),
+          timestamp = Instant.ofEpochSecond(ev.get().getTimestamp("timestamp").getSeconds)
+        )
+      }
+    )
+  }
+
   private def envAwareKind(base: String): String = {
     val testEnv = datastoreConfig.priceQuote.toLowerCase.endsWith("test")
     if (testEnv) {
@@ -212,9 +283,9 @@ object DatastorePriceQuoteRepo {
     (DatastorePriceQuoteRepo(_, _, _, _)).toLayer
 
   private[datastore] def generateDatastoreQuotes(quotes: List[PriceQuote]): List[PriceQuoteBase] = {
-    def generateQuotesBase(source: List[PriceQuote], groupFns: List[Instant => Instant]): List[PriceQuoteBase] =
+    def generateQuotesBase(source: List[PriceQuote], groupFns: List[Instant => TimeUnitInstance]): List[PriceQuoteBase] =
       if (groupFns.nonEmpty) {
-        val acc: mutable.Map[Instant, mutable.ArrayBuffer[PriceQuote]] = mutable.Map.empty
+        val acc: mutable.Map[TimeUnitInstance, mutable.ArrayBuffer[PriceQuote]] = mutable.Map.empty
         source.foreach { quote =>
           val key = groupFns.head(quote.timestamp)
           acc.update(key, acc.getOrElse(key, mutable.ArrayBuffer.empty).addOne(quote))
@@ -230,17 +301,18 @@ object DatastorePriceQuoteRepo {
             )
         }.toList
       } else {
-        source.map(q => PriceQuoteBase(q.timestamp, q.price, Nil))
+        //we default here to the lowest time unit, which is Minute.
+        source.map(q => PriceQuoteBase(Minute(q.timestamp), q.price, Nil))
       }
 
-    val groupFns: List[Instant => Instant] = List(
-      t => t.atBeginningOfDay(),
-      t => t.atBeginningOfHour()
+    val groupFns: List[Instant => TimeUnitInstance] = List(
+      t => Day(t),
+      t => Hour(t)
     )
     generateQuotesBase(quotes, groupFns)
   }
 
-  private[datastore] case class PriceQuoteBase(timestamp: Instant, price: Double, children: List[PriceQuoteBase])
+  private[datastore] final case class PriceQuoteBase(timeUnitInstance: TimeUnitInstance, price: Double, children: List[PriceQuoteBase])
 
   implicit class TimeUnitInstanceOps(instance: TimeUnitInstance) {
     private lazy val Formatter: DateTimeFormatter =
@@ -256,5 +328,15 @@ object DatastorePriceQuoteRepo {
       case HourUnit   => "HourPriceQuote"
       case MinuteUnit => "MinutePriceQuote"
     }
+  }
+
+  private[datastore] final case class AveragingPriceQuote(quote: PriceQuote, units: List[PriceQuote])
+
+  implicit class AveragingPriceQuoteOps(avgPriceQuote: AveragingPriceQuote) {
+    def contains(hour: Hour): Boolean = {
+      avgPriceQuote.units.map(_.timestamp).contains(hour.value)
+    }
+
+    def containsNot(hour: Hour): Boolean = !contains(hour)
   }
 }
