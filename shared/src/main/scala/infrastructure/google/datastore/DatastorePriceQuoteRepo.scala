@@ -40,7 +40,7 @@ final case class DatastorePriceQuoteRepo(
         .map(key =>
           datastore
             .newKeyFactory()
-            .setKind("MinutePriceQuote")
+            .setKind(envAwareKind("MinutePriceQuote"))
             .newKey(key)
         )
     )(datastore, logger)
@@ -128,21 +128,22 @@ final case class DatastorePriceQuoteRepo(
 
   override def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit] = {
     @inline
-    def saveEntities(list: List[Entity]) =
+    def saveEntities(list: List[Entity]) = {
       Task(datastore.put(list: _*))
         .tapError(throwable =>
           logger.error(s"Error saving quotes: ${list.mkString(",")}") *> logger.error(throwable.getMessage)
         )
         .ignore //TODO handle errors
+    }
 
-    def makeEntities(baseQuotes: List[PriceQuoteBase], ancestors: List[Ancestor])(implicit keyFactory: KeyFactory): List[Entity] = {
+    def makeEntities(baseQuotes: List[PriceQuoteBase], ancestors: List[Ancestor]): List[Entity] = {
       if(baseQuotes.nonEmpty) {
+        val ancestorPaths = ancestors.map(t => PathElement.of(t._1, t._2))
         baseQuotes.flatMap { base =>
-          val ancestorPaths = ancestors.map(t => PathElement.of(t._1, t._2))
           val kind = envAwareKind(base.timeUnitInstance.unit.datastoreKind)
           val id = base.timeUnitInstance.datastoreKey(quotesChunk.pair)
           val entity = Entity
-            .newBuilder(keyFactory.addAncestors(ancestorPaths.asJava).setKind(kind).newKey(id))
+            .newBuilder(datastore.newKeyFactory().addAncestors(ancestorPaths.asJava).setKind(kind).newKey(id))
             .set("baseCurrency", quotesChunk.pair.base.value)
             .set("quoteCurrency", quotesChunk.pair.quote.value)
             .set(
@@ -164,13 +165,13 @@ final case class DatastorePriceQuoteRepo(
       (entities, newKeys)
     }
 
-    def entitiesToCreate(newItems: List[PriceQuoteBase])(implicit keyFactory: KeyFactory): List[Entity] = {
+    def entitiesToCreate(newItems: List[PriceQuoteBase]): List[Entity] = {
       newItems.flatMap { base =>
         val id = base.timeUnitInstance.datastoreKey(quotesChunk.pair)
         val kind = envAwareKind(base.timeUnitInstance.unit.datastoreKind)
         val children = makeEntities(base.children, List(kind -> id))
         val entity = Entity
-          .newBuilder(keyFactory.newKey(id))
+          .newBuilder(datastore.newKeyFactory().setKind(kind).newKey(id))
           .set("baseCurrency", quotesChunk.pair.base.value)
           .set("quoteCurrency", quotesChunk.pair.quote.value)
           .set(
@@ -178,26 +179,33 @@ final case class DatastorePriceQuoteRepo(
             TimestampValue.of(Timestamp.ofTimeSecondsAndNanos(base.timeUnitInstance.value.getEpochSecond, base.timeUnitInstance.value.getNano))
           )
           .set("price", base.price)
-          .set("units", ListValue.newBuilder().set(children.map(e => EntityValue.of(e)).asJava).build())
+          .set("units",
+            ListValue.newBuilder()
+              .set(children
+                .filter(_.getKey.getKind == envAwareKind(HourUnit.datastoreKind))
+                .map(e => EntityValue.of(e))
+                .asJava
+              )
+              .build()
+          )
           .build()
         entity +: children
       }
     }
 
-    def entitiesToUpdate(items: List[(Entity, PriceQuoteBase)])(implicit keyFactory: KeyFactory): List[Entity] = {
+    def entitiesToUpdate(items: List[(Entity, PriceQuoteBase)]): List[Entity] = {
       items.map { case (entity, quote) =>
         val averagingPriceQuote = entityToAvgPriceQuote(entity)
         val timestamps = averagingPriceQuote.units.map(_.timestamp)
         val hoursToAdd = quote.children.filterNot(base => timestamps.contains(base.timeUnitInstance.value))
         if(hoursToAdd.nonEmpty) {
-          val children = makeEntities(hoursToAdd, List(entity.getKey.getKind -> entity.getKey.getName))(keyFactory)
-
+          val children = makeEntities(hoursToAdd, List(entity.getKey.getKind -> entity.getKey.getName))
           val units = averagingPriceQuote.units ++ hoursToAdd.map(base => PriceQuote(base.price, base.timeUnitInstance.value))
           val newPrice = BigDecimal(units.map(_.price).sum / units.length)
             .setScale(2, BigDecimal.RoundingMode.HALF_UP)
             .toDouble
-          val entityUnits = entity.getList[EntityValue]("units")
-          entityUnits.addAll(children.map(e => EntityValue.of(e)).asJava)
+          val entityUnits = new java.util.ArrayList(entity.getList[EntityValue]("units"))
+          entityUnits.addAll(children.filter(_.getKey.getKind == envAwareKind(HourUnit.datastoreKind)).map(e => EntityValue.of(e)).asJava)
           val toUpdate = Entity.newBuilder(entity)
             .set("price", newPrice)
             .set("units", entityUnits)
@@ -209,8 +217,8 @@ final case class DatastorePriceQuoteRepo(
       }.values.flatten
     }
 
-    def makeDayKey(key: String)(implicit keyFactory: KeyFactory): Key =
-      keyFactory
+    def makeDayKey(key: String): Key =
+      datastore.newKeyFactory()
         .setKind(envAwareKind(DayUnit.datastoreKind))
         .newKey(key)
 
