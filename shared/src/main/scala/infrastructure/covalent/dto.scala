@@ -113,7 +113,7 @@ object dto {
         DomainDecoded(
           name = decoded.name,
           signature = decoded.signature,
-          params = decoded.params.fold[List[DomainParam]](List.empty)(_.map(_.toDomain()))
+          params = decoded.params.fold[List[DomainParam]](List.empty)(_.filter(_.value.nonEmpty).map(_.toDomain()))
         )
     }
   }
@@ -128,7 +128,7 @@ object dto {
 
   object Param {
     implicit val paramDecoder: JsonDecoder[Param] = Obj.decoder.map { json =>
-//      println(json.toString())
+      println(json.toString())
       (for {
         name      <- json.fields.find(_._1 == "name").flatMap(_._2.as[String].toOption)
         paramType <- json.fields.find(_._1 == "type").flatMap(_._2.as[String].toOption)
@@ -138,6 +138,7 @@ object dto {
                   case Json.Arr(elements) => elements.headOption.flatMap(_.as[String].toOption).getOrElse("")
                   case Json.Str(value)    => value
                   case Json.Bool(bool)    => bool.toString
+                  case Json.Null          => ""
                 }
       } yield Param(name, paramType, indexed, decoded, value)).get
     }
