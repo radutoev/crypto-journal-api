@@ -251,11 +251,15 @@ object LiveMarketPlayService {
   val playData: MarketPlay => ZIO[Has[PriceQuoteRepo], MarketPlayError, MarketPlayData] = play => {
     ZIO.serviceWith[PriceQuoteRepo] { repo =>
       val (timestamps, currency) = play match {
+        //get interval, check the span -> [start - end);
+        // if open, then behave as TopUp and W
+        // if closed -> then generate two
         case p: Position => (List(p.timeInterval.start) ++ ListOps.cond(p.isClosed, () => p.timeInterval.end), p.currency)
-        case t: TopUp    => (List(t.timestamp), Some(WBNB))
-        case w: Withdraw => (List(w.timestamp), Some(WBNB))
+        case t: TopUp    => (List(t.timestamp), Some(WBNB)) //try 10min before, 10min after also
+        case w: Withdraw => (List(w.timestamp), Some(WBNB)) //try 10min before, 10min after also
       }
       val minutes = timestamps.map(Minute(_)).toSet
+      println(minutes)
 
       (for {
         //TODO Don't fetch for WBNB - WBNB.

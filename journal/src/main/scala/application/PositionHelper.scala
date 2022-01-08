@@ -3,10 +3,11 @@ package application
 
 import domain.blockchain.BlockchainRepo
 import domain.model._
-import domain.model.date.Hour
+import domain.model.date.{Hour, TimeUnit}
 import domain.position.PositionEntry
-import domain.pricequote.{CurrencyAddressPair, PriceQuote}
+import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuote, PriceQuoteRepo}
 import infrastructure.bitquery.BitQueryFacade
+import vo.TimeInterval
 
 import zio.{Has, UIO, ZIO}
 
@@ -40,4 +41,8 @@ object PositionHelper {
         )
       ), Hour(Instant.parse("2021-10-04T00:00:00.000Z")))
     )
+
+  def quotesTest(pair: CurrencyPair, interval: TimeInterval, unit: TimeUnit): ZIO[Has[PriceQuoteRepo], Throwable, List[PriceQuote]] = {
+    ZIO.serviceWith(_.getQuotes(pair, interval, unit).orElseFail(new RuntimeException("failed")))
+  }
 }
