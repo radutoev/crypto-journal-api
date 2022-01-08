@@ -2,12 +2,14 @@ package io.softwarechain.cryptojournal
 package infrastructure.bitquery
 
 import config.BitQueryConfig
+import domain.model.date.Hour
 import domain.pricequote.{CurrencyAddressPair, PriceQuote}
+import infrastructure.bitquery.BitQueryFacade.BitQueryDateFormatter
 import infrastrucutre.bitquery.graphql.client.Ethereum.dexTrades
-import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{date, quotePrice, timeInterval}
+import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{quotePrice, timeInterval}
 import infrastrucutre.bitquery.graphql.client.PriceAggregateFunction.average
 import infrastrucutre.bitquery.graphql.client.Query.ethereum
-import infrastrucutre.bitquery.graphql.client.TimeInterval.{hour, minute}
+import infrastrucutre.bitquery.graphql.client.TimeInterval.minute
 import infrastrucutre.bitquery.graphql.client.{DateSelector, EthereumCurrencySelector, EthereumNetwork, StringSelector}
 import util.InstantOps
 import vo.TimeInterval
@@ -19,7 +21,8 @@ import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, Task, URLayer, ZIO}
 
-import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 
 final case class BitQueryFacade (config: BitQueryConfig,
                                  logger: Logger[String]) {
@@ -72,49 +75,41 @@ final case class BitQueryFacade (config: BitQueryConfig,
     } yield data.flatten).orElseFail(new RuntimeException("Unable to fetch quotes"))
   }
 
-  def getPrices(pair: CurrencyAddressPair, timestamps: Set[Instant]): Task[List[PriceQuote]] = {
-    def doGetPrices(chunk: Set[Instant]): IO[Option[String], List[PriceQuote]] = {
-      val query = ethereum(network = Some(EthereumNetwork.bsc))(
-        dexTrades(
-          date = Some(DateSelector(in = Some(chunk.map(_.toString).toList))),
-          exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
-          baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.address.value)))),
-          quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value))))
-        ) {
-          timeInterval {
-            minute(format = Some("%FT%TZ"))
-          } ~
+  def getPrices(pair: CurrencyAddressPair, hour: Hour): Task[List[PriceQuote]] = {
+    val timestamps = List(BitQueryDateFormatter.format(hour.value), BitQueryDateFormatter.format(hour.value.plusSeconds(3599)))
+    val query = ethereum(network = Some(EthereumNetwork.bsc))(
+      dexTrades(
+        date = Some(DateSelector(between = Some(timestamps))),
+        exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
+        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.address.value)))),
+        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value))))
+      ) {
+        timeInterval {
+          minute(format = Some("%FT%TZ"))
+        } ~
           quotePrice()
-        }
-      )
+      }
+    )
 
-      zioHttpBackend.flatMap { backend =>
-        query
-          .toRequest(uri"${config.url}", dropNullInputValues = true)
-          .headers(Map("X-API-KEY" -> config.apiKey))
-          .send(backend)
-          .map(_.body)
-          .tapError(err => logger.warn(err.getMessage))
-          .map(_.map(result => {
-            result.flatten.getOrElse(List.empty).collect {
-              case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
-            }
-          }))
-          .absolve
-      }.orElseFail(Some("cannot fetch price quotes"))
-    }
-
-    //group timestamps into intervals, then fetch for those -> in essence i will retrieve more than i asked for,
-    //in those given intervals.
-    //i need o change the model of a PriceQuote into:
-    // base|quote|timestamp|price
-
-    (for {
-      data    <- ZIO.collect(timestamps.grouped(10).toList)(doGetPrices)
-    } yield data.flatten).orElseFail(new RuntimeException("Unable to fetch quotes"))
+    zioHttpBackend.flatMap { backend =>
+      query
+        .toRequest(uri"${config.url}", dropNullInputValues = true)
+        .headers(Map("X-API-KEY" -> config.apiKey))
+        .send(backend)
+        .map(_.body)
+        .tapError(err => logger.warn(err.getMessage))
+        .map(_.map(result => {
+          result.flatten.getOrElse(List.empty).collect {
+            case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
+          }
+        }))
+        .absolve
+    }.orElseFail(new RuntimeException("Unable to fetch quotes"))
   }
 }
 
 object BitQueryFacade {
+  val BitQueryDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneOffset.UTC)
+
   lazy val layer: URLayer[Has[BitQueryConfig] with Logging, Has[BitQueryFacade]] = (BitQueryFacade(_, _)).toLayer
 }

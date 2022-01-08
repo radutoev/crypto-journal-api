@@ -3,10 +3,10 @@ package application
 
 import domain.blockchain.BlockchainRepo
 import domain.model._
+import domain.model.date.Hour
 import domain.position.PositionEntry
 import domain.pricequote.{CurrencyAddressPair, PriceQuote}
 import infrastructure.bitquery.BitQueryFacade
-import vo.TimeInterval
 
 import zio.{Has, UIO, ZIO}
 
@@ -38,6 +38,6 @@ object PositionHelper {
           BUSD,
           CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
         )
-      ), TimeInterval(Instant.parse("2021-10-04T00:00:00.000Z"), Instant.parse("2021-10-20T00:00:00.000Z")).days().toSet)
+      ), Hour(Instant.parse("2021-10-04T00:00:00.000Z")))
     )
 }

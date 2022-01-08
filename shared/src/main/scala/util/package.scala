@@ -5,7 +5,7 @@ import domain.position.{MarketPlay, Position, TopUp, Withdraw}
 import com.google.cloud.Timestamp
 import io.softwarechain.cryptojournal.domain.model.date.Hour
 
-import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneId, ZoneOffset, ZonedDateTime}
 import scala.util.Try
 
 package object util {
@@ -53,6 +53,9 @@ package object util {
 
     def toLocalDate(): LocalDate =
       LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))
+
+    def toLocalDateTime(): ZonedDateTime =
+      ZonedDateTime.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))
 
     def toDatastoreTimestamp(): Timestamp =
       Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond, instant.getNano)

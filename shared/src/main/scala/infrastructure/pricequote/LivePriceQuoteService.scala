@@ -20,7 +20,8 @@ final case class LivePriceQuoteService(
   override def addQuote(pair: CurrencyAddressPair, hour: Hour): IO[PriceQuoteError, Unit] =
     (for {
       _      <- logger.info(s"Save price quotes ${pair.base.currency} -> ${pair.quote.currency} @ ${hour.value}")
-      quotes <- bitQueryFacade.getPrices(pair, Set(hour.value))
+      quotes <- bitQueryFacade.getPrices(pair, hour)
+      _      <- logger.info(s"Found ${quotes.size} quotes for ${pair.base.currency} -> ${pair.quote.currency}  @ ${hour.value}") //TODO Remove this.
       cPair  = CurrencyPair(pair.base.currency, pair.quote.currency)
       _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(cPair, quotes))
     } yield ()).orElseFail(
