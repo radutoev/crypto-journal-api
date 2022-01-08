@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.google.datastore
 
 import config.DatastoreConfig
-import domain.model.date.{ DayUnit, HourUnit }
+import domain.model.date.{ DayUnit, HourUnit, MinuteUnit }
 import domain.model.{ BUSD, WBNB }
 import domain.pricequote.{ CurrencyPair, PriceQuote, PriceQuoteRepo }
 import vo.{ PriceQuotesChunk, TimeInterval }
@@ -36,7 +36,8 @@ object DatastorePriceQuoteIT extends DefaultRunnableSpec {
           _            <- PriceQuoteRepo.saveQuotes(PriceQuotesChunk(pair, DistinctDaysAndHours))
           dayQuotes    <- PriceQuoteRepo.getQuotes(pair, interval, DayUnit)
           hourlyQuotes <- PriceQuoteRepo.getQuotes(pair, interval, HourUnit)
-        } yield assert(dayQuotes.size)(equalTo(2)) && assert(hourlyQuotes.size)(equalTo(3))
+          minuteQuotes <- PriceQuoteRepo.getQuotes(pair, interval, MinuteUnit)
+        } yield assert(dayQuotes.size)(equalTo(2)) && assert(hourlyQuotes.size)(equalTo(3)) && assert(minuteQuotes.size)(equalTo(4))
       },
       testM("Upsert day") {
         val pair = CurrencyPair(WBNB, BUSD)
@@ -50,7 +51,7 @@ object DatastorePriceQuoteIT extends DefaultRunnableSpec {
           equalTo(PriceQuote(3.5d, Instant.parse("2021-10-12T00:00:00.000Z")))
         )
       }
-    ).provideCustomLayerShared(layer)// @@ ifPropSet("DATASTORE_EMULATOR_HOST")
+    ).provideCustomLayerShared(layer) @@ ifPropSet("DATASTORE_EMULATOR_HOST")
 
   val layer: ZLayer[Clock, Nothing, Has[PriceQuoteRepo]] =
     UIO(DatastoreOptions.getDefaultInstance.toBuilder.build().getService).toLayer ++

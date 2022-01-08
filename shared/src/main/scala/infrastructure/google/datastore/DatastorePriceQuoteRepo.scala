@@ -40,7 +40,7 @@ final case class DatastorePriceQuoteRepo(
         .map(key =>
           datastore
             .newKeyFactory()
-            .setKind(envAwareKind("MinutePriceQuote"))
+            .setKind(envAwareKind(MinuteUnit.datastoreKind))
             .newKey(key)
         )
     )(datastore, logger)

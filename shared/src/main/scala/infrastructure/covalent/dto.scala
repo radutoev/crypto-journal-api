@@ -128,7 +128,6 @@ object dto {
 
   object Param {
     implicit val paramDecoder: JsonDecoder[Param] = Obj.decoder.map { json =>
-      println(json.toString())
       (for {
         name      <- json.fields.find(_._1 == "name").flatMap(_._2.as[String].toOption)
         paramType <- json.fields.find(_._1 == "type").flatMap(_._2.as[String].toOption)
