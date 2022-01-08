@@ -28,8 +28,12 @@ final case class LivePriceQuoteService(
       PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes")
     )
 
-  override def getQuotes(pair: CurrencyPair, interval: TimeInterval, unit: TimeUnit): IO[PriceQuoteError, PriceQuotes] =
-    priceQuoteRepo.getQuotes(pair, interval, unit).map(quotes => PriceQuotes(Map(pair -> quotes)))
+  override def getQuotes(pair: CurrencyPair, interval: TimeInterval, unit: TimeUnit): IO[PriceQuoteError, PriceQuotes] = {
+    for {
+      quotes <- priceQuoteRepo.getQuotes(pair, interval, unit)
+      _      <- logger.warn(s"No quotes for $pair | $interval | $unit").when(quotes.isEmpty)
+    } yield PriceQuotes(Map(pair -> quotes))
+  }
 
   def getQuotes(
     currencies: Set[Currency],

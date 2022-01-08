@@ -3,6 +3,7 @@ package io.softwarechain.cryptojournal
 import domain.position.{MarketPlay, Position, TopUp, Withdraw}
 
 import com.google.cloud.Timestamp
+import eu.timepit.refined.types.numeric.PosInt
 import io.softwarechain.cryptojournal.domain.model.date.Hour
 
 import java.time.{Instant, LocalDate, LocalDateTime, ZoneId, ZoneOffset, ZonedDateTime}
@@ -50,6 +51,12 @@ package object util {
         .toLocalDateTime
         .withSecond(0)
         .toInstant(ZoneOffset.UTC)
+
+    def minusMinutes(nrOfMinutes: PosInt): Instant =
+      instant.minusSeconds(nrOfMinutes.value * 60)
+
+    def plusMinutes(nrOfMinutes: PosInt): Instant =
+      instant.plusSeconds(nrOfMinutes.value * 60)
 
     def toLocalDate(): LocalDate =
       LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))

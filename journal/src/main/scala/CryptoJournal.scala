@@ -81,7 +81,7 @@ object CryptoJournal extends App {
 
     lazy val journalRepoLayer = datastoreLayer ++ datastoreConfigLayer ++ loggingLayer >>> DatastoreJournalingRepo.layer
 
-    lazy val marketPlayCacheLayer = priceQuoteRepoLayer >+> LiveMarketPlayService.cacheLayer
+    lazy val marketPlayCacheLayer = priceQuoteServiceLayer >+> LiveMarketPlayService.cacheLayer
 
     lazy val marketPlayService =
       marketPlayRepo ++ marketPlayCacheLayer ++ priceQuoteServiceLayer ++ covalentFacadeLayer ++ journalRepoLayer ++ loggingLayer >>> LiveMarketPlayService.layer
