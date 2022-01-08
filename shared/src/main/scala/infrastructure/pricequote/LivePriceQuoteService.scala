@@ -21,7 +21,7 @@ final case class LivePriceQuoteService(
     (for {
       _      <- logger.info(s"Save price quotes ${pair.base.currency} -> ${pair.quote.currency} @ ${hour.value}")
       quotes <- bitQueryFacade.getPrices(pair, hour)
-      _      <- logger.info(s"Found ${quotes.size} quotes for ${pair.base.currency} -> ${pair.quote.currency}  @ ${hour.value}") //TODO Remove this.
+      _      <- logger.info(s"Found ${quotes.size} quotes for ${pair.base.currency} -> ${pair.quote.currency}  @ ${hour.value}")
       cPair  = CurrencyPair(pair.base.currency, pair.quote.currency)
       _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(cPair, quotes))
     } yield ()).orElseFail(
