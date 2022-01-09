@@ -3,14 +3,13 @@ package infrastructure.api
 
 import application.CryptoJournalApi
 import domain.model.{ContextId, UserId, WalletAddressPredicate}
-import domain.wallet.{Wallet => CJWallet}
-import domain.wallet.WalletService
 import domain.wallet.error._
+import domain.wallet.{WalletService, Wallet => CJWallet}
 import infrastructure.api.Routes.ApiError
+import infrastructure.api.wallets.dto.Wallet.fromWallet
 import infrastructure.auth.JwtRequestContext
 
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.infrastructure.api.wallets.dto.Wallet.fromWallet
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._

@@ -26,8 +26,6 @@ import zio.{Has, IO, UIO, URLayer, ZIO, ZLayer}
 import java.time.Instant
 
 trait MarketPlayService {
-  def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays]
-
   def getPlays(userWallet: Wallet, filter: PlayFilter): IO[MarketPlayError, MarketPlays]
 
   def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
@@ -94,11 +92,6 @@ final case class LiveMarketPlayService(
   logger: Logger[String]
 ) extends MarketPlayService {
 
-  //TODO Is this used?
-  override def getPlays(userWallet: Wallet): IO[MarketPlayError, MarketPlays] =
-    (for {
-      marketPlays <- positionRepo.getPlays(userWallet.address).flatMap(enrichPlays)
-    } yield MarketPlays(marketPlays)).orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
 
   override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
     (for {
