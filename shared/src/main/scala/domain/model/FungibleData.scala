@@ -1,10 +1,12 @@
 package io.softwarechain.cryptojournal
 package domain.model
 
-import domain.model.FungibleData.{ Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower }
+import domain.model.FungibleData.{Bigger, ComparisonResult, DifferentCurrencies, FungibleDataError, Lower}
 
 import currencyops.CurrencyOps
-import util.{ math, ListOptionOps }
+import util.{ListOptionOps, math}
+
+import scala.math.BigDecimal.RoundingMode
 
 final case class FungibleData(amount: BigDecimal, currency: Currency) {
   def add(value: BigDecimal): FungibleData = copy(amount = amount + value)
@@ -34,7 +36,7 @@ final case class FungibleData(amount: BigDecimal, currency: Currency) {
    * ((x2 - x1) / x1) * 100.
    */
   def percentageDifference(other: FungibleData): Either[FungibleDataError, BigDecimal] =
-    fnOnFungibleData((f, fPrev) => math.percentageDiff(f.amount, fPrev.amount), other)
+    fnOnFungibleData((f, fPrev) => math.percentageDiff(f.amount, fPrev.amount).setScale(2, RoundingMode.HALF_UP).abs, other)
 
   private def fnOnFungibleData[T](
     fn: (FungibleData, FungibleData) => T,

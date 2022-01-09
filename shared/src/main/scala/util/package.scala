@@ -116,7 +116,7 @@ package object util {
     def mostRecentFirst(): List[MarketPlay] = marketPlays.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
-  val BeginningOfCrypto: Instant = Instant.parse("2019-07-01T00:00:00.000Z") //June 2017 Binance launched.
+  val BeginningOfCrypto: Instant = Instant.parse("2020-07-01T00:00:00.000Z") //June 2017 Binance launched.
 
   implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {
     def mapLeft(left: Left => Left2): Either[Left2, Right] = either.left.map(left)
