@@ -110,13 +110,18 @@ final case class MarketPlays(plays: List[MarketPlay]) {
                       add: Set[FungibleData],
                       subtract: Set[FungibleData]): Option[BigDecimal] = {
       @inline
-      def quotedValue(fungible: FungibleData): Option[BigDecimal] = {
+      def quotedValue(fungible: FungibleData, op: String): Option[BigDecimal] = {
+//        println(s"$op | ${fungible.currency} - $targetCurrency | $timestamp | ${quotes.findPrice(CurrencyPair(fungible.currency, WBNB), timestamp)} | " +
+//          s"${quotes.findPrice(CurrencyPair(fungible.currency, targetCurrency), timestamp)} | ${fungible.amount} | " +
+//          s"${quotes.findPrice(CurrencyPair(fungible.currency, targetCurrency), timestamp).map(q => fungible.amount * BigDecimal(q.price)).map(_.setScale(3, BigDecimal.RoundingMode.HALF_UP))}")
+
         quotes.findPrice(CurrencyPair(fungible.currency, targetCurrency), timestamp)
           .map(_.price * fungible.amount)
+          .map(_.setScale(3, BigDecimal.RoundingMode.HALF_UP))
       }
 
-      val additions    = add.map(quotedValue).uniqueValues
-      val subtractions = subtract.map(quotedValue).uniqueValues
+      val additions    = add.map(a => quotedValue(a, "add")).uniqueValues
+      val subtractions = subtract.map(s => quotedValue(s, "subtract")).uniqueValues
 
       if(additions.nonEmpty || subtractions.nonEmpty) {
         Some(additions.sum - subtractions.sum)
@@ -136,12 +141,12 @@ final case class MarketPlays(plays: List[MarketPlay]) {
             val amounts = position.entries.map {
               case a: AirDrop     => computeAmount(day, Set(a.received), Set(a.fee))
               case a: Approval    => computeAmount(day, Set.empty, Set(a.fee))
-              case b: Buy         => computeAmount(day, Set(b.received), Set(b.spent, b.spentOriginal.fold(FungibleData.zero(targetCurrency))(identity), b.fee))
+              case b: Buy         => computeAmount(day, Set(b.received), Set(b.spentOriginal.fold(b.spent)(identity), b.fee))
               case c: Claim       => computeAmount(day, Set(c.received), Set(c.fee))
               case c: Contribute  => computeAmount(day, Set.empty, Set(c.spent, c.fee))
               case s: Sell        => computeAmount(day, Set(s.received), Set(s.sold, s.fee))
               case t: TransferIn  => computeAmount(day, Set(t.value), Set(t.fee))
-              case t: TransferOut => computeAmount(day, Set.empty, Set(t.amount, t.fee))
+              case t: TransferOut => computeAmount(day, Set.empty, Set.empty)
             }.values
 
             if(amounts.nonEmpty) {
@@ -152,10 +157,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 
           case t: TopUp if filterInterval.contains(t.timestamp) =>
             computeAmount(day, Set(t.value), Set(t.fee))
-
-          case w: Withdraw if filterInterval.contains(w.timestamp) =>
-            computeAmount(day, Set.empty, Set(w.value, w.fee))
-
         }.values
 
         amounts match {

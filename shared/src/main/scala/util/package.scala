@@ -3,7 +3,9 @@ package io.softwarechain.cryptojournal
 import domain.position.{MarketPlay, Position, TopUp, Withdraw}
 
 import com.google.cloud.Timestamp
+import eu.timepit.refined.refineV
 import eu.timepit.refined.types.numeric.PosInt
+import io.softwarechain.cryptojournal.domain.model.NumberOfDays
 import io.softwarechain.cryptojournal.domain.model.date.Hour
 
 import java.time.{Instant, LocalDate, LocalDateTime, ZoneId, ZoneOffset, ZonedDateTime}
@@ -58,6 +60,9 @@ package object util {
     def plusMinutes(nrOfMinutes: PosInt): Instant =
       instant.plusSeconds(nrOfMinutes.value * 60)
 
+    def minusDays(nrOfDays: PosInt): Instant =
+      instant.minusMinutes(refineV.unsafeFrom(nrOfDays.value * 1440))
+
     def toLocalDate(): LocalDate =
       LocalDate.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId))
 
@@ -111,7 +116,7 @@ package object util {
     def mostRecentFirst(): List[MarketPlay] = marketPlays.sortBy(_.openedAt)(Ordering[Instant].reverse)
   }
 
-  val BeginningOfCrypto: Instant = Instant.parse("2017-07-01T00:00:00.000Z") //June 2017 Binance launched.
+  val BeginningOfCrypto: Instant = Instant.parse("2019-07-01T00:00:00.000Z") //June 2017 Binance launched.
 
   implicit class EitherOps[Left, Left2, Right](either: Either[Left, Right]) {
     def mapLeft(left: Left => Left2): Either[Left2, Right] = either.left.map(left)

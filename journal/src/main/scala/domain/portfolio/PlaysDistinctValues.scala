@@ -12,6 +12,7 @@ import vo.{PeriodDistribution, TimeInterval}
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.pricequote.PriceQuotes
 
 import java.time.format.DateTimeFormatter
 import java.time.{DayOfWeek, Duration, Month, ZoneId}
@@ -19,7 +20,6 @@ import java.time.{DayOfWeek, Duration, Month, ZoneId}
 /**
  * @param marketPlays source to compute the KPIs for
  * @param interval timeInterval does not have to be an exact match with the interval of the given positions.
- * @param referenceMarketPlays marketPlays compares against referenceMarketPlays to generate performance.
  */
 final case class PlaysDistinctValues(
   marketPlays: MarketPlays,
@@ -32,7 +32,7 @@ final case class PlaysDistinctValues(
   lazy val winRate: Float = {
     val wins = marketPlays.wins
     if (wins.nonEmpty) {
-      val winCount = marketPlays.wins.size
+      val winCount = wins.size
       val total    = marketPlays.closedPositions.size
       winCount / total
     } else {
