@@ -4,12 +4,12 @@ package domain.position
 import domain.blockchain.error._
 import domain.blockchain.{BlockchainRepo, Transaction}
 import domain.model._
-import domain.model.date.{Minute, MinuteUnit}
+import domain.model.date.MinuteUnit
 import domain.position.MarketPlayService.MarketPlaysOps
 import domain.position.MarketPlays.findMarketPlays
 import domain.position.error._
-import domain.pricequote.error.PriceQuoteError
 import domain.pricequote._
+import domain.pricequote.error.PriceQuoteError
 import domain.wallet.Wallet
 import util.{InstantOps, InstantsOps, ListOps, ListOptionOps, MarketPlaysListOps}
 import vo.filter.PlayFilter
@@ -26,7 +26,7 @@ import zio.{Has, IO, UIO, URLayer, ZIO, ZLayer}
 import java.time.Instant
 
 trait MarketPlayService {
-  def getPlays(userWallet: Wallet, filter: PlayFilter): IO[MarketPlayError, MarketPlays]
+  def getPlays(userWallet: Wallet, filter: PlayFilter, withQuotes: Boolean = true): IO[MarketPlayError, MarketPlays]
 
   def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
 
@@ -55,11 +55,6 @@ trait MarketPlayService {
 }
 
 object MarketPlayService {
-  def getPlays(
-    userWallet: Wallet
-  )(filter: PlayFilter): ZIO[Has[MarketPlayService], MarketPlayError, MarketPlays] =
-    ZIO.serviceWith[MarketPlayService](_.getPlays(userWallet, filter))
-
   implicit class MarketPlaysOps(marketPlays: MarketPlays) {
     lazy val quotesTimestamps: Set[CurrencyPairTimestamps] = {
       marketPlays.plays.flatMap {
@@ -93,9 +88,15 @@ final case class LiveMarketPlayService(
 ) extends MarketPlayService {
 
 
-  override def getPlays(userWallet: Wallet, playFilter: PlayFilter): IO[MarketPlayError, MarketPlays] =
+  override def getPlays(userWallet: Wallet, playFilter: PlayFilter, withQuotes: Boolean = true): IO[MarketPlayError, MarketPlays] =
     (for {
-      marketPlays    <- positionRepo.getPlays(userWallet.address, playFilter).flatMap(enrichPlays)
+      marketPlays    <- positionRepo.getPlays(userWallet.address, playFilter).flatMap { plays =>
+        if(withQuotes) {
+          enrichPlays(plays)
+        } else {
+          UIO(plays)
+        }
+      }
       journalEntries <- journalingRepo.getEntries(userWallet.userId, marketPlays.map(_.id).values)
     } yield MarketPlays(withJournalEntries(marketPlays, journalEntries)))
       .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
