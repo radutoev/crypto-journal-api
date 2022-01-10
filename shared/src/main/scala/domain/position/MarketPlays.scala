@@ -160,9 +160,9 @@ final case class MarketPlays(plays: List[MarketPlay]) {
         }.values
 
         amounts match {
-          case list => FungibleDataTimePoint(FungibleData(list.sum, targetCurrency), day)
           //Nil means that either a quote was not found, or it was outside of the time interval.
           case Nil  => FungibleDataTimePoint(FungibleData.zero(targetCurrency), day)
+          case list => FungibleDataTimePoint(FungibleData(list.sum, targetCurrency), day)
         }
       }
 
