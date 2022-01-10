@@ -146,7 +146,7 @@ final case class MarketPlays(plays: List[MarketPlay]) {
               case c: Contribute  => computeAmount(day, Set.empty, Set(c.spent, c.fee))
               case s: Sell        => computeAmount(day, Set(s.received), Set(s.sold, s.fee))
               case t: TransferIn  => computeAmount(day, Set(t.value), Set(t.fee))
-              case t: TransferOut => computeAmount(day, Set.empty, Set.empty)
+              case _: TransferOut => computeAmount(day, Set.empty, Set.empty)
             }.values
 
             if(amounts.nonEmpty) {
@@ -173,7 +173,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
   def netReturn(interval: TimeInterval,
                 targetCurrency: Currency,
                 quotes: PriceQuotes): Trend = {
-
     @inline
     def isHiddenPosition(play: MarketPlay): Boolean = {
       play match {
@@ -184,9 +183,13 @@ final case class MarketPlays(plays: List[MarketPlay]) {
 
     val start = interval.start.atBeginningOfDay()
     //we don't have knowledge when the position was hidden, so we use a binary approach for including/excluding the position.
-    val visiblePositions = plays.view.filterNot(isHiddenPosition).map(_.asInstanceOf[Position]).toList
+    val visiblePositions = plays.view
+      .filterNot(isHiddenPosition)
+      .map(_.asInstanceOf[Position])
+      .map(_.copy(dataSource = Some(PriceQuotePositionData(quotes))))
+      .toList
 
-    interval.days()
+    val dataPoints = interval.days()
       .map { day =>
         val filterInterval = TimeInterval(start, day.atEndOfDay())
 
@@ -194,9 +197,12 @@ final case class MarketPlays(plays: List[MarketPlay]) {
         val positions = visiblePositions.map { original =>
           original.copy(entries = original.entries.filter(p => filterInterval.contains(p.timestamp)))
         }.filter(_.isClosed)
+
+        //Note that fiatReturn is hardcoded to BUSD for now. Change the implementation if we need support in the future for other target currencies.
+        FungibleDataTimePoint(FungibleData(positions.map(_.fiatReturn).values.map(_.amount).sum, targetCurrency), day)
       }
 
-    Trend(List(FungibleDataTimePoint(FungibleData.zero(BUSD), interval.start))).right.get
+    Trend(dataPoints).right.get
   }
 
   def distributionByCurrency(): Map[Currency, List[FungibleDataTimePoint]] = {

@@ -2,29 +2,20 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.date.DayUnit
-import domain.model.{ BUSD, WBNB }
-import domain.portfolio.error.{ InvalidPortfolioError, PortfolioKpiGenerationError, StatsError }
+import domain.model.{BUSD, WBNB}
+import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError}
 import domain.position.error.MarketPlayError
-import domain.position.{
-  MarketPlayService,
-  MarketPlays,
-  Position,
-  PriceQuotePositionData,
-  PriceQuoteTopUpData,
-  PriceQuoteWithdrawData,
-  TopUp,
-  Withdraw
-}
-import domain.pricequote.{ CurrencyPair, PriceQuoteService, PriceQuotes }
+import domain.position.{MarketPlayService, MarketPlays, Position, PriceQuotePositionData, PriceQuoteTopUpData, PriceQuoteWithdrawData, TopUp, Withdraw}
+import domain.pricequote.{CurrencyPair, PriceQuoteService, PriceQuotes}
 import domain.wallet.Wallet
-import util.{ BeginningOfCrypto, InstantOps }
+import util.{BeginningOfCrypto, InstantOps}
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PlayFilter }
+import vo.filter.{KpiFilter, PlayFilter}
 
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, UIO, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, UIO, URLayer}
 
 trait StatsService {
   def playsOverview(userWallet: Wallet)(kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
@@ -53,13 +44,10 @@ final case class LiveStatsService(
       referenceQuotes           <- fetchQuotes(referencePlays, timeIntervalForComparison)
       distinctValues            = new PlaysDistinctValues(playsWithQuotes, requestedInterval)
       balanceTrend              = plays.balanceTrend(requestedInterval, BUSD, quotes)
-      referenceBalanceTrend     = referencePlays.balanceTrend(
-        TimeInterval(timeIntervalForComparison.end.minusDays(refineV.unsafeFrom(requestedInterval.dayCount.value)), timeIntervalForComparison.end),
-        BUSD,
-        referenceQuotes
-      )
+      referenceInterval         = TimeInterval(timeIntervalForComparison.end.minusDays(refineV.unsafeFrom(requestedInterval.dayCount.value)), timeIntervalForComparison.end)
+      referenceBalanceTrend     = referencePlays.balanceTrend(referenceInterval, BUSD, referenceQuotes)
       netReturnTrend            = plays.netReturn(requestedInterval, BUSD, quotes)
-      referenceNetReturnTrend   = referencePlays.netReturn(timeIntervalForComparison, BUSD, quotes)
+      referenceNetReturnTrend   = referencePlays.netReturn(referenceInterval, BUSD, quotes)
     } yield PlaysOverview(
       distinctValues,
       balanceTrend,
