@@ -1,7 +1,7 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.date.DayUnit
+import domain.model.date.{DayUnit, MinuteUnit}
 import domain.model.{BUSD, WBNB}
 import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError}
 import domain.position.error.MarketPlayError
@@ -42,12 +42,14 @@ final case class LiveStatsService(
       playsWithQuotes           = addQuotesToPlays(plays, quotes)
       referencePlays            <- fetchReferencePlays(wallet, filter, timeIntervalForComparison)
       referenceQuotes           <- fetchQuotes(referencePlays, timeIntervalForComparison)
+      //TODO I noticed that the net return values are identical with MinuteQuotes and DailyQuotes. Test more and see if I can find some differences.
+//      refNetReturnQuotes        <- fetchMinuteQuotes(referencePlays, timeIntervalForComparison)
       distinctValues            = new PlaysDistinctValues(playsWithQuotes, requestedInterval)
       balanceTrend              = plays.balanceTrend(requestedInterval, BUSD, quotes)
       referenceInterval         = TimeInterval(timeIntervalForComparison.end.minusDays(refineV.unsafeFrom(requestedInterval.dayCount.value)), timeIntervalForComparison.end)
       referenceBalanceTrend     = referencePlays.balanceTrend(referenceInterval, BUSD, referenceQuotes)
       netReturnTrend            = plays.netReturn(requestedInterval, BUSD, quotes)
-      referenceNetReturnTrend   = referencePlays.netReturn(referenceInterval, BUSD, quotes)
+      referenceNetReturnTrend   = referencePlays.netReturn(referenceInterval, BUSD, referenceQuotes)
     } yield PlaysOverview(
       distinctValues,
       balanceTrend,
@@ -88,6 +90,14 @@ final case class LiveStatsService(
     val fetchQuotesEffect = for {
       bnbUsdQuotes   <- priceQuoteService.getQuotes(CurrencyPair(WBNB, BUSD), interval, DayUnit)
       coinsBnbQuotes <- priceQuoteService.getQuotes(plays.currencies.map(_._1), WBNB, interval, DayUnit)
+    } yield bnbUsdQuotes.merge(coinsBnbQuotes)
+    fetchQuotesEffect.orElseFail(PortfolioKpiGenerationError("Unable to fetch quotes"))
+  }
+
+  private def fetchMinuteQuotes(plays: MarketPlays, interval: TimeInterval): IO[StatsError, PriceQuotes] = {
+    val fetchQuotesEffect = for {
+      bnbUsdQuotes   <- priceQuoteService.getQuotes(CurrencyPair(WBNB, BUSD), interval, MinuteUnit)
+      coinsBnbQuotes <- priceQuoteService.getQuotes(plays.currencies.map(_._1), WBNB, interval, MinuteUnit)
     } yield bnbUsdQuotes.merge(coinsBnbQuotes)
     fetchQuotesEffect.orElseFail(PortfolioKpiGenerationError("Unable to fetch quotes"))
   }
