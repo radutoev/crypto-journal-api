@@ -2,15 +2,17 @@ package io.softwarechain.cryptojournal
 package infrastructure.bitquery
 
 import config.BitQueryConfig
+import domain.model.Ohlcv
 import domain.model.date.Hour
 import domain.pricequote.{CurrencyAddressPair, PriceQuote}
 import infrastructure.bitquery.BitQueryFacade.BitQueryDateFormatter
+import infrastrucutre.bitquery.graphql.client.BaseCurrencyEnum.USD
 import infrastrucutre.bitquery.graphql.client.Ethereum.dexTrades
-import infrastrucutre.bitquery.graphql.client.EthereumDexTrades.{quotePrice, timeInterval}
+import infrastrucutre.bitquery.graphql.client.EthereumDexTrades._
 import infrastrucutre.bitquery.graphql.client.PriceAggregateFunction.average
 import infrastrucutre.bitquery.graphql.client.Query.ethereum
 import infrastrucutre.bitquery.graphql.client.TimeInterval.minute
-import infrastrucutre.bitquery.graphql.client.{DateSelector, EthereumCurrencySelector, EthereumNetwork, StringSelector}
+import infrastrucutre.bitquery.graphql.client._
 import util.InstantOps
 import vo.TimeInterval
 
@@ -87,7 +89,7 @@ final case class BitQueryFacade (config: BitQueryConfig,
         timeInterval {
           minute(format = Some("%FT%TZ"))
         } ~
-          quotePrice()
+        quotePrice()
       }
     )
 
@@ -105,6 +107,52 @@ final case class BitQueryFacade (config: BitQueryConfig,
         }))
         .absolve
     }.orElseFail(new RuntimeException("Unable to fetch quotes"))
+  }
+
+  def getOhlcv(pair: CurrencyAddressPair, interval: TimeInterval): Task[List[Ohlcv]] = {
+    val query = ethereum(network = Some(EthereumNetwork.bsc))(
+      dexTrades(
+        date = Some(DateSelector(since = Some(BitQueryDateFormatter.format(interval.start)), till = Some(BitQueryDateFormatter.format(interval.end)))),
+        exchangeName = Some(List(StringSelector(in = Some(List("Pancake", "Pancake v2"))))),
+        baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.address.value)))),
+        quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value)))),
+        options = Some(QueryOptions(limit = Some(1000)))
+      ) {
+        timeInterval {
+          minute(format = Some("%FT%TZ"))
+        } ~
+        tradeAmount(in = USD, calculate = Some(AmountAggregateFunction.sum)) ~
+        quotePrice(calculate = Some(PriceAggregateFunction.maximum)) ~
+        quotePrice(calculate = Some(PriceAggregateFunction.minimum)) ~
+        quotePrice(calculate = Some(PriceAggregateFunction.median)) ~
+        minimum(of = EthereumDexTradesMeasureable.block, get = Some(EthereumDexTradesMeasureable.quote_price)) ~
+        maximum(of = EthereumDexTradesMeasureable.block, get = Some(EthereumDexTradesMeasureable.quote_price))
+      }
+    )
+
+    zioHttpBackend.flatMap { backend =>
+      query
+        .toRequest(uri"${config.url}", dropNullInputValues = true)
+        .headers(Map("X-API-KEY" -> config.apiKey))
+        .send(backend)
+        .map(_.body)
+        .tapError(err => logger.warn(err.getMessage))
+        .map(_.map(result => {
+          result.flatten.getOrElse(List.empty).collect {
+            case ((((((Some(rawTimestamp), Some(rawTradeAmount)), Some(rawMax)), Some(rawMin)), Some(rawMedian)), Some(rawOpen)), Some(rawClose)) =>
+              Ohlcv(pair,
+                timestamp = Instant.parse(rawTimestamp),
+                open = BigDecimal(rawOpen),
+                close = BigDecimal(rawClose),
+                minimum = BigDecimal(rawMax),
+                median = BigDecimal(rawMedian),
+                maximum = BigDecimal(rawMin),
+                volume = BigDecimal(rawTradeAmount)
+              )
+          }
+        }))
+        .absolve
+    }.orElseFail(new RuntimeException("Unable to fetch ohlcv data"))
   }
 }
 

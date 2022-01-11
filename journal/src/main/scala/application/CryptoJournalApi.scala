@@ -3,8 +3,8 @@ package application
 
 import domain.account.RequestContext
 import domain.market.error.MarketError
-import domain.market.{MarketService, Ohlcv}
-import domain.model.{PlayId, WalletAddress}
+import domain.market.MarketService
+import domain.model.{Ohlcv, PlayId, WalletAddress}
 import domain.portfolio.error.StatsError
 import domain.portfolio.{PlaysOverview, StatsService}
 import domain.position._
@@ -41,7 +41,7 @@ object CryptoJournalApi {
   ): ZIO[Has[MarketPlayService] with Has[RequestContext], MarketPlayError, PositionDetails[Position]] =
     for {
       userId   <- RequestContext.userId
-      position <- ZIO.serviceWith[MarketPlayService](_.getPosition(userId, positionId))
+      position <- ZIO.serviceWith[MarketPlayService](_.getPositionDetails(userId, positionId))
     } yield position
 
   def getNextPositions(
@@ -100,8 +100,6 @@ object CryptoJournalApi {
       _      <- ZIO.serviceWith[JournalingService](_.saveJournalEntries(userId, positionEntries))
     } yield ()
 
-  def getHistoricalOhlcv: ZIO[Has[MarketService], MarketError, List[Ohlcv]] =
-    for {
-      data <- ZIO.serviceWith[MarketService](_.getHistoricalOhlcv())
-    } yield data
+  def getHistoricalOhlcv(playId: PlayId): ZIO[Has[MarketService], MarketError, List[Ohlcv]] =
+    ZIO.serviceWith[MarketService](_.getHistoricalOhlcv(playId))
 }

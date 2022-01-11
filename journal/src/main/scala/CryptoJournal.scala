@@ -6,7 +6,6 @@ import domain.portfolio.LiveStatsService
 import domain.position.{LiveJournalingService, LiveMarketPlayService}
 import infrastructure.api.Routes
 import infrastructure.bitquery.BitQueryFacade
-import infrastructure.coinapi.CoinApiFacadeHistoricalData
 import infrastructure.covalent.CovalentFacade
 import infrastructure.google.datastore._
 import infrastructure.journal.service.LiveWalletService
@@ -54,9 +53,6 @@ object CryptoJournal extends App {
 
     lazy val httpClientLayer = HttpClientZioBackend.layer()
 
-    lazy val coinApiFacadeLayer =
-      (httpClientLayer ++ coinApiConfigLayer ++ loggingLayer) >+> CoinApiFacadeHistoricalData.layer
-
     lazy val covalentFacadeLayer = (httpClientLayer ++ covalentConfigLayer ++ loggingLayer) >>> CovalentFacade.layer
 
     lazy val bitQueryFacadeLayer = loggingLayer ++ bitQueryConfigLayer >>> BitQueryFacade.layer
@@ -95,7 +91,7 @@ object CryptoJournal extends App {
 
     lazy val journalServiceLayer = journalRepoLayer >>> LiveJournalingService.layer
 
-    lazy val marketServiceLayer = coinApiFacadeLayer >>> LiveMarketService.layer
+    lazy val marketServiceLayer = marketPlayService ++ bitQueryFacadeLayer ++ loggingLayer >>> LiveMarketService.layer
 
     lazy val applicationServiceLayer =
       marketPlayService ++ walletServiceLayer ++ kpiServiceLayer ++ journalServiceLayer ++ marketServiceLayer

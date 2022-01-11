@@ -30,7 +30,9 @@ trait MarketPlayService {
 
   def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
 
-  def getPosition(userId: UserId, playId: PlayId): IO[MarketPlayError, PositionDetails[Position]]
+  def getPosition(playId: PlayId): IO[MarketPlayError, Position]
+
+  def getPositionDetails(userId: UserId, playId: PlayId): IO[MarketPlayError, PositionDetails[Position]]
 
   def getNextPositions(playId: PlayId): IO[MarketPlayError, List[Position]]
 
@@ -123,7 +125,11 @@ final case class LiveMarketPlayService(
     }
   }
 
-  override def getPosition(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] =
+  override def getPosition(playId: PlayId): IO[MarketPlayError, Position] = {
+    positionRepo.getPosition(playId).map(_.position)
+  }
+
+  override def getPositionDetails(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] =
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
     for {
