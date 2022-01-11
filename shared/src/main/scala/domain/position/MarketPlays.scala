@@ -169,7 +169,6 @@ final case class MarketPlays(plays: List[MarketPlay]) {
     Trend(dataPoints).right.get
   }
 
-  //TODO Finish implementation
   def netReturn(interval: TimeInterval,
                 targetCurrency: Currency,
                 quotes: PriceQuotes): Trend = {
