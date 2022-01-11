@@ -60,6 +60,12 @@ package object util {
     def plusMinutes(nrOfMinutes: PosInt): Instant =
       instant.plusSeconds(nrOfMinutes.value * 60)
 
+    def minusHours(nrOfHours: PosInt): Instant =
+      instant.minusMinutes(refineV.unsafeFrom(nrOfHours.value * 60))
+
+    def plusHours(nrOfHours: PosInt): Instant =
+      instant.plusMinutes(refineV.unsafeFrom(nrOfHours.value * 60))
+
     def minusDays(nrOfDays: PosInt): Instant =
       instant.minusMinutes(refineV.unsafeFrom(nrOfDays.value * 1440))
 
