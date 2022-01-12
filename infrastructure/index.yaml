@@ -31,3 +31,21 @@ indexes:
       - name: baseCurrency
       - name: quoteCurrency
       - name: timestamp
+  - kind: DayPriceQuoteTest
+    ancestor: no
+    properties:
+      - name: baseCurrency
+      - name: quoteCurrency
+      - name: timestamp
+  - kind: HourPriceQuoteTest
+    ancestor: no
+    properties:
+      - name: baseCurrency
+      - name: quoteCurrency
+      - name: timestamp
+  - kind: MinutePriceQuoteTest
+    ancestor: no
+    properties:
+      - name: baseCurrency
+      - name: quoteCurrency
+      - name: timestamp
