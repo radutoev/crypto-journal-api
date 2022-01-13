@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{PlayIdPredicate, UserId, Ohlcv => CJOhlcv}
+import domain.model.{ PlayIdPredicate, UserId, Ohlcv => CJOhlcv }
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest

@@ -1,24 +1,28 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.date.{DayUnit, MinuteUnit}
-import domain.model.{BUSD, WBNB}
-import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError}
+import domain.model.date.{ DayUnit, MinuteUnit }
+import domain.model.{ BUSD, Currency, TradeCountPredicate, WBNB }
+import domain.portfolio.PlaysDistinctValues.DayFormatter
+import domain.portfolio.error.{ InvalidPortfolioError, PortfolioKpiGenerationError, StatsError }
+import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate, NetReturnDistributionByDay }
 import domain.position.error.MarketPlayError
-import domain.position.{MarketPlayService, MarketPlays, Position, PriceQuotePositionData, PriceQuoteTopUpData, PriceQuoteWithdrawData, TopUp, Withdraw}
-import domain.pricequote.{CurrencyPair, PriceQuoteService, PriceQuotes}
+import domain.position._
+import domain.pricequote.{ CurrencyPair, PriceQuoteService, PriceQuotes }
 import domain.wallet.Wallet
-import util.{BeginningOfCrypto, InstantOps}
+import util.{ BeginningOfCrypto, InstantOps }
 import vo.TimeInterval
-import vo.filter.{KpiFilter, PlayFilter}
+import vo.filter.{ KpiFilter, PlayFilter }
 
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, UIO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, UIO, URLayer }
 
 trait StatsService {
   def playsOverview(userWallet: Wallet)(kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
+
+  def netReturnDistributionByDay(wallet: Wallet, interval: TimeInterval): IO[StatsError, Map[DayFormat, DailyTradeData]]
 }
 
 final case class LiveStatsService(
@@ -39,17 +43,20 @@ final case class LiveStatsService(
       plays                     <- marketPlaysService.getPlays(wallet, filter, withQuotes = false).mapError(statsErrorMapper)
       quotes                    <- fetchQuotes(plays, timeInterval)
       //TODO I don't like that we pass the quotes as param for account balance, but copy the quotes in order to generate distinct values
-      playsWithQuotes           = addQuotesToPlays(plays, quotes)
-      referencePlays            <- fetchReferencePlays(wallet, filter, timeIntervalForComparison)
-      referenceQuotes           <- fetchQuotes(referencePlays, timeIntervalForComparison)
+      playsWithQuotes = addQuotesToPlays(plays, quotes)
+      referencePlays  <- fetchReferencePlays(wallet, filter, timeIntervalForComparison)
+      referenceQuotes <- fetchQuotes(referencePlays, timeIntervalForComparison)
       //TODO I noticed that the net return values are identical with MinuteQuotes and DailyQuotes. Test more and see if I can find some differences.
 //      refNetReturnQuotes        <- fetchMinuteQuotes(referencePlays, timeIntervalForComparison)
-      distinctValues            = new PlaysDistinctValues(playsWithQuotes, requestedInterval)
-      balanceTrend              = plays.balanceTrend(requestedInterval, BUSD, quotes)
-      referenceInterval         = TimeInterval(timeIntervalForComparison.end.minusDays(refineV.unsafeFrom(requestedInterval.dayCount.value)), timeIntervalForComparison.end)
-      referenceBalanceTrend     = referencePlays.balanceTrend(referenceInterval, BUSD, referenceQuotes)
-      netReturnTrend            = plays.netReturn(requestedInterval, BUSD, quotes)
-      referenceNetReturnTrend   = referencePlays.netReturn(referenceInterval, BUSD, referenceQuotes)
+      distinctValues = new PlaysDistinctValues(playsWithQuotes, requestedInterval)
+      balanceTrend   = plays.balanceTrend(requestedInterval, BUSD, quotes)
+      referenceInterval = TimeInterval(
+        timeIntervalForComparison.end.minusDays(refineV.unsafeFrom(requestedInterval.dayCount.value)),
+        timeIntervalForComparison.end
+      )
+      referenceBalanceTrend   = referencePlays.balanceTrend(referenceInterval, BUSD, referenceQuotes)
+      netReturnTrend          = plays.netReturn(requestedInterval, BUSD, quotes)
+      referenceNetReturnTrend = referencePlays.netReturn(referenceInterval, BUSD, referenceQuotes)
     } yield PlaysOverview(
       distinctValues,
       balanceTrend,
@@ -57,6 +64,48 @@ final case class LiveStatsService(
       netReturnTrend,
       netReturnTrend.performance(referenceNetReturnTrend)
     )
+
+  override def netReturnDistributionByDay(
+    wallet: Wallet,
+    interval: TimeInterval
+  ): IO[StatsError, NetReturnDistributionByDay] =
+    for {
+      filter <- PlayFilter(Int.MaxValue, interval).toZIO.mapError(InvalidPortfolioError)
+      plays  <- marketPlaysService.getPlays(wallet, filter, withQuotes = false).mapError(statsErrorMapper)
+      quotes <- fetchQuotes(plays, interval)
+    } yield dailyContribution(plays, interval, quotes, BUSD)
+
+  private[portfolio] def dailyContribution(
+    plays: MarketPlays,
+    interval: TimeInterval,
+    quotes: PriceQuotes,
+    targetCurrency: Currency
+  ): NetReturnDistributionByDay = {
+    val netReturnValues = plays.closedPositions
+      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))) //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
+      .map(p => p.closedAt.get.atBeginningOfDay() -> p)
+      .groupBy(_._1)
+      .map {
+        case (day, list) =>
+          val dailyPositions = list.map(_._2)
+          val dailyTradeData = DailyTradeData(
+            MarketPlays(dailyPositions)
+              .netReturn(TimeInterval(day.atBeginningOfDay(), day.atEndOfDay()), targetCurrency, quotes)
+              .latestValue
+              .fungibleData
+              .amount,
+            refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size)
+          )
+          refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
+      }
+
+    interval.days()
+      .map { day =>
+        val dayFormat = refineV[DayPredicate].unsafeFrom(DayFormatter.format(day))
+        dayFormat -> netReturnValues.getOrElse(dayFormat, DailyTradeData(BigDecimal(0), refineV[TradeCountPredicate].unsafeFrom(0)))
+      }
+      .toMap
+  }
 
   /**
    * Creates a new timestamp to be used for retrieving positions that will be used for performance generation.

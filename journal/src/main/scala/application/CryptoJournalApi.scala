@@ -4,17 +4,19 @@ package application
 import domain.account.RequestContext
 import domain.market.error.MarketError
 import domain.market.MarketService
-import domain.model.{Ohlcv, PlayId, WalletAddress}
+import domain.model.{ Ohlcv, PlayId, WalletAddress }
 import domain.portfolio.error.StatsError
-import domain.portfolio.{PlaysOverview, StatsService}
+import domain.portfolio.{ PlaysOverview, StatsService }
 import domain.position._
 import domain.position.error.MarketPlayError
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
-import domain.wallet.{Wallet, WalletService}
-import vo.filter.{KpiFilter, PlayFilter}
+import domain.wallet.{ Wallet, WalletService }
+import vo.filter.{ KpiFilter, PlayFilter }
 
-import zio.{Has, ZIO}
+import io.softwarechain.cryptojournal.domain.portfolio.model.NetReturnDistributionByDay
+import io.softwarechain.cryptojournal.vo.TimeInterval
+import zio.{ Has, ZIO }
 
 object CryptoJournalApi {
   def getLatestPlays(
@@ -61,6 +63,15 @@ object CryptoJournalApi {
       userId       <- RequestContext.userId
       portfolioKpi <- ZIO.serviceWith[StatsService](_.playsOverview(Wallet(userId, address))(kpiFilter))
     } yield portfolioKpi
+
+  def getMonthlyNetReturnDistribution(
+    address: WalletAddress,
+    interval: TimeInterval
+  ): ZIO[Has[StatsService] with Has[RequestContext], StatsError, NetReturnDistributionByDay] =
+    for {
+      userId       <- RequestContext.userId
+      distribution <- ZIO.serviceWith[StatsService](_.netReturnDistributionByDay(Wallet(userId, address), interval))
+    } yield distribution
 
   def addWallet(address: WalletAddress): ZIO[Has[WalletService] with Has[RequestContext], WalletError, Unit] =
     for {

@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.position
 
 import domain.blockchain.error._
-import domain.blockchain.{BlockchainRepo, Transaction}
+import domain.blockchain.{ BlockchainRepo, Transaction }
 import domain.model._
 import domain.model.date.MinuteUnit
 import domain.position.MarketPlayService.MarketPlaysOps
@@ -11,17 +11,17 @@ import domain.position.error._
 import domain.pricequote._
 import domain.pricequote.error.PriceQuoteError
 import domain.wallet.Wallet
-import util.{InstantOps, InstantsOps, ListOps, ListOptionOps, MarketPlaysListOps}
+import util.{ InstantOps, InstantsOps, ListOps, ListOptionOps, MarketPlaysListOps }
 import vo.filter.PlayFilter
-import vo.{CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval}
+import vo.{ CurrencyPairTimestamp, CurrencyPairTimestamps, TimeInterval }
 
 import eu.timepit.refined.refineMV
 import eu.timepit.refined.types.numeric.PosInt
-import zio.cache.{Cache, Lookup}
+import zio.cache.{ Cache, Lookup }
 import zio.duration.durationInt
-import zio.logging.{Logger, Logging}
+import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
-import zio.{Has, IO, UIO, URLayer, ZIO, ZLayer}
+import zio.{ Has, IO, UIO, URLayer, ZIO, ZLayer }
 
 import java.time.Instant
 
@@ -89,16 +89,19 @@ final case class LiveMarketPlayService(
   logger: Logger[String]
 ) extends MarketPlayService {
 
-
-  override def getPlays(userWallet: Wallet, playFilter: PlayFilter, withQuotes: Boolean = true): IO[MarketPlayError, MarketPlays] =
+  override def getPlays(
+    userWallet: Wallet,
+    playFilter: PlayFilter,
+    withQuotes: Boolean = true
+  ): IO[MarketPlayError, MarketPlays] =
     (for {
-      marketPlays    <- positionRepo.getPlays(userWallet.address, playFilter).flatMap { plays =>
-        if(withQuotes) {
-          enrichPlays(plays)
-        } else {
-          UIO(plays)
-        }
-      }
+      marketPlays <- positionRepo.getPlays(userWallet.address, playFilter).flatMap { plays =>
+                      if (withQuotes) {
+                        enrichPlays(plays)
+                      } else {
+                        UIO(plays)
+                      }
+                    }
       journalEntries <- journalingRepo.getEntries(userWallet.userId, marketPlays.map(_.id).values)
     } yield MarketPlays(withJournalEntries(marketPlays, journalEntries)))
       .orElseFail(MarketPlaysFetchError(s"Plays fetch error ${userWallet.address}"))
@@ -125,9 +128,8 @@ final case class LiveMarketPlayService(
     }
   }
 
-  override def getPosition(playId: PlayId): IO[MarketPlayError, Position] = {
+  override def getPosition(playId: PlayId): IO[MarketPlayError, Position] =
     positionRepo.getPosition(playId).map(_.position)
-  }
 
   override def getPositionDetails(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] =
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
@@ -197,11 +199,11 @@ final case class LiveMarketPlayService(
     @inline
     def handlePlayImport(marketPlays: MarketPlays): IO[MarketPlayError, Unit] =
       for {
-        _ <- positionRepo.save(userWallet.address, marketPlays.plays)
-        _ <- saveCoinToDexCoinQuotes(marketPlays.quotesTimestamps)
+        _             <- positionRepo.save(userWallet.address, marketPlays.plays)
+        _             <- saveCoinToDexCoinQuotes(marketPlays.quotesTimestamps)
         allTimestamps = marketPlays.quotesTimestamps.flatMap(_.timestamps)
-        _ <- saveDexCoinToBusdQuotes(allTimestamps)
-        _ <- logger.info(s"Data import complete for ${userWallet.address.value}")
+        _             <- saveDexCoinToBusdQuotes(allTimestamps)
+        _             <- logger.info(s"Data import complete for ${userWallet.address.value}")
       } yield ()
 
     @inline
@@ -209,9 +211,11 @@ final case class LiveMarketPlayService(
       val requestData = data.flatMap { currenciesAndTimestamps =>
         currenciesAndTimestamps.timestamps.distributionByHour.keySet.map(hour => currenciesAndTimestamps.pair -> hour)
       }
-      ZIO.foreachParN_(4)(requestData) {
-        case (pair, hour) => priceQuoteService.addQuote(pair, hour)
-      }.ignore //TODO Handle failure of price_quotes fetching&saving.
+      ZIO
+        .foreachParN_(4)(requestData) {
+          case (pair, hour) => priceQuoteService.addQuote(pair, hour)
+        }
+        .ignore //TODO Handle failure of price_quotes fetching&saving.
     }
 
     @inline
@@ -226,9 +230,11 @@ final case class LiveMarketPlayService(
           CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
         )
       )
-      ZIO.foreachParN_(4)(timestamps.distributionByHour.keySet.map(hour => pair -> hour)) {
-        case (pair, hour) => priceQuoteService.addQuote(pair, hour)
-      }.ignore //TODO Handle failure of price_quotes fetching&saving.
+      ZIO
+        .foreachParN_(4)(timestamps.distributionByHour.keySet.map(hour => pair -> hour)) {
+          case (pair, hour) => priceQuoteService.addQuote(pair, hour)
+        }
+        .ignore //TODO Handle failure of price_quotes fetching&saving.
     }
 
     for {
@@ -252,15 +258,20 @@ final case class LiveMarketPlayService(
 object LiveMarketPlayService {
   val DefaultMinuteOffset: PosInt = refineMV(10)
 
-  def intervalWithDefaultOffset(timestamp: Instant): TimeInterval = {
+  def intervalWithDefaultOffset(timestamp: Instant): TimeInterval =
     TimeInterval(timestamp.minusMinutes(DefaultMinuteOffset), timestamp.plusMinutes(DefaultMinuteOffset))
-  }
 
   val playData: MarketPlay => ZIO[Has[PriceQuoteService], MarketPlayError, MarketPlayData] = play => {
     ZIO.serviceWith[PriceQuoteService] { service =>
-
       val (intervals, currency) = play match {
-        case p: Position => (List(intervalWithDefaultOffset(p.timeInterval.start)) ++ ListOps.cond(p.isClosed, () => intervalWithDefaultOffset(p.timeInterval.end)), p.currency)
+        case p: Position =>
+          (
+            List(intervalWithDefaultOffset(p.timeInterval.start)) ++ ListOps.cond(
+              p.isClosed,
+              () => intervalWithDefaultOffset(p.timeInterval.end)
+            ),
+            p.currency
+          )
         case t: TopUp    => (List(intervalWithDefaultOffset(t.timestamp)), Some(WBNB))
         case w: Withdraw => (List(intervalWithDefaultOffset(w.timestamp)), Some(WBNB))
       }
@@ -273,7 +284,7 @@ object LiveMarketPlayService {
                    for {
                      listOfQuotes <- if (c != WBNB) {
                                       service.getQuotes(currencyPair, intervals.head, MinuteUnit).flatMap { quotes =>
-                                        if(intervals.tail.nonEmpty) {
+                                        if (intervals.tail.nonEmpty) {
                                           service.getQuotes(currencyPair, intervals.last, MinuteUnit).map { quotesEnd =>
                                             quotes.merge(quotesEnd)
                                           }
@@ -285,14 +296,14 @@ object LiveMarketPlayService {
                                       UIO(PriceQuotes.empty())
                                     }
                      bnbQuotes <- service.getQuotes(bnbBusdPair, intervals.head, MinuteUnit).flatMap { quotes =>
-                       if(intervals.tail.nonEmpty) {
-                         service.getQuotes(bnbBusdPair, intervals.last, MinuteUnit).map { quotesEnd =>
-                           quotes.merge(quotesEnd)
-                         }
-                       } else {
-                         UIO(quotes)
-                       }
-                     }
+                                   if (intervals.tail.nonEmpty) {
+                                     service.getQuotes(bnbBusdPair, intervals.last, MinuteUnit).map { quotesEnd =>
+                                       quotes.merge(quotesEnd)
+                                     }
+                                   } else {
+                                     UIO(quotes)
+                                   }
+                                 }
                    } yield PriceQuotes.empty().merge(listOfQuotes).merge(bnbQuotes)
                  }
         data = play match {
@@ -318,7 +329,8 @@ object LiveMarketPlayService {
     }
   }
 
-  lazy val cacheLayer: ZLayer[Has[PriceQuoteService], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
+  lazy val cacheLayer
+    : ZLayer[Has[PriceQuoteService], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
     Cache.make(10000, 1.day, lookup = Lookup(playData)).toLayer
 
   lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteService] with Has[BlockchainRepo] with Has[

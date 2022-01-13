@@ -2,17 +2,17 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.PositionHelper
-import domain.model.date.{DayUnit, HourUnit, MinuteUnit}
-import domain.model.{CurrencyPredicate, TransactionHashPredicate, WalletAddressPredicate}
+import domain.model.date.{ DayUnit, HourUnit, MinuteUnit }
+import domain.model.{ CurrencyPredicate, TransactionHashPredicate, WalletAddressPredicate }
 import domain.pricequote.CurrencyPair
-import infrastructure.api.plays.dto.{fromPositionEntry, fromPriceQuote}
+import infrastructure.api.plays.dto.{ fromPositionEntry, fromPriceQuote }
 import vo.TimeInterval
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
-import zio.{Chunk, ZIO}
+import zio.{ Chunk, ZIO }
 
 import java.time.Instant
 
@@ -41,20 +41,22 @@ object open {
                      )
       } yield response
 
-
-
     case req @ Method.GET -> Root / "test" / "quotes" =>
       val params = req.url.queryParams
-      val pair = CurrencyPair(refineV[CurrencyPredicate](params("base").head).right.get, refineV[CurrencyPredicate](params("quote").head).right.get)
+      val pair = CurrencyPair(
+        refineV[CurrencyPredicate](params("base").head).right.get,
+        refineV[CurrencyPredicate](params("quote").head).right.get
+      )
       val interval = TimeInterval(Instant.parse(params("start").head), Instant.parse(params("end").head))
       val unit = params("unit").head match {
-        case "day" => DayUnit
-        case "hour" => HourUnit
+        case "day"    => DayUnit
+        case "hour"   => HourUnit
         case "minute" => MinuteUnit
-        case _ => DayUnit
+        case _        => DayUnit
       }
 
-      PositionHelper.quotesTest(pair, interval, unit)
+      PositionHelper
+        .quotesTest(pair, interval, unit)
         .fold(
           _ => Response.status(Status.INTERNAL_SERVER_ERROR), {
             case Nil => Response.http(status = Status.NO_CONTENT)

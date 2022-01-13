@@ -7,7 +7,9 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 
 object model {
-//  final case class DailyTradeData(netReturn: NetReturn, tradeCount: TradeCount)
+  final case class DailyTradeData(netReturn: BigDecimal, tradeCount: TradeCount)
+
+  type NetReturnDistributionByDay = Map[DayFormat, DailyTradeData]
 
 //  type DayPredicate = MatchesRegex[W.`"""^\d{4,5}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"""`.T]
   type DayPredicate = NonEmpty

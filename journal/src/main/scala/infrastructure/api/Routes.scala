@@ -6,8 +6,8 @@ import domain.model._
 import com.auth0.jwk.UrlJwkProvider
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.string.NonEmptyString
-import pdi.jwt.{Jwt, JwtAlgorithm}
-import zhttp.http.{Header, _}
+import pdi.jwt.{ Jwt, JwtAlgorithm }
+import zhttp.http.{ Header, _ }
 import zio._
 import zio.json._
 
@@ -39,7 +39,10 @@ object Routes {
       authenticate(forbidden, userId => contextId(badRequest, cId => portfolio.routes(userId, cId))) +++
       authenticate(forbidden, userId => contextId(badRequest, _ => market.routes(userId))) +++
       authenticate(forbidden, userId => contextId(badRequest, _ => setups.routes(userId))),
-    config = CORSConfig(anyOrigin = true, exposedHeaders = Some(Set("X-CoinLogger-ContextId", "X-CoinLogger-ContextId".toLowerCase)))
+    config = CORSConfig(
+      anyOrigin = true,
+      exposedHeaders = Some(Set("X-CoinLogger-ContextId", "X-CoinLogger-ContextId".toLowerCase))
+    )
   )
 
   private def health = HttpApp.collect {
@@ -107,11 +110,10 @@ object Routes {
     aud: String,
     nonce: String
   )
-  import zio.json.{DeriveJsonCodec, JsonCodec}
+  import zio.json.{ DeriveJsonCodec, JsonCodec }
   object DecodedJwtClaims {
     implicit val jwtClaimsCodec: JsonCodec[DecodedJwtClaims] = DeriveJsonCodec.gen[DecodedJwtClaims]
   }
-
 
   //TODO Maybe add a throwable for easier debugging.
   final case class ApiError(`type`: String, details: Option[String])

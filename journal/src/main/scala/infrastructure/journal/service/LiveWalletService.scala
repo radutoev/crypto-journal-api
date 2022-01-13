@@ -28,8 +28,10 @@ final case class LiveWalletService(
         case false =>
           (
             //TODO Add back the sync call after deploying the sync module
-            walletRepo.addWallet(address) //*> syncFacade.addWallet(address).orElseFail(UnableToAddWallet(address))
-          ).zipParRight(
+            walletRepo
+              .addWallet(address) //*> syncFacade.addWallet(address).orElseFail(UnableToAddWallet(address))
+            )
+            .zipParRight(
               positionService
                 .importPlays(userWallet)
                 .tapError(_ => logger.error(s"Unable to import positions for $address"))

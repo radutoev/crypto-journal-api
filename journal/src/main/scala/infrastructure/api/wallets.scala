@@ -2,9 +2,9 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ContextId, UserId, WalletAddressPredicate}
+import domain.model.{ ContextId, UserId, WalletAddressPredicate }
 import domain.wallet.error._
-import domain.wallet.{WalletService, Wallet => CJWallet}
+import domain.wallet.{ WalletService, Wallet => CJWallet }
 import infrastructure.api.Routes.ApiError
 import infrastructure.api.wallets.dto.Wallet.fromWallet
 import infrastructure.auth.JwtRequestContext
@@ -13,7 +13,7 @@ import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
-import zio.{Chunk, Has, ZIO}
+import zio.{ Chunk, Has, ZIO }
 
 object wallets {
   def routes(userId: UserId, contextId: ContextId) = HttpApp.collectM {

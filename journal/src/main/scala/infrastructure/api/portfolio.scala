@@ -2,21 +2,22 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate}
-import domain.portfolio.performance.{Performance => CJPerformance}
-import domain.portfolio.{PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
-import infrastructure.api.common.dto.{FungibleData, _}
-import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps}
+import domain.model.{ ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate }
+import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData }
+import domain.portfolio.performance.{ Performance => CJPerformance }
+import domain.portfolio.{ PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues }
+import infrastructure.api.common.dto.{ FungibleData, _ }
+import infrastructure.api.common.{ CountQParamOps, IntervalQParamsOps }
 import infrastructure.auth.JwtRequestContext
-import vo.filter.{Count, KpiFilter}
-import vo.{TimeInterval, PeriodDistribution => CJPeriodDistribution}
+import vo.filter.{ Count, KpiFilter }
+import vo.{ TimeInterval, PeriodDistribution => CJPeriodDistribution }
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
 import zio.prelude.Validation
-import zio.{Has, ZIO}
+import zio.{ Has, ZIO }
 
 import java.time.Duration
 
@@ -68,19 +69,17 @@ object portfolio {
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
                     .orElseFail(BadRequest("Invalid address"))
 
-        kpiFilter <- req.url.kpiFilter().toZIO.mapError(reason => BadRequest(reason))
+        timeFilter <- req.url.intervalFilter().toZIO.mapError(reason => BadRequest(reason))
 
         response <- CryptoJournalApi
-                     .getPlaysOverview(address)(kpiFilter)
+                     .getMonthlyNetReturnDistribution(address, timeFilter)
                      .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
-                       playsOverview =>
-                         Response.status(Status.NOT_IMPLEMENTED)
-                         //TODO Re-implement this.
-//                         Response.jsonString(playsOverview.distinctValues.dailyContribution.map {
-//                           case (day, data) => day.value -> new DailyTradeData(BigDecimal(0), 0)
-//                         }.toJson)
+                       distribution =>
+                         Response.jsonString(distribution.map {
+                           case (day, data) => day.value -> DailyTradeData(data)
+                         }.toJson)
                      )
       } yield response
 
@@ -225,8 +224,7 @@ object portfolio {
     def asHumanReadableForm(d: Duration): String =
       d.toString.substring(2).replaceAll("(\\d[HMS])(?!$)", "$1 ").toLowerCase()
 
-    def apply(distinctValues: CJPlaysDistinctValues,
-              latestNetReturn: FungibleDataTimePoint): KpiDistinctValues =
+    def apply(distinctValues: CJPlaysDistinctValues, latestNetReturn: FungibleDataTimePoint): KpiDistinctValues =
       new KpiDistinctValues(
         latestNetReturn.fungibleData.amount,
         distinctValues.biggestWin.map(_.asJson),
@@ -256,7 +254,8 @@ object portfolio {
     def apply(playsOverview: PlaysOverview, count: Count): TradeSummary =
       new TradeSummary(
         wins = playsOverview.distinctValues.coinWins(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3)),
-        loses = playsOverview.distinctValues.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
+        loses =
+          playsOverview.distinctValues.coinLoses(count).map(t => CoinToFungiblePair(t._1.value, t._2.asJson, t._3))
       )
 
     def apply(playsOverview: PlaysOverview): TradeSummary =
@@ -337,7 +336,7 @@ object portfolio {
   object DailyTradeData {
     implicit val dailyTradeDataCodec: JsonCodec[DailyTradeData] = DeriveJsonCodec.gen[DailyTradeData]
 
-    /*def apply(data: CJDailyTradeData): DailyTradeData =
-      new DailyTradeData(data.netReturn.value.amount, data.tradeCount.value)*/
+    def apply(data: CJDailyTradeData): DailyTradeData =
+      new DailyTradeData(data.netReturn, data.tradeCount.value)
   }
 }

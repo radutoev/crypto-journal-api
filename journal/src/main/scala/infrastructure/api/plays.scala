@@ -6,13 +6,32 @@ import domain.model._
 import domain.position
 import domain.position.error._
 import domain.position.model.ScamStrategy
-import domain.position.{JournalingService, MarketPlayService, MarketPlays, JournalEntry => CJJournalEntry, MarketPlay => CJMarketPlay, Position => CJPosition, PositionDetails => CJPositionDetails, PositionEntry => CJPositionEntry, PositionJournalEntry => CJPositionJournalEntry, TopUp => CJTopUp, Withdraw => CJWithdraw}
-import domain.pricequote.{PriceQuote => CJPriceQuote}
+import domain.position.{
+  JournalingService,
+  MarketPlayService,
+  MarketPlays,
+  JournalEntry => CJJournalEntry,
+  MarketPlay => CJMarketPlay,
+  Position => CJPosition,
+  PositionDetails => CJPositionDetails,
+  PositionEntry => CJPositionEntry,
+  PositionJournalEntry => CJPositionJournalEntry,
+  TopUp => CJTopUp,
+  Withdraw => CJWithdraw
+}
+import domain.pricequote.{ PriceQuote => CJPriceQuote }
 import infrastructure.api.Routes.ApiError
 import infrastructure.api.common.dto.FungibleData
 import infrastructure.api.common.dto._
-import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps, QParamsOps}
-import infrastructure.api.plays.dto.{JournalEntry, PositionJournalEntry, fromMarketPlay, fromPosition, fromPositionDetails, positionDetailsCodec}
+import infrastructure.api.common.{ CountQParamOps, IntervalQParamsOps, QParamsOps }
+import infrastructure.api.plays.dto.{
+  fromMarketPlay,
+  fromPosition,
+  fromPositionDetails,
+  positionDetailsCodec,
+  JournalEntry,
+  PositionJournalEntry
+}
 import infrastructure.auth.JwtRequestContext
 import util.ListEitherOps
 import vo.filter.PlayFilter
@@ -22,7 +41,7 @@ import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
 import zio.prelude.Validation
-import zio.{Chunk, Has, ZIO}
+import zio.{ Chunk, Has, ZIO }
 
 import java.time.Instant
 
@@ -67,9 +86,8 @@ object plays {
                      .provideSomeLayer[Has[MarketPlayService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        marketPlayErrorToHttpResponse,
-                       positionDetails => {
+                       positionDetails =>
                          Response.jsonString(fromPositionDetails(positionDetails).toJson(positionDetailsCodec))
-                       }
                      )
       } yield response
 

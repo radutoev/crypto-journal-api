@@ -2,20 +2,22 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.model.fungible.{FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps}
-import domain.portfolio.PlaysDistinctValues.PortfolioKpiOps
-import domain.position.{MarketPlays, Position}
-import util.{InstantOps, ListOptionOps}
+import domain.model.fungible.{ FungibleDataKeyOps, FungibleDataMapOps, FungibleDataOps }
+import domain.portfolio.PlaysDistinctValues.{ DayFormatter, PortfolioKpiOps }
+import domain.position.{ MarketPlays, Position }
+import util.{ InstantOps, ListOptionOps }
 import vo.filter.Count
-import vo.{PeriodDistribution, TimeInterval}
+import vo.{ PeriodDistribution, TimeInterval }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.NonNegative
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.portfolio.model.{ DayFormat, DayPredicate }
 import io.softwarechain.cryptojournal.domain.pricequote.PriceQuotes
+import io.softwarechain.cryptojournal.infrastructure.api.portfolio.DailyTradeData
 
 import java.time.format.DateTimeFormatter
-import java.time.{DayOfWeek, Duration, Month, ZoneId}
+import java.time.{ DayOfWeek, Duration, Month, ZoneId }
 
 /**
  * @param marketPlays source to compute the KPIs for
@@ -246,23 +248,6 @@ final case class PlaysDistinctValues(
         tag -> (fungibleData, positionToReturnPercentage(tag))
     }.toMap
   }
-
-  //TODO Re-implement this
-//  lazy val dailyContribution: Map[DayFormat, DailyTradeData] = {
-//    marketPlays.closedPositions
-//      .filter(p => interval.contains(p.closedAt.get))
-//      .map(p => p.closedAt.get.atBeginningOfDay() -> p)
-//      .groupBy(_._1)
-//      .map {
-//        case (day, list) =>
-//          val dailyPositions = list.map(_._2)
-//          val dailyTradeData = DailyTradeData(
-//            NetReturn(MarketPlays(dailyPositions)),
-//            refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size)
-//          )
-//          refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
-//      }
-//  }
 }
 
 object PlaysDistinctValues {
