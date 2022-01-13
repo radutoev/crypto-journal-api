@@ -34,7 +34,7 @@ final case class PlaysDistinctValues(
     if (wins.nonEmpty) {
       val winCount = wins.size
       val total    = marketPlays.closedPositions.size
-      winCount / total
+      winCount.toFloat / total.toFloat
     } else {
       0f
     }
