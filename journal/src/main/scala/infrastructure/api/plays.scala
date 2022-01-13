@@ -68,9 +68,6 @@ object plays {
                      .fold(
                        marketPlayErrorToHttpResponse,
                        positionDetails => {
-                         val x = fromPositionDetails(positionDetails)
-                         val y = x.toJson(positionDetailsCodec)
-                         println(y)
                          Response.jsonString(fromPositionDetails(positionDetails).toJson(positionDetailsCodec))
                        }
                      )
