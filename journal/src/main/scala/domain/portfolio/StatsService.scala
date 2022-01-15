@@ -180,7 +180,7 @@ final case class LiveStatsService(
                                     quotes: PriceQuotes,
                                     grouping: PlaysGrouping): Map[BinName, BinData] = {
     marketPlays.closedPositions
-      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes))))
+      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))) //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
       .map(p => grouping.bin(p) -> p)
       .collect {
         case (Some(names), position) => names.map(binName => binName -> position)
