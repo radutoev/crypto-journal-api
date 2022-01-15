@@ -74,9 +74,15 @@ object portfolio {
           .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
           .fold(
             _    => Response.status(Status.INTERNAL_SERVER_ERROR),
-            data => Response.jsonString(
-                data.map { case (binName, binData) => binName.value -> BinData(binData) }.toJson
-              )
+            data => {
+              if(data.nonEmpty) {
+                Response.jsonString(
+                  data.map { case (binName, binData) => binName.value -> BinData(binData) }.toJson
+                )
+              } else {
+                Response.status(Status.NO_CONTENT)
+              }
+            }
           )
       } yield  response
 
