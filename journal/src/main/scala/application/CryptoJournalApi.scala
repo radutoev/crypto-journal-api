@@ -57,11 +57,12 @@ object CryptoJournalApi {
     ZIO.serviceWith[MarketPlayService](_.getPreviousPositions(positionId))
 
   def getPlaysOverview(
-    address: WalletAddress
-  )(kpiFilter: KpiFilter): ZIO[Has[StatsService] with Has[RequestContext], StatsError, PlaysOverview] =
+    address: WalletAddress,
+    kpiFilter: KpiFilter
+  ): ZIO[Has[StatsService] with Has[RequestContext], StatsError, PlaysOverview] =
     for {
       userId       <- RequestContext.userId
-      portfolioKpi <- ZIO.serviceWith[StatsService](_.playsOverview(Wallet(userId, address))(kpiFilter))
+      portfolioKpi <- ZIO.serviceWith[StatsService](_.playsOverview(Wallet(userId, address), kpiFilter))
     } yield portfolioKpi
 
   def aggregatePlays(address: WalletAddress, interval: TimeInterval, grouping: PlaysGrouping): ZIO[Has[StatsService] with Has[RequestContext], StatsError, Map[BinName, BinData]] =

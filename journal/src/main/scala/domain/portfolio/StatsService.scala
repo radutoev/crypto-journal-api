@@ -20,7 +20,7 @@ import zio.logging.{Logger, Logging}
 import zio.{Has, IO, UIO, URLayer}
 
 trait StatsService {
-  def playsOverview(userWallet: Wallet)(kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
+  def playsOverview(userWallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
 
   def netReturnDistributionByDay(wallet: Wallet, interval: TimeInterval): IO[StatsError, NetReturnDistributionByDay]
 
@@ -33,7 +33,7 @@ final case class LiveStatsService(
   clock: Clock.Service,
   logger: Logger[String]
 ) extends StatsService {
-  override def playsOverview(wallet: Wallet)(kpiFilter: KpiFilter): IO[StatsError, PlaysOverview] =
+  override def playsOverview(wallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, PlaysOverview] =
     for {
       _                         <- logger.info(s"Fetching KPIs for wallet ${wallet.address}")
       now                       <- clock.instant
