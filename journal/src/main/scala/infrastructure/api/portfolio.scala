@@ -2,22 +2,22 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate }
-import domain.portfolio.model.{ DailyTradeData => CJDailyTradeData }
-import domain.portfolio.performance.{ Performance => CJPerformance }
-import domain.portfolio.{ PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues }
-import infrastructure.api.common.dto.{ FungibleData, _ }
-import infrastructure.api.common.{ CountQParamOps, IntervalQParamsOps }
+import domain.model.{ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate}
+import domain.portfolio.model.{BinData => CJBinData, PlaysGrouping, DailyTradeData => CJDailyTradeData}
+import domain.portfolio.performance.{Performance => CJPerformance}
+import domain.portfolio.{PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
+import infrastructure.api.common.dto.{FungibleData, _}
+import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps}
 import infrastructure.auth.JwtRequestContext
-import vo.filter.{ Count, KpiFilter }
-import vo.{ TimeInterval, PeriodDistribution => CJPeriodDistribution }
+import vo.filter.{Count, KpiFilter}
+import vo.{TimeInterval, PeriodDistribution => CJPeriodDistribution}
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
 import zio.prelude.Validation
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 import java.time.Duration
 
@@ -63,6 +63,25 @@ object portfolio {
                      )
       } yield response
 
+    case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "plays-distribution" =>
+      for {
+        address <- ZIO
+          .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
+          .orElseFail(BadRequest("Invalid address"))
+        timeFilter <- req.url.intervalFilter().toZIO.mapError(reason => BadRequest(reason))
+        grouping   <- req.url.playsGrouping().toZIO.mapError(reason => BadRequest(reason))
+        response   <- CryptoJournalApi.aggregatePlays(address, timeFilter, grouping)
+          .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
+          .fold(
+            _    => Response.status(Status.INTERNAL_SERVER_ERROR),
+            data => Response.jsonString(
+                data.map { case (binName, binData) => binName.value -> BinData(binData) }.toJson
+              )
+          )
+      } yield  response
+
+
+    //TODO Rename this to calendar view or something, so as not to confuse the generalized version from plays-distribution.
     case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "daily-distribution" =>
       for {
         address <- ZIO
@@ -132,6 +151,14 @@ object portfolio {
         case (maybeCount, maybeInterval) =>
           KpiFilter(maybeCount, maybeInterval)
       }
+
+    def playsGrouping(): Validation[String, PlaysGrouping] = {
+      val rawGrouping = url.queryParams
+        .get("grouping")
+        .flatMap(_.headOption)
+        .getOrElse("hour") //default to hour,
+      Validation.fromEither(PlaysGrouping.fromString(rawGrouping))
+    }
   }
 
   final case class PortfolioKpi(
@@ -338,5 +365,22 @@ object portfolio {
 
     def apply(data: CJDailyTradeData): DailyTradeData =
       new DailyTradeData(data.netReturn, data.tradeCount.value)
+  }
+
+  final case class BinData(tradeCount: Long, numberOfCoins: BigDecimal, winRate: BigDecimal, netReturn: FungibleData, fees: FungibleData)
+
+  object BinData {
+    implicit val binDataCodec: JsonCodec[BinData] = DeriveJsonCodec.gen[BinData]
+
+    def apply(data: CJBinData): BinData = {
+      new BinData(
+        tradeCount = data.tradeCount.value,
+        numberOfCoins = data.numberOfCoins,
+        winRate = data.winRate,
+        netReturn = FungibleData(data.netReturn),
+        //    returnPercentage: Percentage,
+        fees = FungibleData(data.fees)
+      )
+    }
   }
 }

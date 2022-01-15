@@ -1,28 +1,30 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.date.{ DayUnit, MinuteUnit }
-import domain.model.{ BUSD, Currency, TradeCountPredicate, WBNB }
+import domain.model.date.{DayUnit, MinuteUnit}
+import domain.model.{BUSD, Currency, TradeCountPredicate, WBNB}
 import domain.portfolio.PlaysDistinctValues.DayFormatter
-import domain.portfolio.error.{ InvalidPortfolioError, PortfolioKpiGenerationError, StatsError }
-import domain.portfolio.model.{ DailyTradeData, DayFormat, DayPredicate, NetReturnDistributionByDay }
-import domain.position.error.MarketPlayError
+import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError}
+import domain.portfolio.model._
 import domain.position._
-import domain.pricequote.{ CurrencyPair, PriceQuoteService, PriceQuotes }
+import domain.position.error.MarketPlayError
+import domain.pricequote.{CurrencyPair, PriceQuoteService, PriceQuotes}
 import domain.wallet.Wallet
-import util.{ BeginningOfCrypto, InstantOps }
+import util.{BeginningOfCrypto, InstantOps}
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PlayFilter }
+import vo.filter.{KpiFilter, PlayFilter}
 
 import eu.timepit.refined.refineV
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, UIO, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, UIO, URLayer}
 
 trait StatsService {
   def playsOverview(userWallet: Wallet)(kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
 
-  def netReturnDistributionByDay(wallet: Wallet, interval: TimeInterval): IO[StatsError, Map[DayFormat, DailyTradeData]]
+  def netReturnDistributionByDay(wallet: Wallet, interval: TimeInterval): IO[StatsError, NetReturnDistributionByDay]
+
+  def playsDistribution(wallet: Wallet, interval: TimeInterval, grouping: PlaysGrouping): IO[StatsError, Map[BinName, BinData]]
 }
 
 final case class LiveStatsService(
@@ -75,37 +77,12 @@ final case class LiveStatsService(
       quotes <- fetchQuotes(plays, interval)
     } yield dailyContribution(plays, interval, quotes, BUSD)
 
-  private[portfolio] def dailyContribution(
-    plays: MarketPlays,
-    interval: TimeInterval,
-    quotes: PriceQuotes,
-    targetCurrency: Currency
-  ): NetReturnDistributionByDay = {
-    val netReturnValues = plays.closedPositions
-      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))) //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
-      .map(p => p.closedAt.get.atBeginningOfDay() -> p)
-      .groupBy(_._1)
-      .map {
-        case (day, list) =>
-          val dailyPositions = list.map(_._2)
-          val dailyTradeData = DailyTradeData(
-            MarketPlays(dailyPositions)
-              .netReturn(TimeInterval(day.atBeginningOfDay(), day.atEndOfDay()), targetCurrency, quotes)
-              .latestValue
-              .fungibleData
-              .amount,
-            refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size)
-          )
-          refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
-      }
-
-    interval.days()
-      .map { day =>
-        val dayFormat = refineV[DayPredicate].unsafeFrom(DayFormatter.format(day))
-        dayFormat -> netReturnValues.getOrElse(dayFormat, DailyTradeData(BigDecimal(0), refineV[TradeCountPredicate].unsafeFrom(0)))
-      }
-      .toMap
-  }
+  override def playsDistribution(wallet: Wallet, interval: TimeInterval, grouping: PlaysGrouping): IO[StatsError, Map[BinName, BinData]] =
+    for {
+      filter <- PlayFilter(Int.MaxValue, interval).toZIO.mapError(InvalidPortfolioError)
+      plays  <- marketPlaysService.getPlays(wallet, filter, withQuotes = false).mapError(statsErrorMapper)
+      quotes <- fetchQuotes(plays, interval) //TODO this is daily, does it make sense to get by minute??
+    } yield groupPlays(plays, quotes, grouping)
 
   /**
    * Creates a new timestamp to be used for retrieving positions that will be used for performance generation.
@@ -152,7 +129,6 @@ final case class LiveStatsService(
   }
 
   /**
-   *
    * @param marketPlays
    * @param quotes
    * @return
@@ -163,6 +139,58 @@ final case class LiveStatsService(
       case t: TopUp    => t.copy(topUpDataGenerator = Some(PriceQuoteTopUpData(quotes)))
       case w: Withdraw => w.copy(withdrawDataGenerator = Some(PriceQuoteWithdrawData(quotes)))
     })
+
+  private[portfolio] def dailyContribution(
+    plays: MarketPlays,
+    interval: TimeInterval,
+    quotes: PriceQuotes,
+    targetCurrency: Currency
+  ): NetReturnDistributionByDay = {
+    val netReturnValues = plays.closedPositions
+      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))) //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
+      .map(p => p.closedAt.get.atBeginningOfDay() -> p)
+      .groupBy(_._1)
+      .map {
+        case (day, list) =>
+          val dailyPositions = list.map(_._2)
+          val dailyTradeData = DailyTradeData(
+            MarketPlays(dailyPositions)
+              .netReturn(TimeInterval(day.atBeginningOfDay(), day.atEndOfDay()), targetCurrency, quotes)
+              .latestValue
+              .fungibleData
+              .amount,
+            refineV[TradeCountPredicate].unsafeFrom(dailyPositions.size)
+          )
+          refineV[DayPredicate].unsafeFrom(DayFormatter.format(day)) -> dailyTradeData
+      }
+
+    interval
+      .days()
+      .map { day =>
+        val dayFormat = refineV[DayPredicate].unsafeFrom(DayFormatter.format(day))
+        dayFormat -> netReturnValues.getOrElse(
+          dayFormat,
+          DailyTradeData(BigDecimal(0), refineV[TradeCountPredicate].unsafeFrom(0))
+        )
+      }
+      .toMap
+  }
+
+  private[portfolio] def groupPlays(marketPlays: MarketPlays,
+                                    quotes: PriceQuotes,
+                                    grouping: PlaysGrouping): Map[BinName, BinData] = {
+    marketPlays.closedPositions
+      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes))))
+      .map(p => grouping.bin(p) -> p)
+      .collect {
+        case (Some(name), position) => name -> position
+      }
+      .groupBy(_._1)
+      .view
+      .mapValues(_.map(_._2))
+      .mapValues(items => BinData(MarketPlays(items), quotes))
+      .toMap
+  }
 
   private def statsErrorMapper(positionError: MarketPlayError): StatsError =
     PortfolioKpiGenerationError("Unable to generate KPIs")

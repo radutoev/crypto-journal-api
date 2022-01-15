@@ -2,21 +2,21 @@ package io.softwarechain.cryptojournal
 package application
 
 import domain.account.RequestContext
-import domain.market.error.MarketError
 import domain.market.MarketService
-import domain.model.{ Ohlcv, PlayId, WalletAddress }
+import domain.market.error.MarketError
+import domain.model.{Ohlcv, PlayId, WalletAddress}
 import domain.portfolio.error.StatsError
-import domain.portfolio.{ PlaysOverview, StatsService }
+import domain.portfolio.model.{BinData, BinName, NetReturnDistributionByDay, PlaysGrouping}
+import domain.portfolio.{PlaysOverview, StatsService}
 import domain.position._
 import domain.position.error.MarketPlayError
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
-import domain.wallet.{ Wallet, WalletService }
-import vo.filter.{ KpiFilter, PlayFilter }
+import domain.wallet.{Wallet, WalletService}
+import vo.TimeInterval
+import vo.filter.{KpiFilter, PlayFilter}
 
-import io.softwarechain.cryptojournal.domain.portfolio.model.NetReturnDistributionByDay
-import io.softwarechain.cryptojournal.vo.TimeInterval
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
 object CryptoJournalApi {
   def getLatestPlays(
@@ -63,6 +63,12 @@ object CryptoJournalApi {
       userId       <- RequestContext.userId
       portfolioKpi <- ZIO.serviceWith[StatsService](_.playsOverview(Wallet(userId, address))(kpiFilter))
     } yield portfolioKpi
+
+  def aggregatePlays(address: WalletAddress, interval: TimeInterval, grouping: PlaysGrouping): ZIO[Has[StatsService] with Has[RequestContext], StatsError, Map[BinName, BinData]] =
+    for {
+      userId  <- RequestContext.userId
+      data    <- ZIO.serviceWith[StatsService](_.playsDistribution(Wallet(userId, address), interval, grouping))
+    } yield data
 
   def getMonthlyNetReturnDistribution(
     address: WalletAddress,

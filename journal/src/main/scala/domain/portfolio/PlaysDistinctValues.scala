@@ -271,4 +271,10 @@ object PlaysDistinctValues {
         .sortBy(_._2)(Ordering[FungibleData].reverse)
     }
   }
+
+  def apply(marketPlays: MarketPlays, interval: TimeInterval): PlaysDistinctValues =
+    new PlaysDistinctValues(marketPlays, interval)
+
+  def apply(marketPlays: MarketPlays): PlaysDistinctValues =
+    new PlaysDistinctValues(marketPlays, marketPlays.interval.get)
 }
