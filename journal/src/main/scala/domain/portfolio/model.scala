@@ -2,12 +2,13 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.position.{MarketPlays, Position}
+import domain.position.{ MarketPlays, Position }
 import domain.pricequote.PriceQuotes
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.portfolio.model.Hourly.HourFormatter
 import io.softwarechain.cryptojournal.util.InstantOps
 
 import java.time.format.DateTimeFormatter
@@ -28,12 +29,12 @@ object model {
   }
 
   object PlaysGrouping {
-    def fromString(rawValue: String): Either[String, PlaysGrouping] = {
+    def fromString(rawValue: String): Either[String, PlaysGrouping] =
       rawValue.trim.toLowerCase match {
-        case "hour" => Right(Hourly)
-        case _      => Left(s"Unsupported value $rawValue")
+        case "hour"    => Right(Hourly)
+        case "weekday" => Right(Weekday)
+        case _         => Left(s"Unsupported value $rawValue")
       }
-    }
   }
 
   final case object Hourly extends PlaysGrouping {
@@ -42,6 +43,15 @@ object model {
 
     override def bin(position: Position): Option[BinName] =
       position.closedAt.map(closedAt => refineV[NonEmpty].unsafeFrom(HourFormatter.format(closedAt.toLocalDateTime())))
+  }
+
+  final case object Weekday extends PlaysGrouping {
+    private val WeekdayFormatter = DateTimeFormatter.ofPattern("EEE")
+
+    override def bin(position: Position): Option[BinName] =
+      position.closedAt.map(closedAt =>
+        refineV[NonEmpty].unsafeFrom(WeekdayFormatter.format(closedAt.toLocalDateTime()))
+      )
   }
 
   final case class BinData(
@@ -54,8 +64,7 @@ object model {
   )
 
   object BinData {
-    def apply(marketPlays: MarketPlays,
-              quotes: PriceQuotes): BinData = {
+    def apply(marketPlays: MarketPlays, quotes: PriceQuotes): BinData = {
       //TODO This is Option -> I need a way to ensure at type level the MarketPlays do have items. I don't think I can use a NonEmptyList
       // , because the empty MarketPlays case is not wrong in other places. Maybe I need a specialized type??
       val interval = marketPlays.interval.get
