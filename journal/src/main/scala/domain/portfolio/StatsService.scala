@@ -183,8 +183,9 @@ final case class LiveStatsService(
       .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes))))
       .map(p => grouping.bin(p) -> p)
       .collect {
-        case (Some(name), position) => name -> position
+        case (Some(names), position) => names.map(binName => binName -> position)
       }
+      .flatten
       .groupBy(_._1)
       .view
       .mapValues(_.map(_._2))

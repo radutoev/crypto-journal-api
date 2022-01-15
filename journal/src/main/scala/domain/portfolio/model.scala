@@ -4,13 +4,11 @@ package domain.portfolio
 import domain.model._
 import domain.position.{MarketPlays, Position}
 import domain.pricequote.PriceQuotes
+import util.InstantOps
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
-import io.softwarechain.cryptojournal.domain.portfolio.model.Hourly.HourFormatter
-import io.softwarechain.cryptojournal.domain.portfolio.model.Weekday.WeekdayFormatter
-import io.softwarechain.cryptojournal.util.InstantOps
 
 import java.time.format.DateTimeFormatter
 
@@ -23,10 +21,11 @@ object model {
   type DayPredicate = NonEmpty
   type DayFormat    = String Refined DayPredicate
 
-  type BinName = String Refined NonEmpty
+  type BinNamePredicate = NonEmpty
+  type BinName = String Refined BinNamePredicate
 
   sealed trait PlaysGrouping {
-    def bin(position: Position): Option[BinName]
+    def bin(position: Position): Option[Set[BinName]]
   }
 
   object PlaysGrouping {
@@ -35,6 +34,8 @@ object model {
         case "hour"    => Right(Hourly)
         case "weekday" => Right(Weekday)
         case "month"   => Right(Monthly)
+        case "tag"     => Right(Tag)
+        case "mistake" => Right(Mistake)
         case _         => Left(s"Unsupported value $rawValue")
       }
   }
@@ -43,26 +44,42 @@ object model {
 
     private val HourFormatter = DateTimeFormatter.ofPattern("HH")
 
-    override def bin(position: Position): Option[BinName] =
-      position.closedAt.map(closedAt => refineV[NonEmpty].unsafeFrom(HourFormatter.format(closedAt.toLocalDateTime())))
+    override def bin(position: Position): Option[Set[BinName]] =
+      position.closedAt
+        .map(closedAt => Set(refineV[BinNamePredicate].unsafeFrom(HourFormatter.format(closedAt.toLocalDateTime()))))
   }
 
   final case object Weekday extends PlaysGrouping {
     private val WeekdayFormatter = DateTimeFormatter.ofPattern("EEE")
 
-    override def bin(position: Position): Option[BinName] =
+    override def bin(position: Position): Option[Set[BinName]] =
       position.closedAt.map(closedAt =>
-        refineV[NonEmpty].unsafeFrom(WeekdayFormatter.format(closedAt.toLocalDateTime()))
+        Set(refineV[BinNamePredicate].unsafeFrom(WeekdayFormatter.format(closedAt.toLocalDateTime())))
       )
   }
 
   final case object Monthly extends PlaysGrouping {
     private val MonthFormatter = DateTimeFormatter.ofPattern("MMM")
 
-    override def bin(position: Position): Option[BinName] =
+    override def bin(position: Position): Option[Set[BinName]] =
       position.closedAt.map(closedAt =>
-        refineV[NonEmpty].unsafeFrom(MonthFormatter.format(closedAt.toLocalDateTime()))
+        Set(refineV[BinNamePredicate].unsafeFrom(MonthFormatter.format(closedAt.toLocalDateTime())))
       )
+  }
+
+  final case object Tag extends PlaysGrouping {
+    override def bin(position: Position): Option[Set[BinName]] = {
+      position.journal.map(_.tags
+        .map(_.value)
+        .map(tag => refineV[BinNamePredicate].unsafeFrom(tag))
+        .toSet
+      )
+    }
+  }
+
+  final case object Mistake extends PlaysGrouping {
+    override def bin(position: Position): Option[Set[BinName]] =
+      position.journal.map(_.mistakes.map(_.value).map(mistake => refineV[BinNamePredicate].unsafeFrom(mistake)).toSet)
   }
 
   final case class BinData(
@@ -91,6 +108,4 @@ object model {
       )
     }
   }
-
-//  final case object Monthly extends PlaysGrouping
 }
