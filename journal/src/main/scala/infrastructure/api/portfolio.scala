@@ -86,8 +86,7 @@ object portfolio {
                      )
       } yield response
 
-    //TODO Rename this to calendar view or something, so as not to confuse the generalized version from plays-distribution.
-    case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "daily-distribution" =>
+    case req @ Method.GET -> Root / "portfolio" / rawWalletAddress / "calendar" =>
       for {
         address <- ZIO
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
