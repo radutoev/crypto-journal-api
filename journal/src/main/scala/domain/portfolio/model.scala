@@ -2,13 +2,14 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.position.{ MarketPlays, Position }
+import domain.position.{MarketPlays, Position}
 import domain.pricequote.PriceQuotes
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
 import io.softwarechain.cryptojournal.domain.portfolio.model.Hourly.HourFormatter
+import io.softwarechain.cryptojournal.domain.portfolio.model.Weekday.WeekdayFormatter
 import io.softwarechain.cryptojournal.util.InstantOps
 
 import java.time.format.DateTimeFormatter
@@ -33,6 +34,7 @@ object model {
       rawValue.trim.toLowerCase match {
         case "hour"    => Right(Hourly)
         case "weekday" => Right(Weekday)
+        case "month"   => Right(Monthly)
         case _         => Left(s"Unsupported value $rawValue")
       }
   }
@@ -51,6 +53,15 @@ object model {
     override def bin(position: Position): Option[BinName] =
       position.closedAt.map(closedAt =>
         refineV[NonEmpty].unsafeFrom(WeekdayFormatter.format(closedAt.toLocalDateTime()))
+      )
+  }
+
+  final case object Monthly extends PlaysGrouping {
+    private val MonthFormatter = DateTimeFormatter.ofPattern("MMM")
+
+    override def bin(position: Position): Option[BinName] =
+      position.closedAt.map(closedAt =>
+        refineV[NonEmpty].unsafeFrom(MonthFormatter.format(closedAt.toLocalDateTime()))
       )
   }
 
@@ -81,6 +92,5 @@ object model {
     }
   }
 
-//  final case object Weekday extends PlaysGrouping
 //  final case object Monthly extends PlaysGrouping
 }
