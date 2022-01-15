@@ -2,9 +2,9 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.position.{MarketPlays, Position}
+import domain.position.{ MarketPlays, Position }
 import domain.pricequote.PriceQuotes
-import util.InstantOps
+import util.{ InstantOps, ListOptionOps }
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
@@ -22,7 +22,7 @@ object model {
   type DayFormat    = String Refined DayPredicate
 
   type BinNamePredicate = NonEmpty
-  type BinName = String Refined BinNamePredicate
+  type BinName          = String Refined BinNamePredicate
 
   sealed trait PlaysGrouping {
     def bin(position: Position): Option[Set[BinName]]
@@ -68,13 +68,13 @@ object model {
   }
 
   final case object Tag extends PlaysGrouping {
-    override def bin(position: Position): Option[Set[BinName]] = {
-      position.journal.map(_.tags
-        .map(_.value)
-        .map(tag => refineV[BinNamePredicate].unsafeFrom(tag))
-        .toSet
+    override def bin(position: Position): Option[Set[BinName]] =
+      position.journal.map(
+        _.tags
+          .map(_.value)
+          .map(tag => refineV[BinNamePredicate].unsafeFrom(tag))
+          .toSet
       )
-    }
   }
 
   final case object Mistake extends PlaysGrouping {
@@ -87,7 +87,7 @@ object model {
     numberOfCoins: BigDecimal,
     winRate: Percentage,
     netReturn: FungibleData,
-//    returnPercentage: Percentage, TODO Compute percentage also.
+    returnPercentage: Percentage,
     fees: FungibleData
   )
 
@@ -103,7 +103,7 @@ object model {
         numberOfCoins = distinctValues.numberOfCoins,
         winRate = distinctValues.winRate,
         netReturn = marketPlays.netReturn(interval, BUSD, quotes).latestValue.fungibleData,
-//        returnPercentage = BigDecimal(0),
+        returnPercentage = marketPlays.closedPositions.map(_.fiatReturnPercentage).values.sum,
         fees = distinctValues.totalFees.getOrElse(BUSD, FungibleData.zero(BUSD))
       )
     }
