@@ -13,9 +13,11 @@ import vo.{PriceQuotesChunk, TimeInterval}
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore._
+import com.google.datastore.v1.QueryResultBatch.MoreResultsType
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.stream.ZStream
+import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneOffset}
@@ -69,11 +71,9 @@ final case class DatastorePriceQuoteRepo(
       )
       .build()
 
-    executeQuery(query)(datastore, logger)
-      .mapBoth(
-        _ => PriceQuoteFetchError(s"Error fetching quotes for $pair"),
-        _.asScala.toList.map(entityToPriceQuote).map(_._2)
-      )
+    quoteStream(query)
+      .runCollect
+      .map(_.toList)
   }
 
   override def getQuotes(
@@ -97,13 +97,46 @@ final case class DatastorePriceQuoteRepo(
       datastore.newKeyFactory().setKind(kind).newKey(keyValue)
     }
 
-    //TODO Do I need to batch this?? Run some integration tests for this.
     //TODO I might need to change the signature such that I know what data I am missing.
     get(keys)(datastore, logger)
       .mapBoth(
         _ => PriceQuoteFetchError("Error fetching quotes"),
         _.view.map(entityToPriceQuote).toList
       )
+  }
+
+  private val DatastoreContinueResultTypes = Set(
+    MoreResultsType.NOT_FINISHED,
+    MoreResultsType.MORE_RESULTS_AFTER_CURSOR,
+    MoreResultsType.MORE_RESULTS_AFTER_LIMIT
+  )
+
+  private def quoteStream(query: EntityQuery): ZStream[Any, PriceQuoteError, PriceQuote] = {
+    ZStream {
+      for {
+        stateRef <- Ref.make((false, Option.empty[Cursor])).toManaged_
+        pull     = stateRef.get.flatMap { case (streamEnded, cursor) =>
+          if(streamEnded) {
+            IO.fail(None)
+          } else {
+            val finalQuery = cursor.fold(query)(c => query.toBuilder.setStartCursor(c).build())
+            val getPlaysEffect = for {
+              results <- executeQuery(finalQuery)(datastore, logger).orElseFail(PriceQuoteFetchError("Error retrieving quotes"))
+            } yield results
+
+            getPlaysEffect
+              .mapError(Some(_))
+              .flatMap { result =>
+                val data       = result.asScala.toList.map(entityToPriceQuote).map(_._2)
+                val queryState = result.getMoreResults
+                val endStream  = !DatastoreContinueResultTypes.contains(queryState) || data.isEmpty
+                val cursor     = result.getCursorAfter
+                stateRef.set((endStream, Some(cursor))) *> UIO(Chunk.fromIterable(data))
+              }
+          }
+        }
+      } yield pull
+    }
   }
 
   override def getLatestQuote(currency: Currency): IO[PriceQuoteError, PriceQuote] = {
@@ -246,7 +279,7 @@ final case class DatastorePriceQuoteRepo(
         }.values
         updateEntities      = entitiesToUpdate(toUpdateBaseQuotes)
         upsertEntities      = newEntities ++ updateEntities
-        _                   <- ZIO.foreach_(upsertEntities.grouped(500).toList)(items => saveEntities(items))
+        _                   <- ZIO.foreach_(upsertEntities.grouped(100).toList)(items => saveEntities(items))
       } yield ()
 
       upsertEffect.orElseFail(PriceQuotesSaveError(quotesChunk.pair, "Unable to save price quotes"))

@@ -79,6 +79,7 @@ final case class LiveStatsService(
         .filter(_.isClosed)
         .runCollect
         .map(_.toList)
+      //TODO Doing these results in fetching a lot of quotes by key (10k order) if the time interval is large.
       quotes <- fetchQuotes(MarketPlays(positions), interval)
       marketPlays = MarketPlays(positions.map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))))
       distinctValues = PlaysDistinctValues(marketPlays)

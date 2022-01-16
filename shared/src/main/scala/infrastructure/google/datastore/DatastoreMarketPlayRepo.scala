@@ -199,7 +199,7 @@ final case class DatastoreMarketPlayRepo(
             IO.fail(None)
           } else {
             val getPlaysEffect = for {
-              filter <- PlayFilter(30, interval).toZIO.orElseFail(MarketPlaysFetchError("Invalid filter"))
+              filter <- PlayFilter(100, interval).toZIO.orElseFail(MarketPlaysFetchError("Invalid filter"))
               query = positionsQuery(address, filter, Ascending)
               finalQuery = cursor.fold(query)(c => query.setStartCursor(c))
               results <- executeQuery(finalQuery.build())(datastore, logger).orElseFail(MarketPlaysFetchError("Error retrieving plays"))
