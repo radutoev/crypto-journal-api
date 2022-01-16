@@ -2,7 +2,7 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model.date.{DayUnit, MinuteUnit}
-import domain.model.{BUSD, Currency, TradeCountPredicate, WBNB}
+import domain.model.{BUSD, Currency, FungibleData, TradeCountPredicate, WBNB}
 import domain.portfolio.PlaysDistinctValues.DayFormatter
 import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError, TradeSummaryGenerationError}
 import domain.portfolio.model._
@@ -71,25 +71,29 @@ final case class LiveStatsService(
     )
 
   override def tradesSummary(wallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, TradeSummary] = {
-    val count = kpiFilter.count.getOrElse(5)
+    val interval = kpiFilter.interval.get //TODO Should I default or fail?? I think I need to change KpiFilter honestly.
+    val summaryEffect = for {
+      positions <- marketPlaysService.playStream(wallet, interval)
+        .filter(play => play.isInstanceOf[Position])
+        .map(play => play.asInstanceOf[Position])
+        .filter(_.isClosed)
+        .runCollect
+        .map(_.toList)
+      quotes <- fetchQuotes(MarketPlays(positions), interval)
+      marketPlays = MarketPlays(positions.map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))))
+      distinctValues = PlaysDistinctValues(marketPlays)
+    } yield TradeSummary(
+      wins = kpiFilter.count
+        .map(count => distinctValues.coinWins(count))
+        .getOrElse(distinctValues.coinWins)
+        .map(t => CoinToFungiblePair.apply(t._1, t._2, t._3)),
+      loses = kpiFilter.count
+        .map(count => distinctValues.coinLoses(count))
+        .getOrElse(distinctValues.coinLoses)
+        .map(t => CoinToFungiblePair.apply(t._1, t._2, t._3)),
+    )
 
-    def buildSummary(summary: TradeSummary): IO[MarketPlayError, TradeSummary] = {
-      val end = summary.wins.size == count && summary.loses.size == count
-      if(end) {
-        UIO(summary)
-      } else {
-        marketPlaysService.getPositions().flatMap { plays =>
-          if(plays.isEmpty) {
-            UIO(summary)
-          } else {
-            buildSummary(summary.addPositions(plays, count))
-          }
-        }
-      }
-    }
-
-    buildSummary(TradeSummary(wins = List.empty, loses = List.empty))
-      .orElseFail(TradeSummaryGenerationError("Unable to generate trade summary"))
+    summaryEffect.orElseFail(TradeSummaryGenerationError("Unable to generate trades summary"))
   }
 
   override def netReturnDistributionByDay(
@@ -205,7 +209,8 @@ final case class LiveStatsService(
                                     quotes: PriceQuotes,
                                     grouping: PlaysGrouping): Map[BinName, BinData] = {
     marketPlays.closedPositions
-      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))) //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
+      //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
+      .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes))))
       .map(p => grouping.bin(p) -> p)
       .collect {
         case (Some(names), position) => names.map(binName => binName -> position)

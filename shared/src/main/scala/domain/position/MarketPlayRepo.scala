@@ -1,12 +1,14 @@
 package io.softwarechain.cryptojournal
 package domain.position
 
+import domain.model.{ContextId, PlayId, WalletAddress}
 import domain.position.error.MarketPlayError
+import vo.TimeInterval
 import vo.filter.PlayFilter
 import vo.pagination.Page
 
-import io.softwarechain.cryptojournal.domain.model.{ ContextId, Currency, PlayId, WalletAddress }
-import zio.{ Has, IO, Task, ZIO }
+import zio.stream.ZStream
+import zio.{Has, IO, ZIO}
 
 trait MarketPlayRepo {
   def save(address: WalletAddress, positions: List[MarketPlay]): IO[MarketPlayError, Unit]
@@ -20,6 +22,8 @@ trait MarketPlayRepo {
     filter: PlayFilter,
     contextId: ContextId
   ): IO[MarketPlayError, Page[MarketPlays]]
+
+  def playStream(address: WalletAddress, interval: TimeInterval): ZStream[Any, MarketPlayError, MarketPlay]
 
   def getPositions(address: WalletAddress, state: State): IO[MarketPlayError, List[Position]]
 

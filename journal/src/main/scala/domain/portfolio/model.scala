@@ -113,4 +113,8 @@ object model {
   final case class CoinToFungiblePair(currency: Currency, fungibleData: FungibleData, percentage: BigDecimal)
 
   final case class TradeSummary(wins: List[CoinToFungiblePair], loses: List[CoinToFungiblePair])
+
+  object TradeSummary {
+    def empty(): TradeSummary = TradeSummary(List.empty, List.empty)
+  }
 }

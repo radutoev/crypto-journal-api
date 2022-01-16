@@ -30,8 +30,7 @@ trait MarketPlayService {
 
   def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
 
-  //TODO Implement this. !I need to include quotes also.
-  def getPositions(): IO[MarketPlayError, MarketPlays]
+  def playStream(wallet: Wallet, interval: TimeInterval): ZStream[Any, MarketPlayError, MarketPlay]
 
   def getPosition(playId: PlayId): IO[MarketPlayError, Position]
 
@@ -84,7 +83,7 @@ object MarketPlayService {
 }
 
 final case class LiveMarketPlayService(
-  positionRepo: MarketPlayRepo,
+  marketPlayRepo: MarketPlayRepo,
   priceQuoteService: PriceQuoteService,
   blockchainRepo: BlockchainRepo,
   journalingRepo: JournalingRepo,
@@ -98,7 +97,7 @@ final case class LiveMarketPlayService(
     withQuotes: Boolean = true
   ): IO[MarketPlayError, MarketPlays] =
     (for {
-      marketPlays <- positionRepo.getPlays(userWallet.address, playFilter).flatMap { plays =>
+      marketPlays <- marketPlayRepo.getPlays(userWallet.address, playFilter).flatMap { plays =>
                       if (withQuotes) {
                         enrichPlays(plays)
                       } else {
@@ -115,7 +114,7 @@ final case class LiveMarketPlayService(
     contextId: ContextId
   ): IO[MarketPlayError, MarketPlays] =
     for {
-      page  <- positionRepo.getPlays(userWallet.address, filter, contextId)
+      page  <- marketPlayRepo.getPlays(userWallet.address, filter, contextId)
       plays <- enrichPlays(page.data.plays)
       journalEntries <- journalingRepo.getEntries(
                          userWallet.userId,
@@ -131,19 +130,25 @@ final case class LiveMarketPlayService(
     }
   }
 
+  //TODO Do I need quotes??
+  override def playStream(wallet: Wallet, interval: TimeInterval): ZStream[Any, MarketPlayError, MarketPlay] =
+    marketPlayRepo.playStream(wallet.address, interval)
+
   override def getPosition(playId: PlayId): IO[MarketPlayError, Position] =
-    positionRepo.getPosition(playId).map(_.position)
+    marketPlayRepo.getPosition(playId).map(_.position)
 
   override def getPositionDetails(userId: UserId, positionId: PlayId): IO[MarketPlayError, PositionDetails[Position]] =
     //TODO Better error handling with zipPar -> for example if first effect fails with PositionNotFound then API fails silently
     // We lose the error type here.
     for {
-      positionWithLinkIds <- positionRepo.getPosition(positionId)
-      linkedPositions     <- positionRepo.getPositions(positionWithLinkIds.links.next ++ positionWithLinkIds.links.previous)
-      (next, previous)    = linkedPositions.partition(p => positionWithLinkIds.links.next.contains(p.id.get))
-      nextEnriched        <- enrichPlays(next).map(_.asInstanceOf[List[Position]])
-      previousEnriched    <- enrichPlays(previous).map(_.asInstanceOf[List[Position]])
-      position            <- enrichPlay(positionWithLinkIds.position).mapBoth(_.get, _.asInstanceOf[Position])
+      positionWithLinkIds <- marketPlayRepo.getPosition(positionId)
+      linkedPositions <- marketPlayRepo.getPositions(
+                          positionWithLinkIds.links.next ++ positionWithLinkIds.links.previous
+                        )
+      (next, previous) = linkedPositions.partition(p => positionWithLinkIds.links.next.contains(p.id.get))
+      nextEnriched     <- enrichPlays(next).map(_.asInstanceOf[List[Position]])
+      previousEnriched <- enrichPlays(previous).map(_.asInstanceOf[List[Position]])
+      position         <- enrichPlay(positionWithLinkIds.position).mapBoth(_.get, _.asInstanceOf[Position])
       journalEntry <- journalingRepo.getEntry(userId, position.id.get).map(Some(_)).catchSome {
                        case _: JournalNotFound => UIO.none
                      }
@@ -152,8 +157,8 @@ final case class LiveMarketPlayService(
   override def getNextPositions(playId: PlayId): IO[MarketPlayError, List[Position]] =
     for {
       _       <- logger.info(s"Fetch next positions for position ${playId.value}")
-      nextIds <- positionRepo.getNextPositionIds(playId)
-      positions: List[Position] <- positionRepo
+      nextIds <- marketPlayRepo.getNextPositionIds(playId)
+      positions: List[Position] <- marketPlayRepo
                                     .getPositions(nextIds)
                                     .flatMap(enrichPlays)
                                     .map(_.asInstanceOf[List[Position]])
@@ -162,8 +167,8 @@ final case class LiveMarketPlayService(
   override def getPreviousPositions(playId: PlayId): IO[MarketPlayError, List[Position]] =
     for {
       _         <- logger.info(s"Fetch previous positions for position ${playId.value}")
-      prevIds   <- positionRepo.getPreviousPositionIds(playId)
-      positions <- positionRepo.getPositions(prevIds).flatMap(enrichPlays).map(_.asInstanceOf[List[Position]])
+      prevIds   <- marketPlayRepo.getPreviousPositionIds(playId)
+      positions <- marketPlayRepo.getPositions(prevIds).flatMap(enrichPlays).map(_.asInstanceOf[List[Position]])
     } yield positions
 
   private def enrichPlays(plays: List[MarketPlay]): IO[MarketPlayError, List[MarketPlay]] =
@@ -202,7 +207,7 @@ final case class LiveMarketPlayService(
     @inline
     def handlePlayImport(marketPlays: MarketPlays): IO[MarketPlayError, Unit] =
       for {
-        _             <- positionRepo.save(userWallet.address, marketPlays.plays)
+        _             <- marketPlayRepo.save(userWallet.address, marketPlays.plays)
         _             <- saveCoinToDexCoinQuotes(marketPlays.quotesTimestamps)
         allTimestamps = marketPlays.quotesTimestamps.flatMap(_.timestamps)
         _             <- saveDexCoinToBusdQuotes(allTimestamps)

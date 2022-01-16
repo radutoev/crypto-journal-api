@@ -9,18 +9,20 @@ import domain.position._
 import domain.position.error._
 import domain.position.model.CoinName
 import util.{InstantOps, ListEitherOps, ListOptionOps, tryOrLeft}
-import vo.filter
-import vo.filter.{Descending, PlayFilter, SortOrder}
+import vo.{TimeInterval, filter}
+import vo.filter.{Ascending, Descending, PlayFilter, SortOrder}
 import vo.pagination.{CursorPredicate, Page, PaginationContext}
 
 import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{CompositeFilter, OrderBy, PropertyFilter}
 import com.google.cloud.datastore.{Cursor => PaginationCursor, _}
+import com.google.datastore.v1.QueryResultBatch.MoreResultsType
 import eu.timepit.refined
 import eu.timepit.refined.types.numeric.PosInt
 import eu.timepit.refined.{refineMV, refineV}
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, UIO, URLayer, ZIO}
+import zio.stream.ZStream
+import zio.{Chunk, Has, IO, Ref, Task, UIO, URLayer, ZIO}
 
 import java.time.Instant
 import java.util.UUID
@@ -182,6 +184,42 @@ final case class DatastoreMarketPlayRepo(
       }
   }
 
+  private val DatastoreContinueResultTypes = Set(
+    MoreResultsType.NOT_FINISHED,
+    MoreResultsType.MORE_RESULTS_AFTER_CURSOR,
+    MoreResultsType.MORE_RESULTS_AFTER_LIMIT
+  )
+
+  override def playStream(address: WalletAddress, interval: TimeInterval): ZStream[Any, MarketPlayError, MarketPlay] = {
+    ZStream {
+      for {
+        stateRef <- Ref.make((false, Option.empty[PaginationCursor])).toManaged_
+        pull     = stateRef.get.flatMap { case (streamEnded, cursor) =>
+          if(streamEnded) {
+            IO.fail(None)
+          } else {
+            val getPlaysEffect = for {
+              filter <- PlayFilter(30, interval).toZIO.orElseFail(MarketPlaysFetchError("Invalid filter"))
+              query = positionsQuery(address, filter, Ascending)
+              finalQuery = cursor.fold(query)(c => query.setStartCursor(c))
+              results <- executeQuery(finalQuery.build())(datastore, logger).orElseFail(MarketPlaysFetchError("Error retrieving plays"))
+            } yield results
+
+            getPlaysEffect
+              .mapError(Some(_))
+              .flatMap { results =>
+                val plays      = results.asScala.toList.map(entityToPlay).rights
+                val queryState = results.getMoreResults
+                val endStream  = !DatastoreContinueResultTypes.contains(queryState) || plays.isEmpty
+                val cursor     = results.getCursorAfter
+                stateRef.set((endStream, Some(cursor))) *> UIO(Chunk.fromIterable(plays))
+              }
+          }
+        }
+      } yield pull
+    }
+  }
+
   private def positionsQuery(address: WalletAddress, positionFilter: PlayFilter, sortOrder: SortOrder) =
     Query
       .newEntityQueryBuilder()
@@ -252,6 +290,7 @@ final case class DatastoreMarketPlayRepo(
         _ => MarketPlaysFetchError(s"Position fetch error for address: ${address.value}"),
         resultsOpt =>
           resultsOpt.fold[List[Position]](List.empty) { results =>
+            results.getMoreResults
             //TODO Why do we have empty entries.
             results.asScala.toList.map(entityToPosition).collect { case Right(p) => p }
           }
