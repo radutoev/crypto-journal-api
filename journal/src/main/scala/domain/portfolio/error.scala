@@ -7,4 +7,5 @@ object error {
   final case class InvalidPortfolioError(reason: String)        extends StatsError
   final case class AccountBalanceComputeError(reason: String)   extends StatsError
   final case class PortfolioKpiGenerationError(message: String) extends StatsError
+  final case class TradeSummaryGenerationError(message: String) extends StatsError
 }

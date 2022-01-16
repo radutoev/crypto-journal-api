@@ -30,6 +30,9 @@ trait MarketPlayService {
 
   def getPlays(userWallet: Wallet, filter: PlayFilter, contextId: ContextId): IO[MarketPlayError, MarketPlays]
 
+  //TODO Implement this. !I need to include quotes also.
+  def getPositions(): IO[MarketPlayError, MarketPlays]
+
   def getPosition(playId: PlayId): IO[MarketPlayError, Position]
 
   def getPositionDetails(userId: UserId, playId: PlayId): IO[MarketPlayError, PositionDetails[Position]]

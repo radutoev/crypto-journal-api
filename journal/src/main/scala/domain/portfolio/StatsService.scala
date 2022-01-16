@@ -4,7 +4,7 @@ package domain.portfolio
 import domain.model.date.{DayUnit, MinuteUnit}
 import domain.model.{BUSD, Currency, TradeCountPredicate, WBNB}
 import domain.portfolio.PlaysDistinctValues.DayFormatter
-import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError}
+import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError, TradeSummaryGenerationError}
 import domain.portfolio.model._
 import domain.position._
 import domain.position.error.MarketPlayError
@@ -15,12 +15,15 @@ import vo.TimeInterval
 import vo.filter.{KpiFilter, PlayFilter}
 
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.domain.portfolio.LiveStatsService.TradeSummaryOps
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
 import zio.{Has, IO, UIO, URLayer}
 
 trait StatsService {
   def playsOverview(userWallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
+
+  def tradesSummary(wallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, TradeSummary]
 
   def netReturnDistributionByDay(wallet: Wallet, interval: TimeInterval): IO[StatsError, NetReturnDistributionByDay]
 
@@ -66,6 +69,28 @@ final case class LiveStatsService(
       netReturnTrend,
       netReturnTrend.performance(referenceNetReturnTrend)
     )
+
+  override def tradesSummary(wallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, TradeSummary] = {
+    val count = kpiFilter.count.getOrElse(5)
+
+    def buildSummary(summary: TradeSummary): IO[MarketPlayError, TradeSummary] = {
+      val end = summary.wins.size == count && summary.loses.size == count
+      if(end) {
+        UIO(summary)
+      } else {
+        marketPlaysService.getPositions().flatMap { plays =>
+          if(plays.isEmpty) {
+            UIO(summary)
+          } else {
+            buildSummary(summary.addPositions(plays, count))
+          }
+        }
+      }
+    }
+
+    buildSummary(TradeSummary(wins = List.empty, loses = List.empty))
+      .orElseFail(TradeSummaryGenerationError("Unable to generate trade summary"))
+  }
 
   override def netReturnDistributionByDay(
     wallet: Wallet,
@@ -201,4 +226,15 @@ object LiveStatsService {
   lazy val layer
     : URLayer[Has[MarketPlayService] with Has[PriceQuoteService] with Clock with Logging, Has[StatsService]] =
     (LiveStatsService(_, _, _, _)).toLayer
+
+  implicit class TradeSummaryOps(tradeSummary: TradeSummary) {
+    def addPositions(plays: MarketPlays, maxCount: Int): TradeSummary = {
+      val distinctValues = PlaysDistinctValues(plays)
+
+      tradeSummary.copy(
+        wins = (tradeSummary.wins ++ distinctValues.coinWins.map(t => CoinToFungiblePair(t._1, t._2, t._3))).take(maxCount),
+        loses = tradeSummary.loses ++ distinctValues.coinLoses.map(t => CoinToFungiblePair(t._1, t._2, t._3)).take(maxCount)
+      )
+    }
+  }
 }

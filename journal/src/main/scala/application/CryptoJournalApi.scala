@@ -6,7 +6,7 @@ import domain.market.MarketService
 import domain.market.error.MarketError
 import domain.model.{Ohlcv, PlayId, WalletAddress}
 import domain.portfolio.error.StatsError
-import domain.portfolio.model.{BinData, BinName, NetReturnDistributionByDay, PlaysGrouping}
+import domain.portfolio.model.{BinData, BinName, NetReturnDistributionByDay, PlaysGrouping, TradeSummary}
 import domain.portfolio.{PlaysOverview, StatsService}
 import domain.position._
 import domain.position.error.MarketPlayError
@@ -64,6 +64,13 @@ object CryptoJournalApi {
       userId       <- RequestContext.userId
       portfolioKpi <- ZIO.serviceWith[StatsService](_.playsOverview(Wallet(userId, address), kpiFilter))
     } yield portfolioKpi
+
+  def getTradeSummary(address: WalletAddress, kpiFilter: KpiFilter): ZIO[Has[StatsService] with Has[RequestContext], StatsError, TradeSummary] = {
+    for {
+      userId <- RequestContext.userId
+      data   <- ZIO.serviceWith[StatsService](_.tradesSummary(Wallet(userId, address), kpiFilter))
+    } yield data
+  }
 
   def aggregatePlays(address: WalletAddress, interval: TimeInterval, grouping: PlaysGrouping): ZIO[Has[StatsService] with Has[RequestContext], StatsError, Map[BinName, BinData]] =
     for {

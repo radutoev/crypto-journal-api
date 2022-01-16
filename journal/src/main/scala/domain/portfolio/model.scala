@@ -2,13 +2,14 @@ package io.softwarechain.cryptojournal
 package domain.portfolio
 
 import domain.model._
-import domain.position.{ MarketPlays, Position }
+import domain.position.{MarketPlays, Position}
 import domain.pricequote.PriceQuotes
-import util.{ InstantOps, ListOptionOps }
+import util.{InstantOps, ListOptionOps}
 
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.infrastructure.api.portfolio.CoinToFungiblePair
 
 import java.time.format.DateTimeFormatter
 
@@ -108,4 +109,8 @@ object model {
       )
     }
   }
+
+  final case class CoinToFungiblePair(currency: Currency, fungibleData: FungibleData, percentage: BigDecimal)
+
+  final case class TradeSummary(wins: List[CoinToFungiblePair], loses: List[CoinToFungiblePair])
 }
