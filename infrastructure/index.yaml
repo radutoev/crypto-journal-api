@@ -29,7 +29,6 @@ indexes:
     ancestor: no
     properties:
       - name: baseCurrency
-      - name: quoteCurrency
       - name: timestamp
   - kind: DayPriceQuoteTest
     ancestor: no

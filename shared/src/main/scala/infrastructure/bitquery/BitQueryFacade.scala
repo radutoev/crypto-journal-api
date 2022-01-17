@@ -72,7 +72,7 @@ final case class BitQueryFacade (config: BitQueryConfig,
 
     (for {
       now     <- clock.instant
-      chunks  = TimeInterval(since, now).dayChunks(refineMV(5))
+      chunks  = TimeInterval(since, now).dayChunks(refineMV(2))
       data    <- ZIO.collect(chunks)(doGetPrices)
     } yield data.flatten).orElseFail(new RuntimeException("Unable to fetch quotes"))
   }

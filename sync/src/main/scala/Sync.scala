@@ -34,13 +34,13 @@ object Sync extends App {
     for {
       quotesSyncFiber <- SyncApi.updatePriceQuotes().provideCustomLayer(priceQuoteLayer).fork
       pagContextFiber <- SyncApi.clearPaginationContext().provideCustomLayer(pagContextLayer).fork
-      syncFiber       <- (SyncApi.loadWallets() *> SyncApi.updatePositions()).provideCustomLayer(syncLayer).fork
+//      syncFiber       <- (SyncApi.loadWallets() *> SyncApi.updatePositions()).provideCustomLayer(syncLayer).fork
       httpFiber       <- (Server.port(8080) ++ Server.app(Routes.api))
         .make
         .use(_ => console.putStrLn("Server started on port 8080") *> ZIO.never)
         .provideCustomLayer(zioHttpLayer)
         .fork
-      _               <- (quotesSyncFiber <*>  pagContextFiber <*> syncFiber <*> httpFiber).join
+      _               <- (quotesSyncFiber <*>  pagContextFiber /*<*> syncFiber */ <*> httpFiber).join
     } yield ()
   }
 
