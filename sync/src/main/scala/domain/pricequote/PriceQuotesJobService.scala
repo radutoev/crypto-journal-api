@@ -36,7 +36,7 @@ final case class LivePriceQuotesJobService(
                     }
       _ <- logger.info(s"Update WBNB quotes from $startTime")
       _ <- bitQueryFacade
-            .getPrices(
+            .pricesStream(
               CurrencyAddressPair(
                 CurrencyAddress(
                   WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")
@@ -48,7 +48,7 @@ final case class LivePriceQuotesJobService(
               ),
               startTime
             )(clock)
-            .flatMap(quotes => priceQuoteRepo.saveQuotes(PriceQuotesChunk(CurrencyPair(WBNB, BUSD), quotes)))
+            .foreach(quotes => priceQuoteRepo.saveQuotes(PriceQuotesChunk(CurrencyPair(WBNB, BUSD), quotes.toList)))
     } yield ()).orElseFail(PriceQuoteFetchError("Quote update failure"))
 
 }

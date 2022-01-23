@@ -278,6 +278,7 @@ final case class DatastorePriceQuoteRepo(
           keysAndIndices.get(entity.getKey.getName).map(index => quotesBase(index)).map(base => entity -> base)
         }.values
         updateEntities      = entitiesToUpdate(toUpdateBaseQuotes)
+        _                   <- logger.info(s"New entities: ${newEntities.size}, update: ${updateEntities.size}")
         upsertEntities      = newEntities ++ updateEntities
         _                   <- ZIO.foreach_(upsertEntities.grouped(100).toList)(items => saveEntities(items))
       } yield ()

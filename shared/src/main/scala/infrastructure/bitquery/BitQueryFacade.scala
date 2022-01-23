@@ -13,7 +13,6 @@ import infrastrucutre.bitquery.graphql.client.PriceAggregateFunction.average
 import infrastrucutre.bitquery.graphql.client.Query.ethereum
 import infrastrucutre.bitquery.graphql.client.TimeInterval.minute
 import infrastrucutre.bitquery.graphql.client._
-import util.InstantOps
 import vo.TimeInterval
 
 import eu.timepit.refined.refineMV
@@ -21,7 +20,8 @@ import sttp.client3._
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
-import zio.{Has, IO, Task, URLayer, ZIO}
+import zio.stream.ZStream
+import zio.{Chunk, Has, IO, Task, UIO, URLayer, ZIO}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneOffset}
@@ -40,7 +40,7 @@ final case class BitQueryFacade (config: BitQueryConfig,
     def doGetPrices(interval: TimeInterval): IO[Option[String], List[PriceQuote]] = {
       val query = ethereum(network = Some(EthereumNetwork.bsc))(
         dexTrades(
-          date = Some(DateSelector(between = Some(List(interval.start.toLocalDate().toString, interval.end.toLocalDate().toString)))),
+          date = Some(DateSelector(between = Some(List(BitQueryDateFormatter.format(interval.start), BitQueryDateFormatter.format(interval.end))))),
           exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
           baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.address.value)))),
           quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value))))
@@ -59,13 +59,17 @@ final case class BitQueryFacade (config: BitQueryConfig,
           .headers(Map("X-API-KEY" -> config.apiKey))
           .send(backend)
           .map(_.body)
+          .flatMap(calibanErrOrResponse => ZIO.fromEither(calibanErrOrResponse).tapError(err => logger.warn(err.getMessage)))
+          .flatMap(result => {
+            val responseBody = result.flatten.getOrElse(List.empty)
+            logger.info(s"Found ${responseBody.size} quotes for $interval") *>
+              UIO {
+                responseBody.collect {
+                  case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
+                }
+              }
+          })
           .tapError(err => logger.warn(err.getMessage))
-          .map(_.map(result => {
-            result.flatten.getOrElse(List.empty).collect {
-              case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
-            }
-          }))
-          .absolve
       }
       .orElseFail(Some("cannot fetch price quotes"))
     }
@@ -75,6 +79,51 @@ final case class BitQueryFacade (config: BitQueryConfig,
       chunks  = TimeInterval(since, now).dayChunks(refineMV(2))
       data    <- ZIO.collect(chunks)(doGetPrices)
     } yield data.flatten).orElseFail(new RuntimeException("Unable to fetch quotes"))
+  }
+
+  def pricesStream(pair: CurrencyAddressPair, since: Instant)(clock: Clock.Service): ZStream[Any, RuntimeException, Chunk[PriceQuote]] = {
+    def doGetPrices(interval: TimeInterval): IO[String, Chunk[PriceQuote]] = {
+      val query = ethereum(network = Some(EthereumNetwork.bsc))(
+        dexTrades(
+          date = Some(DateSelector(between = Some(List(BitQueryDateFormatter.format(interval.start), BitQueryDateFormatter.format(interval.end))))),
+          exchangeName = Some(List(StringSelector(is = Some("Pancake v2")))),
+          baseCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.base.address.value)))),
+          quoteCurrency = Some(List(EthereumCurrencySelector(is = Some(pair.quote.address.value))))
+        ) {
+          timeInterval {
+            minute(count = Some(1), format = Some("%FT%TZ"))
+          } ~
+            quotePrice(calculate = Some(average))
+        }
+      )
+
+      logger.info(s"Fetch quotes for $pair, interval: $interval") *>
+        zioHttpBackend.flatMap { backend =>
+          query
+            .toRequest(uri"${config.url}", dropNullInputValues = true)
+            .headers(Map("X-API-KEY" -> config.apiKey))
+            .send(backend)
+            .map(_.body)
+            .flatMap(calibanErrOrResponse => ZIO.fromEither(calibanErrOrResponse).tapError(err => logger.warn(err.getMessage)))
+            .flatMap(result => {
+              val responseBody = result.flatten.getOrElse(List.empty)
+              logger.info(s"Found ${responseBody.size} quotes for $interval") *>
+                UIO {
+                  Chunk.fromIterable(
+                    responseBody.collect {
+                      case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
+                    }
+                  )
+                }
+            })
+            .tapError(err => logger.warn(err.getMessage))
+        }
+        .orElseFail("Cannot fetch price quotes")
+    }
+
+    ZStream.fromIterable(TimeInterval(since, Instant.now()).dayChunks(refineMV(2)))
+      .mapConcatChunkM(interval => doGetPrices(interval).orElseFail(new RuntimeException("shit")))
+      .grouped(2000)
   }
 
   def getPrices(pair: CurrencyAddressPair, hour: Hour): Task[List[PriceQuote]] = {
@@ -99,13 +148,17 @@ final case class BitQueryFacade (config: BitQueryConfig,
         .headers(Map("X-API-KEY" -> config.apiKey))
         .send(backend)
         .map(_.body)
+        .flatMap(calibanErrOrResponse => ZIO.fromEither(calibanErrOrResponse).tapError(err => logger.warn(err.getMessage)))
+        .flatMap(result => {
+          val responseBody = result.flatten.getOrElse(List.empty)
+          logger.info(s"Found ${responseBody.size} quotes for $hour") *>
+            UIO {
+              responseBody.collect {
+                case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
+              }
+            }
+        })
         .tapError(err => logger.warn(err.getMessage))
-        .map(_.map(result => {
-          result.flatten.getOrElse(List.empty).collect {
-            case (Some(rawTimestamp), Some(rawPrice)) => PriceQuote(rawPrice, Instant.parse(rawTimestamp))
-          }
-        }))
-        .absolve
     }.orElseFail(new RuntimeException("Unable to fetch quotes"))
   }
 
@@ -136,22 +189,26 @@ final case class BitQueryFacade (config: BitQueryConfig,
         .headers(Map("X-API-KEY" -> config.apiKey))
         .send(backend)
         .map(_.body)
-        .tapError(err => logger.warn(err.getMessage))
-        .map(_.map(result => {
-          result.flatten.getOrElse(List.empty).collect {
-            case ((((((Some(rawTimestamp), Some(rawTradeAmount)), Some(rawMax)), Some(rawMin)), Some(rawMedian)), Some(rawOpen)), Some(rawClose)) =>
-              Ohlcv(pair,
-                timestamp = Instant.parse(rawTimestamp),
-                open = BigDecimal(rawOpen),
-                close = BigDecimal(rawClose),
-                minimum = BigDecimal(rawMax),
-                median = BigDecimal(rawMedian),
-                maximum = BigDecimal(rawMin),
-                volume = BigDecimal(rawTradeAmount)
-              )
+        .flatMap(calibanErrOrResponse => ZIO.fromEither(calibanErrOrResponse).tapError(err => logger.warn(err.getMessage)))
+        .flatMap(result => {
+          val responseBody = result.flatten.getOrElse(List.empty)
+          logger.info(s"Found ${responseBody.size} quotes for $interval") *>
+            UIO {
+              responseBody.collect {
+                case ((((((Some(rawTimestamp), Some(rawTradeAmount)), Some(rawMax)), Some(rawMin)), Some(rawMedian)), Some(rawOpen)), Some(rawClose)) =>
+                  Ohlcv(pair,
+                    timestamp = Instant.parse(rawTimestamp),
+                    open = BigDecimal(rawOpen),
+                    close = BigDecimal(rawClose),
+                    minimum = BigDecimal(rawMax),
+                    median = BigDecimal(rawMedian),
+                    maximum = BigDecimal(rawMin),
+                    volume = BigDecimal(rawTradeAmount)
+                  )
+              }
+            }
           }
-        }))
-        .absolve
+        )
     }.orElseFail(new RuntimeException("Unable to fetch ohlcv data"))
   }
 }
