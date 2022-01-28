@@ -120,7 +120,7 @@ final case class DatastoreMarketPlayRepo(
     address: WalletAddress,
     playFilter: PlayFilter
   ): IO[MarketPlayError, List[MarketPlay]] =
-    doFetchPlays(address, positionsQuery(address, playFilter, Descending).build(), Some(playFilter.interval.start))
+    doFetchPlays(address, marketPlayQuery(address, playFilter, Descending).build(), Some(playFilter.interval.start))
 
   override def getPlays(
     address: WalletAddress,
@@ -170,9 +170,9 @@ final case class DatastoreMarketPlayRepo(
       .getPaginationContext(contextId)
       .flatMap { positionContext =>
         val query = if (filterHasChanged(positionContext.filterHash)) {
-          positionsQuery(address, filter, Descending).build()
+          marketPlayQuery(address, filter, Descending).build()
         } else {
-          positionsQuery(address, filter, Descending)
+          marketPlayQuery(address, filter, Descending)
             .setStartCursor(PaginationCursor.fromUrlSafe(positionContext.cursor.value))
             .build()
         }
@@ -180,7 +180,7 @@ final case class DatastoreMarketPlayRepo(
       }
       .catchSome {
         case PaginationContextNotFoundError(_) =>
-          generatePageAndSavePaginationContext(positionsQuery(address, filter, Descending).build())
+          generatePageAndSavePaginationContext(marketPlayQuery(address, filter, Descending).build())
       }
   }
 
@@ -200,7 +200,7 @@ final case class DatastoreMarketPlayRepo(
           } else {
             val getPlaysEffect = for {
               filter <- PlayFilter(100, interval).toZIO.orElseFail(MarketPlaysFetchError("Invalid filter"))
-              query = positionsQuery(address, filter, Ascending)
+              query = marketPlayQuery(address, filter, Descending)
               finalQuery = cursor.fold(query)(c => query.setStartCursor(c))
               results <- executeQuery(finalQuery.build())(datastore, logger).orElseFail(MarketPlaysFetchError("Error retrieving plays"))
             } yield results
@@ -220,7 +220,7 @@ final case class DatastoreMarketPlayRepo(
     }
   }
 
-  private def positionsQuery(address: WalletAddress, positionFilter: PlayFilter, sortOrder: SortOrder) =
+  private def marketPlayQuery(address: WalletAddress, positionFilter: PlayFilter, sortOrder: SortOrder) =
     Query
       .newEntityQueryBuilder()
       .setKind(datastoreConfig.marketPlay)

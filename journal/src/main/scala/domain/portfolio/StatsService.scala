@@ -78,7 +78,7 @@ final case class LiveStatsService(
         .map(play => play.asInstanceOf[Position])
         .filter(_.isClosed)
         .runCollect
-        .map(_.toList)
+        .map(_.toList.reverse) //reversing here because at the moment I have defined the index like so:   MarketPlayTest	address ASC  openedAt DESC; I don't know if its worth adding another one.
       //TODO Doing these results in fetching a lot of quotes by key (10k order) if the time interval is large.
       quotes <- fetchQuotes(MarketPlays(positions), interval)
       marketPlays = MarketPlays(positions.map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))))
