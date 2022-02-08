@@ -2,22 +2,25 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.PositionHelper
-import domain.model.date.{ DayUnit, HourUnit, MinuteUnit }
-import domain.model.{ CurrencyPredicate, TransactionHashPredicate, WalletAddressPredicate }
+import domain.model.date.{DayUnit, HourUnit, MinuteUnit}
+import domain.model.{CurrencyPredicate, TransactionHashPredicate, WalletAddressPredicate}
 import domain.pricequote.CurrencyPair
-import infrastructure.api.plays.dto.{ fromPositionEntry, fromPriceQuote }
+import infrastructure.api.plays.dto.{fromPositionEntry, fromPriceQuote}
 import vo.TimeInterval
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
-import zio.{ Chunk, ZIO }
+import zio.{Chunk, UIO, ZIO}
 
 import java.time.Instant
 
 object open {
   lazy val routes = HttpApp.collectM {
+    case Method.GET -> Root / ".well-known" / "acme-challenge" / "U1vB4y0MO3j-v1LkHndFZcS6YusbegfAQ3OM1XuCgw" =>
+      UIO(Response.text("U1vB4y0MO3j-v1LkHndFZcS6YusbegfAQ3OM1XuCgw0.UpvYcBV7bQaZkhVICh1jvfA6Z6pabi42apAehAYBjnE"))
+
     case Method.GET -> Root / "test" / "address" / rawWalletAddress / "tx2entries" / rawTxHash =>
       for {
         address <- ZIO
