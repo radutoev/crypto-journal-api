@@ -18,9 +18,6 @@ import java.time.Instant
 
 object open {
   lazy val routes = HttpApp.collectM {
-    case Method.GET -> Root / ".well-known" / "acme-challenge" / "U1vB4y0MO3j-v1LkHndFZcS6YusbegfAQ3OM1XuCgw" =>
-      UIO(Response.text("U1vB4y0MO3j-v1LkHndFZcS6YusbegfAQ3OM1XuCgw0.UpvYcBV7bQaZkhVICh1jvfA6Z6pabi42apAehAYBjnE"))
-
     case Method.GET -> Root / "test" / "address" / rawWalletAddress / "tx2entries" / rawTxHash =>
       for {
         address <- ZIO

@@ -33,6 +33,7 @@ object Routes {
 
   lazy val api = CORS(
     health +++
+      wellKnown +++
       open.routes +++
       authenticate(forbidden, userId => contextId(badRequest, cId => wallets.routes(userId, cId))) +++
       authenticate(forbidden, userId => contextId(badRequest, cId => plays.routes(userId, cId))) +++
@@ -47,6 +48,11 @@ object Routes {
 
   private def health = HttpApp.collect {
     case Method.GET -> Root / "health" => Response.ok
+  }
+
+  private def wellKnown = HttpApp.collect {
+    case Method.GET -> Root / ".well-known" / "acme-challenge" / "6LZHSTtFZl4Tv8MJgoOSi7EpqWHrM502oZ6A8HsyVEE" =>
+      Response.text("6LZHSTtFZl4Tv8MJgoOSi7EpqWHrM502oZ6A8HsyVEE.iW_cE0PMrXus0yRzHCETLbrOfBMnIja9CcvwNXG_l6Q")
   }
 
   def authenticate[R, E](fail: HttpApp[R, E], success: UserId => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {
