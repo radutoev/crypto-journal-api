@@ -35,6 +35,7 @@ object model {
         case "hour"    => Right(Hourly)
         case "weekday" => Right(Weekday)
         case "month"   => Right(Monthly)
+        case "year"    => Right(Yearly)
         case "tag"     => Right(Tag)
         case "mistake" => Right(Mistake)
         case _         => Left(s"Unsupported value $rawValue")
@@ -65,6 +66,15 @@ object model {
     override def bin(position: Position): Option[Set[BinName]] =
       position.closedAt.map(closedAt =>
         Set(refineV[BinNamePredicate].unsafeFrom(MonthFormatter.format(closedAt.toLocalDateTime())))
+      )
+  }
+
+  final case object Yearly extends PlaysGrouping {
+    private val YearFormatter = DateTimeFormatter.ofPattern("yyyy")
+
+    override def bin(position: Position): Option[Set[BinName]] =
+      position.closedAt.map(closedAt =>
+        Set(refineV[BinNamePredicate].unsafeFrom(YearFormatter.format(closedAt.toLocalDateTime())))
       )
   }
 
