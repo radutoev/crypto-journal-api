@@ -2,24 +2,24 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate }
-import domain.portfolio.model.{ BinData => CJBinData, PlaysGrouping, DailyTradeData => CJDailyTradeData, TradeSummary => CJTradeSummary, CoinToFungiblePair => CJCoinToFungiblePair }
-import domain.portfolio.performance.{ Performance => CJPerformance }
-import domain.portfolio.{ PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues }
-import infrastructure.api.common.dto.{ FungibleData, _ }
-import infrastructure.api.common.{ CountQParamOps, IntervalQParamsOps }
+import domain.model.{ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate}
+import domain.portfolio.model.{PlaysGrouping, BinData => CJBinData, CoinToFungiblePair => CJCoinToFungiblePair, DailyTradeData => CJDailyTradeData, TradeSummary => CJTradeSummary}
+import domain.portfolio.performance.{Performance => CJPerformance}
+import domain.portfolio.{PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
+import infrastructure.api.common.dto.{FungibleData, _}
+import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps}
 import infrastructure.auth.JwtRequestContext
-import vo.filter.{ Count, KpiFilter }
-import vo.{ TimeInterval, PeriodDistribution => CJPeriodDistribution }
+import vo.filter.{Count, KpiFilter}
+import vo.{TimeInterval, PeriodDistribution => CJPeriodDistribution}
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
 import zio.prelude.Validation
-import zio.{ Has, ZIO }
+import zio.{Has, ZIO}
 
-import java.time.Duration
+import java.time.{Duration, Instant}
 
 object portfolio {
   def routes(userId: UserId, contextId: ContextId) = HttpApp.collectM {
@@ -184,7 +184,7 @@ object portfolio {
       new PortfolioKpi(
         ValueTrendComparison(
           playsOverview.balanceTrend.latestValue.fungibleData.asJson,
-          playsOverview.balanceTrend.items.map(_.fungibleData.amount),
+          playsOverview.balanceTrend.items.map(item => TimepointValue(item.timestamp, item.fungibleData.amount)),
           Performance(playsOverview.balancePerformance)
         ),
         playsOverview.distinctValues.tradeCount,
@@ -192,7 +192,7 @@ object portfolio {
         playsOverview.distinctValues.loseRate,
         ValueTrendComparison(
           playsOverview.netReturnTrend.latestValue.fungibleData.asJson,
-          playsOverview.netReturnTrend.items.map(_.fungibleData.amount),
+          playsOverview.netReturnTrend.items.map(item => TimepointValue(item.timestamp, item.fungibleData.amount)),
           Performance(playsOverview.netReturnPerformance)
         ),
         playsOverview.distinctValues.avgDailyTradeCount
@@ -218,11 +218,18 @@ object portfolio {
       )
   }
 
-  final case class ValueTrendComparison(value: FungibleData, trend: List[BigDecimal], performance: Performance)
+  final case class TimepointValue(timestamp: Instant, value: BigDecimal)
+
+  object TimepointValue {
+    implicit val timepointCodec: JsonCodec[TimepointValue] = DeriveJsonCodec.gen[TimepointValue]
+  }
+
+  final case class ValueTrendComparison(value: FungibleData, trend: List[TimepointValue], performance: Performance)
 
   object ValueTrendComparison {
     implicit val valueTrendComparison: JsonCodec[ValueTrendComparison] = DeriveJsonCodec.gen[ValueTrendComparison]
   }
+
 
   final case class KpiDistinctValues(
     netReturn: BigDecimal,
