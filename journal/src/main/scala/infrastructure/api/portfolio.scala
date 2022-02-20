@@ -3,20 +3,19 @@ package infrastructure.api
 
 import application.CryptoJournalApi
 import domain.model.{ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate}
-import domain.portfolio.model.{PlaysGrouping, BinData => CJBinData, CoinToFungiblePair => CJCoinToFungiblePair, DailyTradeData => CJDailyTradeData, TradeSummary => CJTradeSummary}
+import domain.portfolio.model.{BinData => CJBinData, CoinToFungiblePair => CJCoinToFungiblePair, DailyTradeData => CJDailyTradeData, TradeSummary => CJTradeSummary}
 import domain.portfolio.performance.{Performance => CJPerformance}
 import domain.portfolio.{PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
 import infrastructure.api.common.dto.{FungibleData, _}
-import infrastructure.api.common.{CountQParamOps, IntervalQParamsOps}
+import infrastructure.api.common.{IntervalQParamsOps, KpiQParamsOps}
 import infrastructure.auth.JwtRequestContext
-import vo.filter.{Count, KpiFilter}
-import vo.{TimeInterval, PeriodDistribution => CJPeriodDistribution}
+import vo.filter.Count
+import vo.{PeriodDistribution => CJPeriodDistribution}
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
-import zio.prelude.Validation
 import zio.{Has, ZIO}
 
 import java.time.{Duration, Instant}
@@ -139,25 +138,6 @@ object portfolio {
                        playsOverview => Response.jsonString(TagDistribution(playsOverview.distinctValues).toJson)
                      )
       } yield response
-  }
-
-  implicit class KpiQParamsOps(url: URL) {
-    def kpiFilter(): Validation[String, KpiFilter] =
-      Validation.validateWith(
-        Validation.succeed(url.countFilter().fold[Option[Count]](_ => None, Some(_))),
-        Validation.succeed(url.intervalFilter().fold[Option[TimeInterval]](_ => None, Some(_)))
-      ) {
-        case (maybeCount, maybeInterval) =>
-          KpiFilter(maybeCount, maybeInterval)
-      }
-
-    def playsGrouping(): Validation[String, PlaysGrouping] = {
-      val rawGrouping = url.queryParams
-        .get("grouping")
-        .flatMap(_.headOption)
-        .getOrElse("hour") //default to hour,
-      Validation.fromEither(PlaysGrouping.fromString(rawGrouping))
-    }
   }
 
   final case class PortfolioKpi(

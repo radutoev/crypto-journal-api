@@ -1,24 +1,29 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.date.{DayUnit, MinuteUnit}
-import domain.model.{BUSD, Currency, FungibleData, TradeCountPredicate, WBNB}
+import domain.model.date.{ DayUnit, MinuteUnit }
+import domain.model.{ BUSD, Currency, FungibleData, TradeCountPredicate, WBNB }
 import domain.portfolio.PlaysDistinctValues.DayFormatter
-import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError, TradeSummaryGenerationError}
+import domain.portfolio.error.{
+  InvalidPortfolioError,
+  PortfolioKpiGenerationError,
+  StatsError,
+  TradeSummaryGenerationError
+}
 import domain.portfolio.model._
 import domain.position._
 import domain.position.error.MarketPlayError
-import domain.pricequote.{CurrencyPair, PriceQuoteService, PriceQuotes}
+import domain.pricequote.{ CurrencyPair, PriceQuoteService, PriceQuotes }
 import domain.wallet.Wallet
-import util.{BeginningOfCrypto, InstantOps}
+import util.{ BeginningOfCrypto, InstantOps }
 import vo.TimeInterval
-import vo.filter.{KpiFilter, PlayFilter}
+import vo.filter.{ KpiFilter, PlayFilter }
 
 import eu.timepit.refined.refineV
 import io.softwarechain.cryptojournal.domain.portfolio.LiveStatsService.TradeSummaryOps
 import zio.clock.Clock
-import zio.logging.{Logger, Logging}
-import zio.{Has, IO, UIO, URLayer}
+import zio.logging.{ Logger, Logging }
+import zio.{ Has, IO, UIO, URLayer }
 
 trait StatsService {
   def playsOverview(userWallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
@@ -27,7 +32,12 @@ trait StatsService {
 
   def netReturnDistributionByDay(wallet: Wallet, interval: TimeInterval): IO[StatsError, NetReturnDistributionByDay]
 
-  def playsDistribution(wallet: Wallet, interval: TimeInterval, grouping: PlaysGrouping): IO[StatsError, Map[BinName, BinData]]
+  def playsDistribution(
+    wallet: Wallet,
+    interval: TimeInterval,
+    grouping: PlaysGrouping,
+    withSourceData: Boolean = false
+  ): IO[StatsError, Map[BinName, BinDataAndSources]]
 }
 
 final case class LiveStatsService(
@@ -73,15 +83,18 @@ final case class LiveStatsService(
   override def tradesSummary(wallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, TradeSummary] = {
     val interval = kpiFilter.interval.get //TODO Should I default or fail?? I think I need to change KpiFilter honestly.
     val summaryEffect = for {
-      positions <- marketPlaysService.playStream(wallet, interval)
-        .filter(play => play.isInstanceOf[Position])
-        .map(play => play.asInstanceOf[Position])
-        .filter(_.isClosed)
-        .runCollect
-        .map(_.toList.reverse) //reversing here because at the moment I have defined the index like so:   MarketPlayTest	address ASC  openedAt DESC; I don't know if its worth adding another one.
+      positions <- marketPlaysService
+                    .playStream(wallet, interval)
+                    .filter(play => play.isInstanceOf[Position])
+                    .map(play => play.asInstanceOf[Position])
+                    .filter(_.isClosed)
+                    .runCollect
+                    .map(
+                      _.toList.reverse
+                    ) //reversing here because at the moment I have defined the index like so:   MarketPlayTest	address ASC  openedAt DESC; I don't know if its worth adding another one.
       //TODO Doing these results in fetching a lot of quotes by key (10k order) if the time interval is large.
-      quotes <- fetchQuotes(MarketPlays(positions), interval)
-      marketPlays = MarketPlays(positions.map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))))
+      quotes         <- fetchQuotes(MarketPlays(positions), interval)
+      marketPlays    = MarketPlays(positions.map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes)))))
       distinctValues = PlaysDistinctValues(marketPlays)
     } yield TradeSummary(
       wins = kpiFilter.count
@@ -91,7 +104,7 @@ final case class LiveStatsService(
       loses = kpiFilter.count
         .map(count => distinctValues.coinLoses(count))
         .getOrElse(distinctValues.coinLoses)
-        .map(t => CoinToFungiblePair.apply(t._1, t._2, t._3)),
+        .map(t => CoinToFungiblePair.apply(t._1, t._2, t._3))
     )
 
     summaryEffect.orElseFail(TradeSummaryGenerationError("Unable to generate trades summary"))
@@ -107,12 +120,17 @@ final case class LiveStatsService(
       quotes <- fetchQuotes(plays, interval)
     } yield dailyContribution(plays, interval, quotes, BUSD)
 
-  override def playsDistribution(wallet: Wallet, interval: TimeInterval, grouping: PlaysGrouping): IO[StatsError, Map[BinName, BinData]] =
+  override def playsDistribution(
+    wallet: Wallet,
+    interval: TimeInterval,
+    grouping: PlaysGrouping,
+    withSourceData: Boolean = false
+  ): IO[StatsError, Map[BinName, BinDataAndSources]] =
     for {
       filter <- PlayFilter(Int.MaxValue, interval).toZIO.mapError(InvalidPortfolioError)
       plays  <- marketPlaysService.getPlays(wallet, filter, withQuotes = false).mapError(statsErrorMapper)
       quotes <- fetchQuotes(plays, interval) //TODO this is daily, does it make sense to get by minute??
-    } yield groupPlays(plays, quotes, grouping)
+    } yield groupPlays(plays, quotes, grouping, withSourceData)
 
   /**
    * Creates a new timestamp to be used for retrieving positions that will be used for performance generation.
@@ -206,11 +224,14 @@ final case class LiveStatsService(
       .toMap
   }
 
-  private[portfolio] def groupPlays(marketPlays: MarketPlays,
-                                    quotes: PriceQuotes,
-                                    grouping: PlaysGrouping): Map[BinName, BinData] = {
+  private[portfolio] def groupPlays(
+    marketPlays: MarketPlays,
+    quotes: PriceQuotes,
+    grouping: PlaysGrouping,
+    withSourceData: Boolean
+  ): Map[BinName, BinDataAndSources] =
     marketPlays.closedPositions
-      //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
+    //TODO I need this because closedAt is used in the dataSource trait, so I have to specify the quotes. Find a way to do this better.
       .map(p => p.copy(dataSource = Some(PriceQuotePositionData(quotes))))
       .map(p => grouping.bin(p) -> p)
       .collect {
@@ -220,9 +241,10 @@ final case class LiveStatsService(
       .groupBy(_._1)
       .view
       .mapValues(_.map(_._2))
-      .mapValues(items => BinData(MarketPlays(items), quotes))
+      .mapValues(items =>
+        BinDataAndSources(BinData(MarketPlays(items), quotes), if (withSourceData) items else Nil, withSourceData)
+      )
       .toMap
-  }
 
   private def statsErrorMapper(positionError: MarketPlayError): StatsError =
     PortfolioKpiGenerationError("Unable to generate KPIs")
@@ -238,8 +260,10 @@ object LiveStatsService {
       val distinctValues = PlaysDistinctValues(plays)
 
       tradeSummary.copy(
-        wins = (tradeSummary.wins ++ distinctValues.coinWins.map(t => CoinToFungiblePair(t._1, t._2, t._3))).take(maxCount),
-        loses = tradeSummary.loses ++ distinctValues.coinLoses.map(t => CoinToFungiblePair(t._1, t._2, t._3)).take(maxCount)
+        wins =
+          (tradeSummary.wins ++ distinctValues.coinWins.map(t => CoinToFungiblePair(t._1, t._2, t._3))).take(maxCount),
+        loses =
+          tradeSummary.loses ++ distinctValues.coinLoses.map(t => CoinToFungiblePair(t._1, t._2, t._3)).take(maxCount)
       )
     }
   }

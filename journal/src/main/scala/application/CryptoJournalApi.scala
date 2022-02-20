@@ -76,6 +76,7 @@ object CryptoJournalApi {
     for {
       userId  <- RequestContext.userId
       data    <- ZIO.serviceWith[StatsService](_.playsDistribution(Wallet(userId, address), interval, grouping))
+        .map(_.view.mapValues(_.binData).toMap)
     } yield data
 
   def getMonthlyNetReturnDistribution(

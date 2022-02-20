@@ -2,19 +2,20 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.PositionHelper
-import domain.model.date.{DayUnit, HourUnit, MinuteUnit}
-import domain.model.{CurrencyPredicate, TransactionHashPredicate, WalletAddressPredicate}
+import domain.model.date.{ DayUnit, HourUnit, MinuteUnit }
+import domain.model.{ CurrencyPredicate, TransactionHashPredicate, WalletAddress, WalletAddressPredicate }
 import domain.pricequote.CurrencyPair
-import infrastructure.api.plays.dto.{fromPositionEntry, fromPriceQuote}
+import infrastructure.api.plays.dto.{ fromPositionEntry, fromPriceQuote }
 import vo.TimeInterval
 
 import eu.timepit.refined.refineV
+import io.softwarechain.cryptojournal.infrastructure.api.common.{ IntervalQParamsOps, KpiQParamsOps }
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
-import zio.{Chunk, UIO, ZIO}
+import zio.{ Chunk, UIO, ZIO }
 
-import java.time.Instant
+import java.time.{ Instant, LocalDate, ZoneId, ZoneOffset }
 
 object open {
   lazy val routes = HttpApp.collectM {
@@ -70,5 +71,17 @@ object open {
               )
           }
         )
+
+    case req @ Method.GET -> Root / "test" / "plays-distribution" =>
+      val params = req.url.queryParams
+
+      for {
+        address <- ZIO
+                    .fromEither(refineV[WalletAddressPredicate](params("address").head))
+                    .orElseFail(BadRequest("Invalid address"))
+        timeFilter <- req.url.intervalFilter().toZIO.mapError(reason => BadRequest(reason))
+        grouping   <- req.url.playsGrouping().toZIO.mapError(reason => BadRequest(reason))
+        result     <- PositionHelper.aggregationDetails(address, timeFilter, grouping)
+      } yield Response.text(result)
   }
 }

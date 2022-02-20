@@ -3,13 +3,17 @@ package application
 
 import domain.blockchain.BlockchainRepo
 import domain.model._
-import domain.model.date.{ Hour, TimeUnit }
+import domain.model.date.{Hour, TimeUnit}
 import domain.position.PositionEntry
-import domain.pricequote.{ CurrencyAddressPair, CurrencyPair, PriceQuote, PriceQuoteRepo }
+import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuote, PriceQuoteRepo}
 import infrastructure.bitquery.BitQueryFacade
 import vo.TimeInterval
 
-import zio.{ Has, UIO, ZIO }
+import eu.timepit.refined.refineMV
+import io.softwarechain.cryptojournal.domain.portfolio.{StatsService, error}
+import io.softwarechain.cryptojournal.domain.portfolio.model.PlaysGrouping
+import io.softwarechain.cryptojournal.domain.wallet.Wallet
+import zio.{Has, UIO, ZIO}
 
 import java.time.Instant
 
@@ -51,4 +55,30 @@ object PositionHelper {
     unit: TimeUnit
   ): ZIO[Has[PriceQuoteRepo], Throwable, List[PriceQuote]] =
     ZIO.serviceWith(_.getQuotes(pair, interval, unit).orElseFail(new RuntimeException("failed")))
+
+  def aggregationDetails(address: WalletAddress, interval: TimeInterval, grouping: PlaysGrouping): ZIO[Has[StatsService], RuntimeException, String] =
+    ZIO.serviceWith[StatsService](_.playsDistribution(
+      Wallet(address = address, userId = refineMV( "dummy-user")),
+      interval,
+      grouping,
+      withSourceData = true
+    ).map { bins =>
+      "Name,Total Net Return,Total Return Percentage,Position Return,Position Return Percentage,ID\n" +
+        bins.map { bin =>
+          val common = List(bin._1.value,
+            bin._2.binData.tradeCount.value,
+            bin._2.binData.netReturn.amount + " " + bin._2.binData.netReturn.currency,
+            bin._2.binData.returnPercentage
+          ).mkString(",")
+
+          bin._2.source.map(p =>
+            common + "," + List(
+              p.fiatReturn.getOrElse(FungibleData.zero(BUSD).amount),
+              p.fiatReturnPercentage.getOrElse(BigDecimal(0)),
+              p.id.get.value
+            ).mkString(",") + "\n"
+          ).mkString("")
+        }.mkString("")
+    }.mapError(e => new RuntimeException(e.toString))
+  )
 }

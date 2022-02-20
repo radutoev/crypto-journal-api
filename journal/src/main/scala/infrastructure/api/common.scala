@@ -1,15 +1,16 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{ FungibleData => CJFungibleData }
+import domain.model.{FungibleData => CJFungibleData}
+import domain.portfolio.model.PlaysGrouping
 import vo.TimeInterval
-import vo.filter.Count
+import vo.filter.{Count, KpiFilter}
 
 import zhttp.http.URL
-import zio.json.{ DeriveJsonCodec, JsonCodec }
+import zio.json.{DeriveJsonCodec, JsonCodec}
 import zio.prelude.Validation
 
-import java.time.{ LocalDate, ZoneId, ZoneOffset }
+import java.time.{LocalDate, ZoneId, ZoneOffset}
 
 object common {
 
@@ -49,6 +50,25 @@ object common {
       } else {
         Validation.fail("Count not provided")
       }
+    }
+  }
+
+  implicit class KpiQParamsOps(url: URL) {
+    def kpiFilter(): Validation[String, KpiFilter] =
+      Validation.validateWith(
+        Validation.succeed(url.countFilter().fold[Option[Count]](_ => None, Some(_))),
+        Validation.succeed(url.intervalFilter().fold[Option[TimeInterval]](_ => None, Some(_)))
+      ) {
+        case (maybeCount, maybeInterval) =>
+          KpiFilter(maybeCount, maybeInterval)
+      }
+
+    def playsGrouping(): Validation[String, PlaysGrouping] = {
+      val rawGrouping = url.queryParams
+        .get("grouping")
+        .flatMap(_.headOption)
+        .getOrElse("hour") //default to hour,
+      Validation.fromEither(PlaysGrouping.fromString(rawGrouping))
     }
   }
 

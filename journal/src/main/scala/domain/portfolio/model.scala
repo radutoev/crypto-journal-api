@@ -120,6 +120,8 @@ object model {
     }
   }
 
+  final case class BinDataAndSources(binData: BinData, source: List[Position], withSourceData: Boolean = false)
+
   final case class CoinToFungiblePair(currency: Currency, fungibleData: FungibleData, percentage: BigDecimal)
 
   final case class TradeSummary(wins: List[CoinToFungiblePair], loses: List[CoinToFungiblePair])
