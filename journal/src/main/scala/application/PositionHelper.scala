@@ -56,13 +56,13 @@ object PositionHelper {
   ): ZIO[Has[PriceQuoteRepo], Throwable, List[PriceQuote]] =
     ZIO.serviceWith(_.getQuotes(pair, interval, unit).orElseFail(new RuntimeException("failed")))
 
-  def aggregationDetails(address: WalletAddress, interval: TimeInterval, grouping: PlaysGrouping): ZIO[Has[StatsService], RuntimeException, String] =
+  def aggregationDetails(address: WalletAddress, interval: TimeInterval, groupings: Set[PlaysGrouping]): ZIO[Has[StatsService], RuntimeException, String] =
     ZIO.serviceWith[StatsService](_.playsDistribution(
       Wallet(address = address, userId = refineMV( "dummy-user")),
       interval,
-      grouping,
+      groupings,
       withSourceData = true
-    ).map { bins =>
+    ).map(_.toList.head._2).map { bins =>
       "Name,Total Net Return,Total Return Percentage,Position Return,Position Return Percentage,ID\n" +
         bins.map { bin =>
           val common = List(bin._1.value,

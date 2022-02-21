@@ -1,16 +1,16 @@
 package io.softwarechain.cryptojournal
 package infrastructure.api
 
-import domain.model.{FungibleData => CJFungibleData}
+import domain.model.{ FungibleData => CJFungibleData }
 import domain.portfolio.model.PlaysGrouping
 import vo.TimeInterval
-import vo.filter.{Count, KpiFilter}
+import vo.filter.{ Count, KpiFilter }
 
 import zhttp.http.URL
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.{ DeriveJsonCodec, JsonCodec }
 import zio.prelude.Validation
 
-import java.time.{LocalDate, ZoneId, ZoneOffset}
+import java.time.{ LocalDate, ZoneId, ZoneOffset }
 
 object common {
 
@@ -63,12 +63,20 @@ object common {
           KpiFilter(maybeCount, maybeInterval)
       }
 
-    def playsGrouping(): Validation[String, PlaysGrouping] = {
+    def playsGrouping(): Validation[String, Set[PlaysGrouping]] = {
       val rawGrouping = url.queryParams
         .get("grouping")
         .flatMap(_.headOption)
         .getOrElse("hour") //default to hour,
-      Validation.fromEither(PlaysGrouping.fromString(rawGrouping))
+
+      val groupings = rawGrouping.split("[,]").map(PlaysGrouping.fromString).collect {
+        case Right(grouping) => grouping
+      }
+      if (groupings.nonEmpty) {
+        Validation.succeed(groupings.toSet)
+      } else {
+        Validation.fail("Invalid grouping param provided")
+      }
     }
   }
 

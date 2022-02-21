@@ -2,23 +2,28 @@ package io.softwarechain.cryptojournal
 package infrastructure.api
 
 import application.CryptoJournalApi
-import domain.model.{ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate}
-import domain.portfolio.model.{BinData => CJBinData, CoinToFungiblePair => CJCoinToFungiblePair, DailyTradeData => CJDailyTradeData, TradeSummary => CJTradeSummary}
-import domain.portfolio.performance.{Performance => CJPerformance}
-import domain.portfolio.{PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues}
-import infrastructure.api.common.dto.{FungibleData, _}
-import infrastructure.api.common.{IntervalQParamsOps, KpiQParamsOps}
+import domain.model.{ ContextId, FungibleDataTimePoint, UserId, WalletAddressPredicate }
+import domain.portfolio.model.{
+  BinData => CJBinData,
+  CoinToFungiblePair => CJCoinToFungiblePair,
+  DailyTradeData => CJDailyTradeData,
+  TradeSummary => CJTradeSummary
+}
+import domain.portfolio.performance.{ Performance => CJPerformance }
+import domain.portfolio.{ PlaysOverview, StatsService, PlaysDistinctValues => CJPlaysDistinctValues }
+import infrastructure.api.common.dto.{ FungibleData, _ }
+import infrastructure.api.common.{ IntervalQParamsOps, KpiQParamsOps }
 import infrastructure.auth.JwtRequestContext
 import vo.filter.Count
-import vo.{PeriodDistribution => CJPeriodDistribution}
+import vo.{ PeriodDistribution => CJPeriodDistribution }
 
 import eu.timepit.refined.refineV
 import zhttp.http.HttpError.BadRequest
 import zhttp.http._
 import zio.json._
-import zio.{Has, ZIO}
+import zio.{ Has, ZIO }
 
-import java.time.{Duration, Instant}
+import java.time.{ Duration, Instant }
 
 object portfolio {
   def routes(userId: UserId, contextId: ContextId) = HttpApp.collectM {
@@ -68,16 +73,20 @@ object portfolio {
                     .fromEither(refineV[WalletAddressPredicate](rawWalletAddress))
                     .orElseFail(BadRequest("Invalid address"))
         timeFilter <- req.url.intervalFilter().toZIO.mapError(reason => BadRequest(reason))
-        grouping   <- req.url.playsGrouping().toZIO.mapError(reason => BadRequest(reason))
+        groupings  <- req.url.playsGrouping().toZIO.mapError(reason => BadRequest(reason))
         response <- CryptoJournalApi
-                     .aggregatePlays(address, timeFilter, grouping)
+                     .aggregatePlays(address, timeFilter, groupings)
                      .provideSomeLayer[Has[StatsService]](JwtRequestContext.layer(userId, contextId))
                      .fold(
                        _ => Response.status(Status.INTERNAL_SERVER_ERROR),
                        data =>
                          if (data.nonEmpty) {
                            Response.jsonString(
-                             data.map { case (binName, binData) => binName.value -> BinData(binData) }.toJson
+                             data.map { case (grouping, bin) =>
+                               grouping.toString -> bin.map { case (binName, binData) =>
+                                binName.value -> BinData(binData)
+                               }
+                             }.toJson
                            )
                          } else {
                            Response.status(Status.NO_CONTENT)
@@ -210,7 +219,6 @@ object portfolio {
     implicit val valueTrendComparison: JsonCodec[ValueTrendComparison] = DeriveJsonCodec.gen[ValueTrendComparison]
   }
 
-
   final case class KpiDistinctValues(
     netReturn: BigDecimal,
     biggestWin: Option[FungibleData],
@@ -264,12 +272,11 @@ object portfolio {
   object TradeSummary {
     implicit val tradeSummaryCodec: JsonCodec[TradeSummary] = DeriveJsonCodec.gen[TradeSummary]
 
-    def apply(data: CJTradeSummary): TradeSummary = {
+    def apply(data: CJTradeSummary): TradeSummary =
       new TradeSummary(
         data.wins.map(CoinToFungiblePair(_)),
         data.loses.map(CoinToFungiblePair(_))
       )
-    }
 
     def apply(playsOverview: PlaysOverview): TradeSummary =
       new TradeSummary(
@@ -317,9 +324,8 @@ object portfolio {
   object CoinToFungiblePair {
     implicit val xCodec: JsonCodec[CoinToFungiblePair] = DeriveJsonCodec.gen[CoinToFungiblePair]
 
-    def apply(data: CJCoinToFungiblePair): CoinToFungiblePair = {
+    def apply(data: CJCoinToFungiblePair): CoinToFungiblePair =
       new CoinToFungiblePair(data.currency.value, data.fungibleData.asJson, data.percentage)
-    }
   }
 
   final case class FungibleDataAndPercentage(fungibleData: FungibleData, percentage: BigDecimal)

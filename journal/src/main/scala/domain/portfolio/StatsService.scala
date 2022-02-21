@@ -35,9 +35,9 @@ trait StatsService {
   def playsDistribution(
     wallet: Wallet,
     interval: TimeInterval,
-    grouping: PlaysGrouping,
+    grouping: Set[PlaysGrouping],
     withSourceData: Boolean = false
-  ): IO[StatsError, Map[BinName, BinDataAndSources]]
+  ): IO[StatsError, Map[PlaysGrouping, Map[BinName, BinDataAndSources]]]
 }
 
 final case class LiveStatsService(
@@ -123,14 +123,15 @@ final case class LiveStatsService(
   override def playsDistribution(
     wallet: Wallet,
     interval: TimeInterval,
-    grouping: PlaysGrouping,
+    groupings: Set[PlaysGrouping],
     withSourceData: Boolean = false
-  ): IO[StatsError, Map[BinName, BinDataAndSources]] =
+  ): IO[StatsError, Map[PlaysGrouping, Map[BinName, BinDataAndSources]]] =
     for {
       filter <- PlayFilter(Int.MaxValue, interval).toZIO.mapError(InvalidPortfolioError)
       plays  <- marketPlaysService.getPlays(wallet, filter, withQuotes = false).mapError(statsErrorMapper)
       quotes <- fetchQuotes(plays, interval) //TODO this is daily, does it make sense to get by minute??
-    } yield groupPlays(plays, quotes, grouping, withSourceData)
+      bins   = groupings.map(grouping => grouping -> groupPlays(plays, quotes, grouping, withSourceData)).toMap
+    } yield bins
 
   /**
    * Creates a new timestamp to be used for retrieving positions that will be used for performance generation.

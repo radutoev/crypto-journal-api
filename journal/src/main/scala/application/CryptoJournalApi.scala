@@ -4,19 +4,19 @@ package application
 import domain.account.RequestContext
 import domain.market.MarketService
 import domain.market.error.MarketError
-import domain.model.{Ohlcv, PlayId, WalletAddress}
+import domain.model.{ Ohlcv, PlayId, WalletAddress }
 import domain.portfolio.error.StatsError
-import domain.portfolio.model.{BinData, BinName, NetReturnDistributionByDay, PlaysGrouping, TradeSummary}
-import domain.portfolio.{PlaysOverview, StatsService}
+import domain.portfolio.model.{ BinData, BinName, NetReturnDistributionByDay, PlaysGrouping, TradeSummary }
+import domain.portfolio.{ PlaysOverview, StatsService }
 import domain.position._
 import domain.position.error.MarketPlayError
 import domain.wallet.error.WalletError
 import domain.wallet.model.WalletImportStatus
-import domain.wallet.{Wallet, WalletService}
+import domain.wallet.{ Wallet, WalletService }
 import vo.TimeInterval
-import vo.filter.{KpiFilter, PlayFilter}
+import vo.filter.{ KpiFilter, PlayFilter }
 
-import zio.{Has, ZIO}
+import zio.{ Has, ZIO }
 
 object CryptoJournalApi {
   def getLatestPlays(
@@ -65,18 +65,28 @@ object CryptoJournalApi {
       portfolioKpi <- ZIO.serviceWith[StatsService](_.playsOverview(Wallet(userId, address), kpiFilter))
     } yield portfolioKpi
 
-  def getTradeSummary(address: WalletAddress, kpiFilter: KpiFilter): ZIO[Has[StatsService] with Has[RequestContext], StatsError, TradeSummary] = {
+  def getTradeSummary(
+    address: WalletAddress,
+    kpiFilter: KpiFilter
+  ): ZIO[Has[StatsService] with Has[RequestContext], StatsError, TradeSummary] =
     for {
       userId <- RequestContext.userId
       data   <- ZIO.serviceWith[StatsService](_.tradesSummary(Wallet(userId, address), kpiFilter))
     } yield data
-  }
 
-  def aggregatePlays(address: WalletAddress, interval: TimeInterval, grouping: PlaysGrouping): ZIO[Has[StatsService] with Has[RequestContext], StatsError, Map[BinName, BinData]] =
+  def aggregatePlays(
+    address: WalletAddress,
+    interval: TimeInterval,
+    groupings: Set[PlaysGrouping]
+  ): ZIO[Has[StatsService] with Has[RequestContext], StatsError, Map[PlaysGrouping, Map[BinName, BinData]]] =
     for {
-      userId  <- RequestContext.userId
-      data    <- ZIO.serviceWith[StatsService](_.playsDistribution(Wallet(userId, address), interval, grouping))
-        .map(_.view.mapValues(_.binData).toMap)
+      userId <- RequestContext.userId
+      data <- ZIO
+               .serviceWith[StatsService](_.playsDistribution(Wallet(userId, address), interval, groupings))
+               .map(_.map {
+                 case (grouping, binDataMap) =>
+                   grouping -> binDataMap.view.mapValues(_.binData).toMap
+               })
     } yield data
 
   def getMonthlyNetReturnDistribution(
