@@ -6,6 +6,7 @@ import util.InstantOps
 
 import eu.timepit.refined.refineV
 import eu.timepit.refined.types.numeric.PosInt
+import io.softwarechain.cryptojournal.domain.model.date.Hour
 import io.softwarechain.cryptojournal.vo.TimeInterval.SecondsInDay
 
 import java.time.Instant
@@ -41,6 +42,10 @@ final case class TimeInterval(start: Instant, end: Instant) {
     years(startYear).takeWhile(y => y <= endYear).toList
   }
 
+  def hours: List[Hour] = {
+    hours(start).takeWhile(_.value.isBefore(end)).toList
+  }
+
   /**
    * Shifts the interval to an earlier interval
    * @param days Number of days before to move the start and end values of the interval
@@ -54,6 +59,10 @@ final case class TimeInterval(start: Instant, end: Instant) {
   def contains(timestamp: Instant): Boolean =
     if (timestamp == start || timestamp == end) true
     else start.isBefore(timestamp) && end.isAfter(timestamp)
+
+  private def hours(from: Instant): LazyList[Hour] = {
+    Hour(from) #:: hours(from.plus(1, ChronoUnit.HOURS))
+  }
 
   private def days(from: Instant): LazyList[Instant] =
     from #:: days(from.plus(1, ChronoUnit.DAYS))

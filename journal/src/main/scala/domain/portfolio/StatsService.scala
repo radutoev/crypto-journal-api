@@ -1,29 +1,24 @@
 package io.softwarechain.cryptojournal
 package domain.portfolio
 
-import domain.model.date.{ DayUnit, MinuteUnit }
-import domain.model.{ BUSD, Currency, FungibleData, TradeCountPredicate, WBNB }
+import domain.model.date.{DayUnit, MinuteUnit}
+import domain.model.{BUSD, CoinAddress, Currency, CurrencyAddress, FungibleData, TradeCountPredicate, WBNB}
 import domain.portfolio.PlaysDistinctValues.DayFormatter
-import domain.portfolio.error.{
-  InvalidPortfolioError,
-  PortfolioKpiGenerationError,
-  StatsError,
-  TradeSummaryGenerationError
-}
+import domain.portfolio.error.{InvalidPortfolioError, PortfolioKpiGenerationError, StatsError, TradeSummaryGenerationError}
 import domain.portfolio.model._
 import domain.position._
 import domain.position.error.MarketPlayError
-import domain.pricequote.{ CurrencyPair, PriceQuoteService, PriceQuotes }
+import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuoteService, PriceQuotes}
 import domain.wallet.Wallet
-import util.{ BeginningOfCrypto, InstantOps }
+import util.{BeginningOfCrypto, InstantOps}
 import vo.TimeInterval
-import vo.filter.{ KpiFilter, PlayFilter }
+import vo.filter.{KpiFilter, PlayFilter}
 
 import eu.timepit.refined.refineV
 import io.softwarechain.cryptojournal.domain.portfolio.LiveStatsService.TradeSummaryOps
 import zio.clock.Clock
-import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, UIO, URLayer }
+import zio.logging.{Logger, Logging}
+import zio.{Has, IO, UIO, URLayer}
 
 trait StatsService {
   def playsOverview(userWallet: Wallet, kpiFilter: KpiFilter): IO[StatsError, PlaysOverview]
@@ -162,16 +157,30 @@ final case class LiveStatsService(
     } else UIO(MarketPlays.empty())
 
   private def fetchQuotes(plays: MarketPlays, interval: TimeInterval): IO[StatsError, PriceQuotes] = {
+    val bnbBusdPair = CurrencyAddressPair(
+      CurrencyAddress(WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")),
+      CurrencyAddress(
+        BUSD,
+        CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
+      )
+    )
     val fetchQuotesEffect = for {
-      bnbUsdQuotes   <- priceQuoteService.getQuotes(CurrencyPair(WBNB, BUSD), interval, DayUnit)
+      bnbUsdQuotes   <- priceQuoteService.getQuotes(bnbBusdPair, interval, DayUnit)
       coinsBnbQuotes <- priceQuoteService.getQuotes(plays.currencies.map(_._1), WBNB, interval, DayUnit)
     } yield bnbUsdQuotes.merge(coinsBnbQuotes)
     fetchQuotesEffect.orElseFail(PortfolioKpiGenerationError("Unable to fetch quotes"))
   }
 
   private def fetchMinuteQuotes(plays: MarketPlays, interval: TimeInterval): IO[StatsError, PriceQuotes] = {
+    val bnbBusdPair = CurrencyAddressPair(
+      CurrencyAddress(WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")),
+      CurrencyAddress(
+        BUSD,
+        CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
+      )
+    )
     val fetchQuotesEffect = for {
-      bnbUsdQuotes   <- priceQuoteService.getQuotes(CurrencyPair(WBNB, BUSD), interval, MinuteUnit)
+      bnbUsdQuotes   <- priceQuoteService.getQuotes(bnbBusdPair, interval, MinuteUnit)
       coinsBnbQuotes <- priceQuoteService.getQuotes(plays.currencies.map(_._1), WBNB, interval, MinuteUnit)
     } yield bnbUsdQuotes.merge(coinsBnbQuotes)
     fetchQuotesEffect.orElseFail(PortfolioKpiGenerationError("Unable to fetch quotes"))

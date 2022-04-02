@@ -5,13 +5,14 @@ import domain.blockchain.BlockchainRepo
 import domain.model._
 import domain.model.date.{Hour, TimeUnit}
 import domain.position.PositionEntry
-import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuote, PriceQuoteRepo}
+import domain.pricequote.{CurrencyAddressPair, CurrencyPair, PriceQuote, PriceQuoteRepo, error}
 import infrastructure.bitquery.BitQueryFacade
 import vo.TimeInterval
 
 import eu.timepit.refined.refineMV
 import io.softwarechain.cryptojournal.domain.portfolio.{StatsService, error}
 import io.softwarechain.cryptojournal.domain.portfolio.model.PlaysGrouping
+import io.softwarechain.cryptojournal.domain.pricequote.error.PriceQuoteError
 import io.softwarechain.cryptojournal.domain.wallet.Wallet
 import zio.{Has, UIO, ZIO}
 
@@ -81,4 +82,8 @@ object PositionHelper {
         }.mkString("")
     }.mapError(e => new RuntimeException(e.toString))
   )
+
+  def clearQuotes(): ZIO[Has[PriceQuoteRepo], RuntimeException, Unit] = {
+    ZIO.serviceWith[PriceQuoteRepo](_.deleteQuotes()).mapError(e => new RuntimeException(e.toString))
+  }
 }

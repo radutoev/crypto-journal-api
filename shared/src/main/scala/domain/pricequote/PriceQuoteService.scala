@@ -13,7 +13,7 @@ import java.time.Instant
 trait PriceQuoteService {
   def addQuote(pair: CurrencyAddressPair, hour: Hour): IO[PriceQuoteError, Unit]
 
-  def getQuotes(pair: CurrencyPair,
+  def getQuotes(pair: CurrencyAddressPair,
                 interval: TimeInterval,
                 unit: TimeUnit): IO[PriceQuoteError, PriceQuotes]
 

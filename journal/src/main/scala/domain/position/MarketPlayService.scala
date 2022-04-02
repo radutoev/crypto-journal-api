@@ -269,76 +269,99 @@ object LiveMarketPlayService {
   def intervalWithDefaultOffset(timestamp: Instant): TimeInterval =
     TimeInterval(timestamp.minusMinutes(DefaultMinuteOffset), timestamp.plusMinutes(DefaultMinuteOffset))
 
-  val playData: MarketPlay => ZIO[Has[PriceQuoteService], MarketPlayError, MarketPlayData] = play => {
-    ZIO.serviceWith[PriceQuoteService] { service =>
-      val (intervals, currency) = play match {
-        case p: Position =>
-          (
-            List(intervalWithDefaultOffset(p.timeInterval.start)) ++ ListOps.cond(
-              p.isClosed,
-              () => intervalWithDefaultOffset(p.timeInterval.end)
-            ),
-            p.currency
-          )
-        case t: TopUp    => (List(intervalWithDefaultOffset(t.timestamp)), Some(WBNB))
-        case w: Withdraw => (List(intervalWithDefaultOffset(w.timestamp)), Some(WBNB))
-      }
-
-      (for {
-        //TODO Don't fetch for WBNB - WBNB.
-        quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty())) { c =>
-                   val currencyPair = CurrencyPair(c, WBNB)
-                   val bnbBusdPair  = CurrencyPair(WBNB, BUSD)
-                   for {
-                     listOfQuotes <- if (c != WBNB) {
-                                      service.getQuotes(currencyPair, intervals.head, MinuteUnit).flatMap { quotes =>
-                                        if (intervals.tail.nonEmpty) {
-                                          service.getQuotes(currencyPair, intervals.last, MinuteUnit).map { quotesEnd =>
-                                            quotes.merge(quotesEnd)
-                                          }
-                                        } else {
-                                          UIO(quotes)
-                                        }
-                                      }
-                                    } else {
-                                      UIO(PriceQuotes.empty())
-                                    }
-                     bnbQuotes <- service.getQuotes(bnbBusdPair, intervals.head, MinuteUnit).flatMap { quotes =>
-                                   if (intervals.tail.nonEmpty) {
-                                     service.getQuotes(bnbBusdPair, intervals.last, MinuteUnit).map { quotesEnd =>
-                                       quotes.merge(quotesEnd)
-                                     }
-                                   } else {
-                                     UIO(quotes)
-                                   }
-                                 }
-                   } yield PriceQuotes.empty().merge(listOfQuotes).merge(bnbQuotes)
-                 }
-        data = play match {
+  val playData: MarketPlay => ZIO[Has[PriceQuoteService] with Logging, MarketPlayError, MarketPlayData] = play => {
+    ZIO.services[PriceQuoteService, Logger[String]].flatMap {
+      case (service, logger) =>
+        val (intervals, currency) = play match {
           case p: Position =>
-            val pos = p.copy(dataSource = Some(PriceQuotePositionData(quotes)))
-            PositionDataValues(
-              pos.cost,
-              pos.fees,
-              pos.entryPrice,
-              pos.exitPrice,
-              pos.fiatSellValue,
-              pos.balance,
-              pos.closedAt
+            (
+              List(intervalWithDefaultOffset(p.timeInterval.start)) ++ ListOps.cond(
+                p.isClosed,
+                () => intervalWithDefaultOffset(p.timeInterval.end)
+              ),
+              for {
+                currency <- p.currency
+                address  <- p.coinAddress
+              } yield CurrencyAddress(currency, address)
             )
           case t: TopUp =>
-            val topUp = t.copy(topUpDataGenerator = Some(PriceQuoteTopUpData(quotes)))
-            TopUpDataValues(fees = topUp.fees, balance = topUp.balance)
+            (
+              List(intervalWithDefaultOffset(t.timestamp)),
+              Some(CurrencyAddress(WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")))
+            )
           case w: Withdraw =>
-            val withdraw = w.copy(withdrawDataGenerator = Some(PriceQuoteWithdrawData(quotes)))
-            WithdrawDataValues(fees = withdraw.fees, balance = withdraw.balance)
+            (
+              List(intervalWithDefaultOffset(w.timestamp)),
+              Some(CurrencyAddress(WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")))
+            )
         }
-      } yield data).orElseFail(MarketPlayNotFound(play.id.get))
+
+        (for {
+          //TODO Don't fetch for WBNB - WBNB.
+          quotes <- currency.fold[IO[PriceQuoteError, PriceQuotes]](UIO(PriceQuotes.empty())) { c =>
+                     val currencyPair = CurrencyAddressPair(
+                       c,
+                       CurrencyAddress(WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"))
+                     )
+                     val bnbBusdPair = CurrencyAddressPair(
+                       CurrencyAddress(WBNB, CoinAddress.unsafeFrom("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")),
+                       CurrencyAddress(
+                         BUSD,
+                         CoinAddress.unsafeFrom("0xe9e7cea3dedca5984780bafc599bd69add087d56")
+                       )
+                     )
+                     for {
+                       listOfQuotes <- if (c.currency != WBNB) {
+                                        service.getQuotes(currencyPair, intervals.head, MinuteUnit).flatMap { quotes =>
+                                          if (intervals.tail.nonEmpty) {
+                                            service.getQuotes(currencyPair, intervals.last, MinuteUnit).map {
+                                              quotesEnd =>
+                                                quotes.merge(quotesEnd)
+                                            }
+                                          } else {
+                                            UIO(quotes)
+                                          }
+                                        }
+                                      } else {
+                                        UIO(PriceQuotes.empty())
+                                      }
+                       bnbQuotes <- service.getQuotes(bnbBusdPair, intervals.head, MinuteUnit).flatMap { quotes =>
+                                     if (intervals.tail.nonEmpty) {
+                                       service.getQuotes(bnbBusdPair, intervals.last, MinuteUnit).map { quotesEnd =>
+                                         quotes.merge(quotesEnd)
+                                       }
+                                     } else {
+                                       UIO(quotes)
+                                     }
+                                   }
+                     } yield PriceQuotes.empty().merge(listOfQuotes).merge(bnbQuotes)
+                   }
+          _ <- logger.warn(s"No quotes found for $currency, intervals $intervals").when(quotes.isEmpty())
+          data = play match {
+            case p: Position =>
+              val pos = p.copy(dataSource = Some(PriceQuotePositionData(quotes)))
+              PositionDataValues(
+                pos.cost,
+                pos.fees,
+                pos.entryPrice,
+                pos.exitPrice,
+                pos.fiatSellValue,
+                pos.balance,
+                pos.closedAt
+              )
+            case t: TopUp =>
+              val topUp = t.copy(topUpDataGenerator = Some(PriceQuoteTopUpData(quotes)))
+              TopUpDataValues(fees = topUp.fees, balance = topUp.balance)
+            case w: Withdraw =>
+              val withdraw = w.copy(withdrawDataGenerator = Some(PriceQuoteWithdrawData(quotes)))
+              WithdrawDataValues(fees = withdraw.fees, balance = withdraw.balance)
+          }
+        } yield data).orElseFail(MarketPlayNotFound(play.id.get))
     }
   }
 
   lazy val cacheLayer
-    : ZLayer[Has[PriceQuoteService], Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
+    : ZLayer[Has[PriceQuoteService] with Logging, Nothing, Has[Cache[MarketPlay, MarketPlayError, MarketPlayData]]] =
     Cache.make(10000, 1.day, lookup = Lookup(playData)).toLayer
 
   lazy val layer: URLayer[Has[MarketPlayRepo] with Has[PriceQuoteService] with Has[BlockchainRepo] with Has[

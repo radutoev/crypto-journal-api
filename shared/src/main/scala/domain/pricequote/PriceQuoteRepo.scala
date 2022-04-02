@@ -18,6 +18,8 @@ trait PriceQuoteRepo {
   def getLatestQuote(currency: Currency): IO[PriceQuoteError, PriceQuote]
 
   def saveQuotes(quotesChunk: PriceQuotesChunk): IO[PriceQuoteError, Unit]
+
+  def deleteQuotes(): IO[PriceQuoteError, Unit]
 }
 
 object PriceQuoteRepo {

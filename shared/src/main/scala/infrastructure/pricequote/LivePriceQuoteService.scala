@@ -9,7 +9,7 @@ import infrastructure.bitquery.BitQueryFacade
 import vo.{ PriceQuotesChunk, TimeInterval }
 
 import zio.logging.{ Logger, Logging }
-import zio.{ Has, IO, URLayer }
+import zio.{ Has, IO, UIO, URLayer, ZIO }
 
 final case class LivePriceQuoteService(
   bitQueryFacade: BitQueryFacade,
@@ -20,19 +20,30 @@ final case class LivePriceQuoteService(
   override def addQuote(pair: CurrencyAddressPair, hour: Hour): IO[PriceQuoteError, Unit] =
     (for {
       quotes <- bitQueryFacade.getPrices(pair, hour)
-      _      <- logger.info(s"Found ${quotes.size} quotes for ${pair.base.currency} -> ${pair.quote.currency}  @ ${hour.value}")
-      cPair  = CurrencyPair(pair.base.currency, pair.quote.currency)
-      _      <- logger.info(s"Save price quotes ${pair.base.currency} -> ${pair.quote.currency} @ ${hour.value}")
-      _      <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(cPair, quotes))
+      _ <- logger.info(
+            s"Found ${quotes.size} quotes for ${pair.base.currency} -> ${pair.quote.currency}  @ ${hour.value}"
+          )
+      cPair = CurrencyPair(pair.base.currency, pair.quote.currency)
+      _     <- logger.info(s"Save price quotes ${pair.base.currency} -> ${pair.quote.currency} @ ${hour.value}")
+      _     <- priceQuoteRepo.saveQuotes(PriceQuotesChunk(cPair, quotes))
     } yield ()).orElseFail(
       PriceQuotesSaveError(CurrencyPair(pair.base.currency, pair.quote.currency), "Unable to save price quotes")
     )
 
-  override def getQuotes(pair: CurrencyPair, interval: TimeInterval, unit: TimeUnit): IO[PriceQuoteError, PriceQuotes] = {
+  override def getQuotes(pair: CurrencyAddressPair, interval: TimeInterval, unit: TimeUnit): IO[PriceQuoteError, PriceQuotes] = {
+    val currencyPair = CurrencyPair(pair.base.currency, pair.quote.currency)
     for {
-      quotes <- priceQuoteRepo.getQuotes(pair, interval, unit)
-      _      <- logger.warn(s"No quotes for $pair | $interval | $unit").when(quotes.isEmpty)
-    } yield PriceQuotes(Map(pair -> quotes))
+      repoQuotes <- priceQuoteRepo.getQuotes(currencyPair, interval, unit)
+      quotes <- if (repoQuotes.isEmpty) {
+                 logger.info(s"No $unit quotes found for $pair between $interval. Attempt to fetch again...") *>
+                 ZIO.foreach_(interval.hours)(hour => addQuote(pair, hour)) *> priceQuoteRepo.getQuotes(
+                   currencyPair,
+                   interval,
+                   unit
+                 )
+               } else UIO(repoQuotes)
+      _ <- logger.warn(s"No quotes for $pair | $interval | $unit").when(quotes.isEmpty)
+    } yield PriceQuotes(Map(currencyPair -> quotes))
   }
 
   def getQuotes(
@@ -40,10 +51,10 @@ final case class LivePriceQuoteService(
     targetCurrency: Currency,
     interval: TimeInterval,
     unit: TimeUnit
-  ): IO[PriceQuoteError, PriceQuotes] = {
-    priceQuoteRepo.getQuotes(currencies, targetCurrency, interval, unit)
+  ): IO[PriceQuoteError, PriceQuotes] =
+    priceQuoteRepo
+      .getQuotes(currencies, targetCurrency, interval, unit)
       .map(tuples => PriceQuotes(tuples.groupBy(_._1).view.mapValues(_.map(_._2)).toMap))
-  }
 }
 
 object LivePriceQuoteService {

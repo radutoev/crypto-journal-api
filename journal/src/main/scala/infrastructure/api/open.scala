@@ -83,5 +83,7 @@ object open {
         grouping   <- req.url.playsGrouping().toZIO.mapError(reason => BadRequest(reason))
         result     <- PositionHelper.aggregationDetails(address, timeFilter, grouping)
       } yield Response.text(result)
+
+//    case Method.DELETE -> Root / "test" / "clear-quotes" =>A
   }
 }
