@@ -42,8 +42,6 @@ trait MarketPlayService {
 
   def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit]
 
-  def importPlays(userWallet: Wallet, startingFrom: Instant): IO[MarketPlayError, Unit]
-
   def extractTimeInterval(marketPlays: List[MarketPlay]): Option[TimeInterval] = {
     val timestamps = marketPlays.flatMap {
       case p: Position => p.entries.map(_.timestamp)
@@ -194,9 +192,6 @@ final case class LiveMarketPlayService(
   override def importPlays(userWallet: Wallet): IO[MarketPlayError, Unit] =
     logger.info(s"Importing positions for ${userWallet.address}") *>
       importPlays(userWallet.address, blockchainRepo.transactionsStream(userWallet.address))(userWallet)
-
-  override def importPlays(userWallet: Wallet, startFrom: Instant): IO[MarketPlayError, Unit] =
-    importPlays(userWallet.address, blockchainRepo.transactionsStream(userWallet.address, startFrom))(userWallet)
 
   private def importPlays(
     walletAddress: WalletAddress,
