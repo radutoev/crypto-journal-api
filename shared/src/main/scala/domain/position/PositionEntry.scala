@@ -430,11 +430,17 @@ object PositionEntry {
             val withdrawal = transaction.logEvents.head
             (Some(withdrawal), withdrawal.paramValue("wad"), transfersToWallet)
           } else {
-            (
-              transfersToWallet.headOption,
-              transfersToWallet.headOption.flatMap(_.paramValue("value")),
-              transfersToWallet.tail
-            )
+            transfersFromWallet match {
+              case Nil =>
+                //TODO Find out when this happens
+                (None, None, Nil)
+              case list =>
+                (
+                  list.headOption,
+                  list.headOption.flatMap(_.paramValue("value")),
+                  list.tail
+                )
+            }
           }
         }
 

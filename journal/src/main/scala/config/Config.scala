@@ -12,14 +12,11 @@ object CryptoJournalConfig {
 
 final case class CryptoJournalConfig(
   bitquery: BitQueryConfig,
-  coinApi: CoinApiConfig,
   covalent: CovalentConfig,
   demoAccount: DemoAccountConfig,
   datastore: DatastoreConfig,
   sync: SyncConfig
 )
-
-final case class CoinApiConfig(baseUrl: String, key: String)
 
 final case class DemoAccountConfig(maxPositions: PosInt)
 

@@ -28,6 +28,7 @@ object SyncApi {
 
   def updatePositions(): ZIO[Has[MarketPlayRepo] with Logging with Has[BlockchainRepo] with Has[WalletCache], Throwable, Nothing] = {
     TradingStream.bscStream()
+      .tapError(t => Logging.warn(t.getMessage))
       .map { block =>
         Option(block.getBlock)
           .flatMap(b => Option(b.getTransactions))
@@ -45,7 +46,7 @@ object SyncApi {
           (for {
             address <- ZIO.fromOption(Option(rawAddress))
             wallet  <- ZIO.fromEither(refineV[WalletAddressPredicate](address))
-            found   <- WalletCache.exists(wallet)
+            found   <- UIO(true) //WalletCache.exists(wallet)
           } yield if(found) List(wallet) else Nil).orElse(UIO(Nil))
         }
 
@@ -64,7 +65,8 @@ object SyncApi {
           .orElse(UIO(List.empty))
       }
       .flattenIterables
-      .foreach { case (address, plays) => MarketPlayRepo.merge(address, plays).ignore }
+      .foreach { case (address, plays) => MarketPlayRepo.merge(address, plays) }
+      .ignore
       .forever
   }
 
