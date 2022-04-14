@@ -12,8 +12,6 @@ import zio.{ Has, IO, Task, ZIO }
 import java.time.Instant
 
 trait BlockchainRepo {
-  def fetchTransactions(address: WalletAddress): Task[List[Transaction]]
-
   def transactionsStream(address: WalletAddress): ZStream[Any, TransactionsGetError, Transaction]
 
   def transactionsStream(address: WalletAddress, startFrom: Instant): ZStream[Any, TransactionsGetError, Transaction]

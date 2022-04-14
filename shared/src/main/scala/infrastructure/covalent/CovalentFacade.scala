@@ -25,32 +25,6 @@ import java.time.{Instant, LocalDate, ZoneId, ZoneOffset}
 
 final case class CovalentFacade(httpClient: SttpClient.Service, config: CovalentConfig, logger: Logger[String])
     extends BlockchainRepo {
-  //I have a limit at the moment because I use this only for the demo import functionality.
-  override def fetchTransactions(address: WalletAddress): Task[List[Transaction]] =
-    for {
-      _   <- logger.info(s"Fetching transactions for $address")
-      url = s"${config.baseUrl}/56/address/${address.value}/transactions_v2/?key=${config.key}&page-number=1&page-size=${config.pageSize}"
-      response <- httpClient
-                   .send(
-                     basicRequest
-                       .get(uri"$url")
-                       .response(asString)
-                   )
-                   .tapError(t => logger.warn(t.getMessage))
-      //TODO Better handling of response.
-      slimTransactions <- ZIO
-                           .fromEither(response.body)
-                           .tapError(s => logger.warn(s))
-                           .map(_.fromJson[TransactionQueryResponse])
-                           .mapBoth(
-                             err => new RuntimeException("booboo"),
-                             _.fold[List[Transaction]](
-                               _ => List.empty,
-                               response => response.data.items.map(_.toDomain())
-                             )
-                           )
-      transactions <- ZIO.foreach(slimTransactions.map(tx => tx.hash))(fetchTransaction)
-    } yield transactions
 
   def transactionsStream(address: WalletAddress): ZStream[Any, TransactionsGetError, Transaction] =
     txStream(address, _ => true)
