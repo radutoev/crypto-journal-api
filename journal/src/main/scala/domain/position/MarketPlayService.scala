@@ -241,6 +241,8 @@ final case class LiveMarketPlayService(
     }
 
     for {
+      _ <- marketPlayRepo.deletePlays(userWallet.address)
+
       _ <- logger.info(s"Importing data for ${userWallet.address.value}...")
 
       plays <- txStream.runCollect

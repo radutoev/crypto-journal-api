@@ -18,8 +18,8 @@ final case class Position(
   id: Option[PlayId] = None
 ) extends MarketPlay {
   lazy val timeInterval: TimeInterval = entries match {
-    case ::(head, next) => TimeInterval(head.timestamp,next.lastOption.fold(head.timestamp)(e => e.timestamp))
     case single :: Nil => TimeInterval(single.timestamp, single.timestamp)
+    case ::(head, next) => TimeInterval(head.timestamp,next.lastOption.fold(head.timestamp)(e => e.timestamp))
   }
 
   /**

@@ -33,4 +33,6 @@ object error {
   final case class InvalidInput(reason: String) extends MarketPlayError
 
   final case class MarketPlayImportError(address: WalletAddress, throwable: Throwable) extends MarketPlayError
+
+  final case class MarketPlayDeleteError(address: WalletAddress, throwable: Throwable) extends MarketPlayError
 }

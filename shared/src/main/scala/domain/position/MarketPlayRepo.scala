@@ -36,6 +36,8 @@ trait MarketPlayRepo {
   def getPreviousPositionIds(playId: PlayId): IO[MarketPlayError, List[PlayId]]
 
   def merge(address: WalletAddress, plays: MarketPlays): IO[MarketPlayError, Unit]
+
+  def deletePlays(address: WalletAddress): IO[MarketPlayError, Unit]
 }
 
 object MarketPlayRepo {

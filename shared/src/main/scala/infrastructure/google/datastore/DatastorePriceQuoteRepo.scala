@@ -26,6 +26,7 @@ import com.google.cloud.Timestamp
 import com.google.cloud.datastore.StructuredQuery.{ CompositeFilter, OrderBy, PropertyFilter }
 import com.google.cloud.datastore._
 import com.google.datastore.v1.QueryResultBatch.MoreResultsType
+import eu.timepit.refined.types.string.NonEmptyString
 import zio.clock.Clock
 import zio.logging.{ Logger, Logging }
 import zio.stream.ZStream
@@ -311,29 +312,7 @@ final case class DatastorePriceQuoteRepo(
     }.when(quotesChunk.quotes.nonEmpty)
   }
 
-  override def deleteQuotes(): IO[PriceQuoteError, Unit] = {
-    val qb = Query.newKeyQueryBuilder().setLimit(1000)
-
-    def deleteByKeys(result: QueryResults[Key]): IO[PriceQuoteError, Unit] = {
-      val moreResultsType = result.getMoreResults
-      val moreDataToFetch =
-        moreResultsType == MoreResultsType.MORE_RESULTS_AFTER_LIMIT || moreResultsType == MoreResultsType.NOT_FINISHED
-      if (moreDataToFetch) {
-        val cursor = result.getCursorAfter
-        val keys   = result.asScala.toList
-        Task(datastore.delete(keys: _*))
-          .mapError(t => PriceQuotesDeleteError(t.getMessage))
-          .flatMap(_ => deleteFromCursor(cursor))
-      } else {
-        ZIO.unit
-      }
-    }
-
-    def deleteFromCursor(cursor: Cursor): IO[PriceQuoteError, Unit] =
-      executeQuery(qb.setStartCursor(cursor).build())(datastore, logger)
-        .mapError(t => PriceQuoteFetchError(t.getMessage))
-        .flatMap(deleteByKeys)
-
+  override def deleteQuotes(): IO[PriceQuoteError, Unit] =
     ZIO.foreach_(
       List(
         envAwareKind(DayUnit.datastoreKind),
@@ -342,11 +321,8 @@ final case class DatastorePriceQuoteRepo(
       )
     ) { kind =>
       logger.info(s"Cleaning quotes for $kind") *>
-      executeQuery(qb.setKind(kind).build())(datastore, logger)
-        .mapError(t => PriceQuoteFetchError(t.getMessage))
-        .flatMap(deleteByKeys)
+      deleteAll(NonEmptyString.unsafeFrom(kind))(datastore, logger).mapError(t => PriceQuotesDeleteError(t.getMessage))
     }
-  }
 
   private val entityToPriceQuote: Entity => (CurrencyPair, PriceQuote) = entity => {
     (
